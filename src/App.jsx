@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutDashboard, Users, GraduationCap, UserCircle, CalendarDays, ClipboardCheck,
   BookOpenCheck, Wallet, FileBarChart, Settings, LogOut, Search, Plus, X, ChevronRight,
   Clock, MapPin, Video, CheckCircle2, XCircle, AlertCircle, FileText, Download,
-  TrendingUp, Mail, Phone, Home as HomeIcon, ArrowLeft, BookOpen, Award, Target,
+  TrendingUp, Mail, Phone, Home as HomeIcon, ArrowLeft, BookOpen, Award, Target, Shield,
 } from "lucide-react";
+import { useAuth } from "./AuthContext";
+import { supabase } from "./supabaseClient";
 
 /* ============================================================
    LearnWise Academy — Tutoring Management Platform (MVP)
@@ -219,6 +221,7 @@ const inputStyle = { width: "100%", padding: "9px 12px", borderRadius: 9, border
 const NAV = {
   admin: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "users", label: "All Users", icon: Shield },
     { key: "students", label: "Students", icon: GraduationCap },
     { key: "parents", label: "Parents", icon: UserCircle },
     { key: "tutors", label: "Tutors", icon: Users },
@@ -258,13 +261,7 @@ const ROLE_LABEL = { admin: "Main Admin", tutor: "Tutor", parent: "Parent", stud
 
 /* ---------------------- Login ---------------------- */
 
-function Login({ onLogin, onGoStaff }) {
-  const [role, setRole] = useState("tutor");
-  const roles = [
-    { key: "tutor", label: "Tutor", desc: "Sarah Whitfield", icon: Users },
-    { key: "parent", label: "Parent", desc: "Mariam Al-Sayed", icon: UserCircle },
-    { key: "student", label: "Student", desc: "Yusuf Al-Sayed", icon: GraduationCap },
-  ];
+function AuthShell({ title, subtitle, children, footer }) {
   return (
     <div style={{ minHeight: "100vh", background: tokens.paper, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, sans-serif", padding: 20 }}>
       <div style={{ width: 420, maxWidth: "100%" }}>
@@ -276,50 +273,160 @@ function Login({ onLogin, onGoStaff }) {
           <div style={{ color: tokens.coral, fontSize: 13, fontWeight: 600, marginTop: 4, letterSpacing: "0.02em" }}>Smart Guidance. Better Learning.</div>
         </div>
         <Card style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: tokens.slate, marginBottom: 14 }}>Sign in as</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 18 }}>
-            {roles.map((r) => (
-              <div key={r.key} onClick={() => setRole(r.key)} style={{ border: `1.5px solid ${role === r.key ? tokens.teal : tokens.line}`, background: role === r.key ? tokens.tealSoft : "#fff", borderRadius: 12, padding: "12px 10px", cursor: "pointer", textAlign: "center" }}>
-                <r.icon size={18} color={role === r.key ? tokens.tealDeep : tokens.slate} style={{ marginBottom: 6 }} />
-                <div style={{ fontSize: 13, fontWeight: 600, color: tokens.ink }}>{r.label}</div>
-                <div style={{ fontSize: 11, color: tokens.slate, marginTop: 1 }}>{r.desc}</div>
-              </div>
-            ))}
-          </div>
-          <Field label="Email"><input style={inputStyle} placeholder={`${role}@learnwise.edu`} readOnly /></Field>
-          <Field label="Password"><input style={inputStyle} type="password" placeholder="••••••••" readOnly /></Field>
-          <Button style={{ width: "100%", justifyContent: "center", marginTop: 6 }} onClick={() => onLogin(role)}>Sign in to portal</Button>
-          <div style={{ textAlign: "center", fontSize: 11.5, color: tokens.slate, marginTop: 14 }}>Demo build — placeholder data, no live authentication yet.</div>
+          <div style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 12.5, color: tokens.slate, marginBottom: 16 }}>{subtitle}</div>}
+          {children}
         </Card>
-        <div onClick={onGoStaff} style={{ textAlign: "center", fontSize: 11, color: tokens.line, marginTop: 18, cursor: "pointer", userSelect: "none" }}>
-          ·
-        </div>
+        {footer}
       </div>
     </div>
   );
 }
 
-function StaffLogin({ onLogin, onBack }) {
+function ErrorNote({ message }) {
+  if (!message) return null;
+  return <div style={{ background: tokens.dangerBg, color: tokens.danger, fontSize: 12.5, padding: "9px 12px", borderRadius: 9, marginBottom: 14 }}>{message}</div>;
+}
+
+function SignIn({ onGoSignUp, onGoStaff }) {
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const { error } = await signIn({ email, password });
+    setLoading(false);
+    if (error) setError(error.message);
+  };
+
   return (
-    <div style={{ minHeight: "100vh", background: tokens.paper, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, sans-serif", padding: 20 }}>
-      <div style={{ width: 380, maxWidth: "100%" }}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 14, background: tokens.tealDeep, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
-            <LayoutDashboard size={22} color="#fff" />
+    <AuthShell
+      title="Sign in"
+      subtitle="Welcome back — sign in to your portal."
+      footer={
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <div style={{ fontSize: 12.5, color: tokens.slate }}>
+            New here? <span onClick={onGoSignUp} style={{ color: tokens.teal, fontWeight: 600, cursor: "pointer" }}>Create an account</span>
           </div>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 21, fontWeight: 600, color: tokens.ink }}>Staff Access</div>
-          <div style={{ color: tokens.slate, fontSize: 12.5, marginTop: 4 }}>Restricted — administrators only</div>
+          <div onClick={onGoStaff} style={{ textAlign: "center", fontSize: 11, color: tokens.line, marginTop: 18, cursor: "pointer", userSelect: "none" }}>·</div>
         </div>
-        <Card style={{ padding: 24 }}>
-          <Field label="Admin Email"><input style={inputStyle} placeholder="admin@learnwise.edu" /></Field>
-          <Field label="Password"><input style={inputStyle} type="password" placeholder="••••••••" /></Field>
-          <Button style={{ width: "100%", justifyContent: "center", marginTop: 6 }} onClick={() => onLogin("admin")}>Sign in</Button>
-        </Card>
-        <div onClick={onBack} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12.5, color: tokens.slate, marginTop: 16, cursor: "pointer" }}>
-          <ArrowLeft size={13} /> Back to portal sign in
+      }
+    >
+      <form onSubmit={submit}>
+        <ErrorNote message={error} />
+        <Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></Field>
+        <Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+        <Button type="submit" style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>{loading ? "Signing in..." : "Sign in"}</Button>
+      </form>
+    </AuthShell>
+  );
+}
+
+function SignUp({ onGoSignIn }) {
+  const { signUp } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("student");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const roles = [
+    { key: "tutor", label: "Tutor", icon: Users },
+    { key: "parent", label: "Parent", icon: UserCircle },
+    { key: "student", label: "Student", icon: GraduationCap },
+  ];
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const { error } = await signUp({ email, password, fullName, role });
+    setLoading(false);
+    if (error) setError(error.message);
+    else setDone(true);
+  };
+
+  if (done) {
+    return (
+      <AuthShell title="Check your inbox" subtitle="">
+        <div style={{ fontSize: 13.5, color: tokens.ink, lineHeight: 1.6 }}>
+          We've sent a confirmation link to <strong>{email}</strong>. Confirm your email, then sign in to reach your {ROLE_LABEL[role]} portal.
         </div>
+        <Button variant="secondary" style={{ width: "100%", justifyContent: "center", marginTop: 16 }} onClick={onGoSignIn}>Back to sign in</Button>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell
+      title="Create an account"
+      subtitle="Sign up as a tutor, parent, or student."
+      footer={
+        <div style={{ textAlign: "center", fontSize: 12.5, color: tokens.slate, marginTop: 16 }}>
+          Already have an account? <span onClick={onGoSignIn} style={{ color: tokens.teal, fontWeight: 600, cursor: "pointer" }}>Sign in</span>
+        </div>
+      }
+    >
+      <form onSubmit={submit}>
+        <ErrorNote message={error} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+          {roles.map((r) => (
+            <div key={r.key} onClick={() => setRole(r.key)} style={{ border: `1.5px solid ${role === r.key ? tokens.teal : tokens.line}`, background: role === r.key ? tokens.tealSoft : "#fff", borderRadius: 12, padding: "10px 8px", cursor: "pointer", textAlign: "center" }}>
+              <r.icon size={17} color={role === r.key ? tokens.tealDeep : tokens.slate} style={{ marginBottom: 4 }} />
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: tokens.ink }}>{r.label}</div>
+            </div>
+          ))}
+        </div>
+        <Field label="Full Name"><input style={inputStyle} required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" /></Field>
+        <Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></Field>
+        <Field label="Password"><input style={inputStyle} type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" /></Field>
+        <Button type="submit" style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>{loading ? "Creating account..." : "Create account"}</Button>
+      </form>
+    </AuthShell>
+  );
+}
+
+function StaffLogin({ onBack }) {
+  const { signIn, profile } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const { data, error } = await signIn({ email, password });
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    const { data: prof } = await supabase.from("profiles").select("role").eq("id", data.user.id).single();
+    if (prof?.role !== "admin") {
+      await supabase.auth.signOut();
+      setError("This account doesn't have admin access.");
+    }
+  };
+
+  return (
+    <AuthShell title="Staff Access" subtitle="Restricted — administrators only" footer={
+      <div onClick={onBack} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 12.5, color: tokens.slate, marginTop: 16, cursor: "pointer" }}>
+        <ArrowLeft size={13} /> Back to portal sign in
       </div>
-    </div>
+    }>
+      <form onSubmit={submit}>
+        <ErrorNote message={error} />
+        <Field label="Admin Email"><input style={inputStyle} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@learnwise.edu" /></Field>
+        <Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+        <Button type="submit" style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>{loading ? "Signing in..." : "Sign in"}</Button>
+      </form>
+    </AuthShell>
   );
 }
 
@@ -523,6 +630,86 @@ function StudentProfile({ student, onBack }) {
           {notes.length === 0 && <div style={{ fontSize: 13, color: tokens.slate }}>No progress notes yet.</div>}
         </Card>
       </div>
+    </div>
+  );
+}
+
+function AdminUsers() {
+  const { profile: myProfile } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState("all");
+
+  const loadUsers = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    if (error) setError(error.message);
+    else setUsers(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
+  const updateRole = async (id, role) => {
+    const { error } = await supabase.from("profiles").update({ role }).eq("id", id);
+    if (!error) loadUsers();
+  };
+
+  const updateStatus = async (id, status) => {
+    const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
+    if (!error) loadUsers();
+  };
+
+  const filtered = filter === "all" ? users : users.filter((u) => u.role === filter);
+  const counts = { admin: 0, tutor: 0, parent: 0, student: 0, ...Object.fromEntries(["admin", "tutor", "parent", "student"].map((r) => [r, users.filter((u) => u.role === r).length])) };
+
+  return (
+    <div>
+      <SectionTitle eyebrow="Account Management" title="All Users" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 18 }}>
+        <StatCard icon={Shield} label="Admins" value={counts.admin} />
+        <StatCard icon={Users} label="Tutors" value={counts.tutor} />
+        <StatCard icon={UserCircle} label="Parents" value={counts.parent} />
+        <StatCard icon={GraduationCap} label="Students" value={counts.student} />
+      </div>
+
+      {error && <ErrorNote message={error} />}
+
+      <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {["all", "admin", "tutor", "parent", "student"].map((f) => (
+          <div key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep, textTransform: "capitalize" }}>
+            {f}
+          </div>
+        ))}
+      </Card>
+
+      <Card>
+        {loading ? (
+          <div style={{ fontSize: 13, color: tokens.slate, padding: 8 }}>Loading users...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ fontSize: 13, color: tokens.slate, padding: 8 }}>No users in this category yet.</div>
+        ) : (
+          <Table
+            columns={["Name", "Email", "Role", "Status", "Joined", "Actions"]}
+            rows={filtered.map((u) => ({
+              cells: [
+                u.full_name,
+                u.email,
+                <select value={u.role} onChange={(e) => updateRole(u.id, e.target.value)} disabled={u.id === myProfile?.id} style={{ ...inputStyle, padding: "5px 8px", width: 110 }}>
+                  {["admin", "tutor", "parent", "student"].map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>,
+                <Pill value={u.status === "Active" ? "Active" : "Pending"} />,
+                new Date(u.created_at).toLocaleDateString(),
+                <Button variant={u.status === "Active" ? "danger" : "secondary"} style={{ padding: "6px 10px", fontSize: 12 }} onClick={() => updateStatus(u.id, u.status === "Active" ? "Suspended" : "Active")} disabled={u.id === myProfile?.id}>
+                  {u.status === "Active" ? "Suspend" : "Reactivate"}
+                </Button>,
+              ],
+            }))}
+          />
+        )}
+      </Card>
+      <div style={{ fontSize: 11.5, color: tokens.slate, marginTop: 10 }}>Role and status changes apply immediately. You can't change your own role or status from here.</div>
     </div>
   );
 }
@@ -1216,35 +1403,38 @@ function StudentProgress({ studentId }) {
 /* ---------------------- App Root ---------------------- */
 
 export default function App() {
-  const [session, setSession] = useState(null); // { role }
-  const [screen, setScreen] = useState("login"); // "login" | "staff"
+  const { user, profile, loading, signOut } = useAuth();
+  const [authScreen, setAuthScreen] = useState("signin"); // "signin" | "signup" | "staff"
   const [current, setCurrent] = useState("dashboard");
 
-  const who = useMemo(() => {
-    if (!session) return "";
-    if (session.role === "admin") return "Admin Office";
-    if (session.role === "tutor") return findTutor("t1").name;
-    if (session.role === "parent") return findParent("p1").name;
-    if (session.role === "student") return findStudent("s1").name;
-    return "";
-  }, [session]);
+  const who = profile?.full_name || "";
 
-  if (!session) {
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: tokens.paper, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, sans-serif", color: tokens.slate, fontSize: 13 }}>
+        <link rel="stylesheet" href={FONT_LINK} />
+        Loading LearnWise Academy...
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
     return (
       <>
         <link rel="stylesheet" href={FONT_LINK} />
-        {screen === "staff" ? (
-          <StaffLogin onLogin={(role) => { setSession({ role }); setCurrent("dashboard"); }} onBack={() => setScreen("login")} />
-        ) : (
-          <Login onLogin={(role) => { setSession({ role }); setCurrent("dashboard"); }} onGoStaff={() => setScreen("staff")} />
-        )}
+        {authScreen === "staff" && <StaffLogin onBack={() => setAuthScreen("signin")} />}
+        {authScreen === "signup" && <SignUp onGoSignIn={() => setAuthScreen("signin")} />}
+        {authScreen === "signin" && <SignIn onGoSignUp={() => setAuthScreen("signup")} onGoStaff={() => setAuthScreen("staff")} />}
       </>
     );
   }
 
+  const role = profile.role;
+
   const renderAdmin = () => {
     switch (current) {
       case "dashboard": return <AdminDashboard />;
+      case "users": return <AdminUsers />;
       case "students": return <AdminStudents />;
       case "parents": return <AdminParents />;
       case "tutors": return <AdminTutors />;
@@ -1295,8 +1485,8 @@ export default function App() {
   return (
     <>
       <link rel="stylesheet" href={FONT_LINK} />
-      <Shell role={session.role} current={current} setCurrent={setCurrent} onLogout={() => setSession(null)} who={who}>
-        {renderers[session.role]()}
+      <Shell role={role} current={current} setCurrent={setCurrent} onLogout={signOut} who={who}>
+        {renderers[role]()}
       </Shell>
     </>
   );
