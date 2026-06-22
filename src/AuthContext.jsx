@@ -8,10 +8,32 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (userId) => {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (!error) setProfile(data);
-    return data;
+  const loadProfile = async (authUser) => {
+    // maybeSingle returns null (not error) when no row found
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (data) {
+      setProfile(data);
+      return data;
+    }
+
+    // Profile missing (signed up before table existed) — create it now
+    if (!data && !error) {
+      const fallbackRole = authUser.user_metadata?.role || "student";
+      const fallbackName = authUser.user_metadata?.full_name || authUser.email;
+      const { data: created } = await supabase
+        .from("profiles")
+        .insert({ id: authUser.id, full_name: fallbackName, email: authUser.email, role: fallbackRole, status: "Active" })
+        .select()
+        .single();
+      if (created) { setProfile(created); return created; }
+    }
+
+    return null;
   };
 
   useEffect(() => {
@@ -20,14 +42,14 @@ export function AuthProvider({ children }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       setUser(session?.user || null);
-      if (session?.user) await loadProfile(session.user.id);
+      if (session?.user) await loadProfile(session.user);
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user || null);
       if (session?.user) {
-        await loadProfile(session.user.id);
+        await loadProfile(session.user);
       } else {
         setProfile(null);
       }
@@ -50,7 +72,7 @@ export function AuthProvider({ children }) {
 
   const signIn = async ({ email, password }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (data?.user) await loadProfile(data.user.id);
+    if (data?.user) await loadProfile(data.user);
     return { data, error };
   };
 
@@ -61,7 +83,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile: () => user && loadProfile(user.id) }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile: () => user && loadProfile(user) }}>
       {children}
     </AuthContext.Provider>
   );
