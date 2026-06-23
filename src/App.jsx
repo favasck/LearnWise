@@ -97,6 +97,10 @@ function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeo
 function LoadingState({label="Loading…"}){return <div style={{padding:"48px 0",textAlign:"center",color:tokens.slate,fontSize:13.5}}><RefreshCw size={20} style={{marginBottom:10,opacity:0.4}}/><div>{label}</div></div>;}
 function EmptyState({icon:Icon=FileText,title,message,action}){return(<div style={{padding:"48px 24px",textAlign:"center"}}><div style={{width:48,height:48,borderRadius:12,background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}><Icon size={22} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:17,fontWeight:600,color:tokens.ink,marginBottom:6}}>{title}</div>{message&&<div style={{fontSize:13,color:tokens.slate,marginBottom:action?16:0}}>{message}</div>}{action}</div>);}
 function ErrorBanner({message,onRetry}){return(<div style={{background:tokens.dangerBg,color:tokens.danger,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:16,fontSize:13.5}}><AlertCircle size={16}/><span style={{flex:1}}>{message}</span>{onRetry&&<Button variant="danger" onClick={onRetry} style={{padding:"5px 12px",fontSize:12}}>Retry</Button>}</div>);}
+// Aliases used in newer portal sections
+const Spinner   = LoadingState;
+const Empty     = EmptyState;
+const ErrBanner = ErrorBanner;
 function useToast(){const[toast,setToast]=useState(null);const showToast=useCallback((message,type="success")=>setToast({message,type,key:Date.now()}),[]);const hideToast=useCallback(()=>setToast(null),[]);const ToastEl=toast?<Toast key={toast.key} message={toast.message} type={toast.type} onClose={hideToast}/>:null;return{showToast,ToastEl};}
 
 /* ═══ NAV ═══ */
