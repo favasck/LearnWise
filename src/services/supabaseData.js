@@ -26,15 +26,17 @@ import { supabase } from "../supabaseClient";
  */
 async function run(queryFn) {
   try {
-    const { data, error } = await queryFn();
+    const result = await queryFn();
+    const { data, error, count } = result;
     if (error) {
       console.error("[supabaseData]", error.message, error);
-      return { data: null, error };
+      return { data: null, error, count: null };
     }
-    return { data, error: null };
+    // For head:true count queries, data is null but count has the value
+    return { data: (count !== null && count !== undefined) ? count : data, error: null, count };
   } catch (err) {
     console.error("[supabaseData] unexpected error:", err);
-    return { data: null, error: { message: err.message || "Unexpected error" } };
+    return { data: null, error: { message: err.message || "Unexpected error" }, count: null };
   }
 }
 
@@ -179,7 +181,7 @@ export const getStudents = () =>
   run(() =>
     supabase
       .from("students")
-      .select("*, parent:parents(id, full_name, email, phone)")
+      .select("*, parent:parents(id, full_name, email, phone), student_tutors(tutor_id, tutor:tutors(id, full_name))")
       .order("full_name")
   );
 
@@ -231,21 +233,25 @@ export const getStudentsByParent = (parentId) =>
   );
 
 /** Fetch all students assigned to a specific tutor. */
-export const getStudentsByTutor = (tutorId) =>
-  run(() =>
+export const getStudentsByTutor = async (tutorId) => {
+  // Step 1: get student IDs from student_tutors
+  const { data: links, error: linkErr } = await supabase
+    .from("student_tutors")
+    .select("student_id")
+    .eq("tutor_id", tutorId)
+    .eq("is_active", true);
+  if (linkErr) return { data: null, error: linkErr };
+  const ids = (links || []).map(l => l.student_id);
+  if (ids.length === 0) return { data: [], error: null };
+  // Step 2: fetch those students
+  return run(() =>
     supabase
       .from("students")
       .select("*, parent:parents(id, full_name, phone)")
-      .in(
-        "id",
-        supabase
-          .from("student_tutors")
-          .select("student_id")
-          .eq("tutor_id", tutorId)
-          .eq("is_active", true)
-      )
+      .in("id", ids)
       .order("full_name")
   );
+};
 
 /** Create a new student (admin). */
 export const createStudent = (studentData) =>
@@ -546,7 +552,7 @@ export const getInvoices = ({ parentId, status } = {}) => {
       parent:parents(id, full_name, email),
       student:students(id, full_name)
     `)
-    .order("issued_at", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (parentId) q = q.eq("parent_id", parentId);
   if (status)   q = q.eq("status", status);
