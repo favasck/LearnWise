@@ -954,84 +954,100 @@ function AdminUsers(){
 
 /* ═══ ADMIN STUDENTS ═══ */
 function AdminStudentDetail({student,onBack}){
-  const{fire,el}=useToast();const[classes,setClasses]=useState([]);const[homework,setHomework]=useState([]);const[notes,setNotes]=useState([]);const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);
+  const[classes,setClasses]=useState([]);const[homework,setHomework]=useState([]);const[notes,setNotes]=useState([]);const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);
   useEffect(()=>{(async()=>{setLoading(true);const[cr,hr,nr,ir]=await Promise.all([db.getClasses({studentId:student.id}),db.getHomework({studentId:student.id}),db.getClassNotes({studentId:student.id}),student.parent_id?db.getInvoices({parentId:student.parent_id}):{data:[]}]);setClasses(cr.data||[]);setHomework(hr.data||[]);setNotes(nr.data||[]);setInvoices(ir.data||[]);setLoading(false);})();},[student.id,student.parent_id]);
-  const tutorNames=(student.student_tutors||[]).map((st)=>st.tutor?.full_name).filter(Boolean).join(", ")||"—";
-  return(<div>{el}
+  const tutorNames=(student.student_tutors||[]).map(st=>st.tutor?.full_name).filter(Boolean).join(", ")||"—";
+  return(<div>
     <div onClick={onBack} style={{display:"flex",alignItems:"center",gap:6,color:tokens.slate,fontSize:13,cursor:"pointer",marginBottom:14}}><ArrowLeft size={14}/> Back to Students</div>
-    <Card style={{marginBottom:18}}><div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}><div style={{width:56,height:56,borderRadius:"50%",background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Fraunces, serif",fontSize:20,fontWeight:700,color:tokens.tealDeep}}>{initials(student.full_name)}</div><div style={{flex:1,minWidth:200}}><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{student.full_name}</div><div style={{color:tokens.slate,fontSize:13}}>{student.grade} · {student.school}</div></div><Pill value={student.status}/></div>
+    <Card style={{marginBottom:18}}>
+      <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{width:56,height:56,borderRadius:"50%",background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Fraunces, serif",fontSize:20,fontWeight:700,color:tokens.tealDeep}}>{initials(student.full_name)}</div>
+        <div style={{flex:1,minWidth:200}}><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{student.full_name}</div><div style={{color:tokens.slate,fontSize:13}}>{student.grade} · {student.school}</div></div>
+        <Pill value={student.status}/>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginTop:20}}>
-        <Field label="Curriculum"><div style={{fontSize:13.5}}>{student.curriculum||"—"}</div></Field><Field label="Subjects"><div style={{fontSize:13.5}}>{(student.subjects||[]).join(", ")||"—"}</div></Field><Field label="Tutor(s)"><div style={{fontSize:13.5}}>{tutorNames}</div></Field><Field label="Parent"><div style={{fontSize:13.5}}>{student.parent?.full_name||"—"}</div></Field>
+        <Field label="Curriculum"><div style={{fontSize:13.5}}>{student.curriculum||"—"}</div></Field>
+        <Field label="Subjects"><div style={{fontSize:13.5}}>{(student.subjects||[]).join(", ")||"—"}</div></Field>
+        <Field label="Tutor(s)"><div style={{fontSize:13.5}}>{tutorNames}</div></Field>
+        <Field label="Parent"><div style={{fontSize:13.5}}>{student.parent?.full_name||"—"}</div></Field>
       </div>
     </Card>
     {loading?<Spinner/>:(<>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:18}}>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Learning Goals</div><div style={{fontSize:13.5,color:tokens.ink,marginBottom:12}}>{student.goals||"No goals recorded."}</div><div style={{display:"flex",gap:14}}><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.success,marginBottom:4}}>Strengths</div><div style={{fontSize:13,color:tokens.slate}}>{student.strengths||"—"}</div></div><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.coral,marginBottom:4}}>Weak Areas</div><div style={{fontSize:13,color:tokens.slate}}>{student.weak_areas||"—"}</div></div></div></Card>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Invoice Summary</div>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map((inv)=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><Pill value={inv.status}/></div>))}</Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Learning Goals</div><div style={{fontSize:13.5,marginBottom:12}}>{student.goals||"No goals recorded."}</div><div style={{display:"flex",gap:14}}><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.success,marginBottom:4}}>Strengths</div><div style={{fontSize:13,color:tokens.slate}}>{student.strengths||"—"}</div></div><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.coral,marginBottom:4}}>Weak Areas</div><div style={{fontSize:13,color:tokens.slate}}>{student.weak_areas||"—"}</div></div></div></Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Invoices</div>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map(inv=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><Pill value={inv.status}/></div>))}</Card>
       </div>
-      <Card style={{marginBottom:18}}><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Class History</div>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map((c)=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<Pill value={c.status}/>,<Pill value={c.attendance}/>]}))}/>}</Card>
+      <Card style={{marginBottom:18}}><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Class History</div>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map(c=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<Pill value={c.status}/>,<Pill value={c.attendance||"—"}/>]}))}/>}</Card>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework on record.</div>:homework.map((h)=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><Pill value={h.status}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No progress notes yet.</div>:notes.map((n)=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{n.topic||n.class?.subject||"—"}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><Pill value={h.status}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{n.topic||"—"}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
       </div>
     </>)}
   </div>);
 }
 
 function AdminStudents(){
-  const[students,setStudents]=useState([]);const[parents,setParents]=useState([]);const[tutors,setTutors]=useState([]);const[selected,setSelected]=useState(null);const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[search,setSearch]=useState("");const[showAdd,setShowAdd]=useState(false);const[showEdit,setShowEdit]=useState(null);const[showDel,setShowDel]=useState(null);const[saving,setSaving]=useState(false);const{fire:showToast,el:ToastEl}=useToast();
-  const blankForm={full_name:"",age:"",grade:"",school:"",curriculum:CURRICULA[0],subjects:"",parent_id:"",goals:"",strengths:"",weak_areas:"",status:"Active"};const[form,setForm]=useState(blankForm);
-  const load=useCallback(async()=>{setLoading(true);setError("");const[sr,pr,tr]=await Promise.all([db.getStudents(),db.getParents(),db.getTutors()]);if(sr.error)setError(sr.error.message);else setStudents(sr.data||[]);setParents(pr.data||[]);setTutors(tr.data||[]);setLoading(false);},[]);
+  const[rows,setRows]=useState([]);const[parents,setParents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[search,setSearch]=useState("");const[detail,setDetail]=useState(null);const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
+  const[fullName,setFullName]=useState("");const[age,setAge]=useState("");const[grade,setGrade]=useState("");const[school,setSchool]=useState("");const[curriculum,setCurriculum]=useState(CURRICULA[0]);const[subjects,setSubjects]=useState("");const[parentId,setParentId]=useState("");const[goals,setGoals]=useState("");const[strengths,setStrengths]=useState("");const[weakAreas,setWeakAreas]=useState("");const[status,setStatus]=useState("Active");
+  const resetForm=()=>{setFullName("");setAge("");setGrade("");setSchool("");setCurriculum(CURRICULA[0]);setSubjects("");setParentId("");setGoals("");setStrengths("");setWeakAreas("");setStatus("Active");};
+  const load=useCallback(async()=>{setLoading(true);setErr("");const[sr,pr]=await Promise.all([db.getStudents(),db.getParents()]);if(sr.error)setErr(sr.error.message);else setRows(sr.data||[]);setParents(pr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=(s)=>{setForm({full_name:s.full_name,age:s.age||"",grade:s.grade||"",school:s.school||"",curriculum:s.curriculum||CURRICULA[0],subjects:(s.subjects||[]).join(", "),parent_id:s.parent_id||"",goals:s.goals||"",strengths:s.strengths||"",weak_areas:s.weak_areas||"",status:s.status});setShowEdit(s);};
-  const save=async(isEdit)=>{if(!form.full_name.trim()){showToast("Name is required","error");return;}setSaving(true);const payload={full_name:form.full_name.trim(),age:Number(form.age)||null,grade:form.grade,school:form.school,curriculum:form.curriculum,subjects:form.subjects.split(",").map((s)=>s.trim()).filter(Boolean),parent_id:form.parent_id||null,goals:form.goals,strengths:form.strengths,weak_areas:form.weak_areas,status:form.status};const{error}=isEdit?await db.updateStudent(isEdit.id,payload):await db.createStudent(payload);setSaving(false);if(error){showToast(error.message,"error");return;}showToast(isEdit?"Student updated":"Student added");setShowAdd(false);setShowEdit(null);setForm(blankForm);load();};
-  const del=async()=>{setSaving(true);const{error}=await supabase.from("students").delete().eq("id",showDel.id);setSaving(false);if(error){showToast(error.message,"error");setShowDel(null);return;}showToast("Student deleted");setShowDel(null);load();};
-  if(selected)return <AdminStudentDetail student={selected} onBack={()=>setSelected(null)}/>;
-  const filtered=students.filter((s)=>s.full_name.toLowerCase().includes(search.toLowerCase()));
-  const StudentForm=({isEdit})=>(<>
-    <Field label="Full Name" required><input style={inputStyle} value={form.full_name} onChange={(e)=>setForm({...form,full_name:e.target.value})} placeholder="Full name"/></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Age"><input style={inputStyle} type="number" value={form.age} onChange={(e)=>setForm({...form,age:e.target.value})}/></Field><Field label="Grade"><input style={inputStyle} value={form.grade} onChange={(e)=>setForm({...form,grade:e.target.value})} placeholder="Year 10"/></Field></div>
-    <Field label="School"><input style={inputStyle} value={form.school} onChange={(e)=>setForm({...form,school:e.target.value})}/></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Curriculum"><select style={inputStyle} value={form.curriculum} onChange={(e)=>setForm({...form,curriculum:e.target.value})}>{CURRICULA.map((c)=><option key={c}>{c}</option>)}</select></Field><Field label="Status"><select style={inputStyle} value={form.status} onChange={(e)=>setForm({...form,status:e.target.value})}>{["Active","Inactive","Graduated"].map((s)=><option key={s}>{s}</option>)}</select></Field></div>
-    <Field label="Subjects (comma separated)"><input style={inputStyle} value={form.subjects} onChange={(e)=>setForm({...form,subjects:e.target.value})} placeholder="Mathematics, Physics"/></Field>
-    <Field label="Parent"><select style={inputStyle} value={form.parent_id} onChange={(e)=>setForm({...form,parent_id:e.target.value})}><option value="">— No parent —</option>{parents.map((p)=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Strengths"><input style={inputStyle} value={form.strengths} onChange={(e)=>setForm({...form,strengths:e.target.value})}/></Field><Field label="Weak Areas"><input style={inputStyle} value={form.weak_areas} onChange={(e)=>setForm({...form,weak_areas:e.target.value})}/></Field></div>
-    <Field label="Goals"><textarea style={{...inputStyle,minHeight:50}} value={form.goals} onChange={(e)=>setForm({...form,goals:e.target.value})}/></Field>
-    <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={()=>save(isEdit)} disabled={saving}>{saving?"Saving…":isEdit?"Save Changes":"Add Student"}</Button>
-  </>);
-  return(<div>{ToastEl}
-    <SectionTitle title="Student Management" action={<Button icon={Plus} onClick={()=>{setForm(blankForm);setShowAdd(true);}}>Add Student</Button>}/>
-    {error&&<ErrorBanner message={error} onRetry={load}/>}
-    <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}><Search size={16} color={tokens.slate}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search students…" style={{border:"none",outline:"none",fontSize:13.5,flex:1,background:"transparent"}}/></Card>
-    <Card>{loading?<LoadingState/>:filtered.length===0?<EmptyState icon={GraduationCap} title={search?"No students match":"No students yet"} message={!search?"Add your first student.":undefined} action={!search?<Button icon={Plus} onClick={()=>setShowAdd(true)}>Add Student</Button>:undefined}/>:(
-      <Table columns={["Name","Grade","Curriculum","Subjects","Parent","Status",""]} rows={filtered.map((s)=>({cells:[s.full_name,s.grade||"—",s.curriculum||"—",(s.subjects||[]).join(", ")||"—",s.parent?.full_name||"—",<Pill value={s.status}/>,<div style={{display:"flex",gap:6}} onClick={(e)=>e.stopPropagation()}><Button variant="ghost" icon={Edit2} style={{padding:"5px 9px"}} onClick={()=>openEdit(s)}/><Button variant="danger" icon={Trash2} style={{padding:"5px 9px"}} onClick={()=>setShowDel(s)}/><Button variant="secondary" icon={ChevronRight} style={{padding:"5px 9px"}} onClick={()=>setSelected(s)}/></div>]}))}/>
+  const openEdit=s=>{setFullName(s.full_name);setAge(s.age||"");setGrade(s.grade||"");setSchool(s.school||"");setCurriculum(s.curriculum||CURRICULA[0]);setSubjects((s.subjects||[]).join(", "));setParentId(s.parent_id||"");setGoals(s.goals||"");setStrengths(s.strengths||"");setWeakAreas(s.weak_areas||"");setStatus(s.status);setEditRow(s);};
+  const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:fullName.trim(),age:Number(age)||null,grade,school,curriculum,subjects:subjects.split(",").map(s=>s.trim()).filter(Boolean),parent_id:parentId||null,goals,strengths,weak_areas:weakAreas,status};const{error}=editRow?await db.updateStudent(editRow.id,payload):await db.createStudent(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Student updated":"Student added");setAddOpen(false);setEditRow(null);resetForm();load();};
+  const del=async()=>{setBusy(true);const{error}=await supabase.from("students").delete().eq("id",delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Student deleted");setDelRow(null);load();};
+  if(detail)return <AdminStudentDetail student={detail} onBack={()=>setDetail(null)}/>;
+  const filtered=rows.filter(s=>s.full_name.toLowerCase().includes(search.toLowerCase()));
+  return(<div>{el}
+    <SectionTitle title="Students" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Student</Button>}/>
+    {err&&<ErrBanner message={err} onRetry={load}/>}
+    <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}><Search size={16} color={tokens.slate}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search students…" style={{border:"none",outline:"none",fontSize:13.5,flex:1,background:"transparent"}}/></Card>
+    <Card>{loading?<Spinner/>:filtered.length===0?<Empty icon={GraduationCap} title="No students yet" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Student</Button>}/>:(
+      <Table columns={["Name","Grade","Curriculum","Subjects","Parent","Status",""]} rows={filtered.map(s=>({cells:[s.full_name,s.grade||"—",s.curriculum||"—",(s.subjects||[]).join(", ")||"—",s.parent?.full_name||"—",<Pill value={s.status}/>,
+        <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
+          <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(s)}/>
+          <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(s)}/>
+          <Button variant="secondary" icon={ChevronRight} style={{padding:"5px 8px"}} onClick={()=>setDetail(s)}/>
+        </div>
+      ]}))}/>
     )}</Card>
-    {(showAdd||showEdit)&&<Modal title={showEdit?"Edit Student":"Add Student"} wide onClose={()=>{setShowAdd(false);setShowEdit(null);}}><StudentForm isEdit={showEdit||false}/></Modal>}
-    {showDel&&<ConfirmModal message={`Delete "${showDel.full_name}"? This cannot be undone.`} onConfirm={del} onCancel={()=>setShowDel(null)} loading={saving}/>}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Student":"Add Student"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <Field label="Full Name" required><input style={inputStyle} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" autoFocus/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Age"><input style={inputStyle} type="number" value={age} onChange={e=>setAge(e.target.value)}/></Field>
+        <Field label="Grade / Year"><input style={inputStyle} value={grade} onChange={e=>setGrade(e.target.value)} placeholder="Year 10"/></Field>
+      </div>
+      <Field label="School"><input style={inputStyle} value={school} onChange={e=>setSchool(e.target.value)}/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Curriculum"><select style={inputStyle} value={curriculum} onChange={e=>setCurriculum(e.target.value)}>{CURRICULA.map(c=><option key={c}>{c}</option>)}</select></Field>
+        <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive","Graduated"].map(s=><option key={s}>{s}</option>)}</select></Field>
+      </div>
+      <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
+      <Field label="Parent"><select style={inputStyle} value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">— No parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Strengths"><input style={inputStyle} value={strengths} onChange={e=>setStrengths(e.target.value)}/></Field>
+        <Field label="Weak Areas"><input style={inputStyle} value={weakAreas} onChange={e=>setWeakAreas(e.target.value)}/></Field>
+      </div>
+      <Field label="Goals"><textarea style={{...inputStyle,minHeight:52}} value={goals} onChange={e=>setGoals(e.target.value)}/></Field>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Student"}</Button>
+    </Modal>)}
+    {delRow&&<ConfirmModal message={`Delete "${delRow.full_name}"? This cannot be undone.`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
 
 /* ═══ ADMIN PARENTS ═══ */
 function AdminParents(){
   const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
-  const blank={full_name:"",email:"",phone:"",address:"",notes:"",status:"Active"};const[f,setF]=useState(blank);
+  const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[phone,setPhone]=useState("");const[address,setAddress]=useState("");const[notes,setNotes]=useState("");const[status,setStatus]=useState("Active");
+  const resetForm=()=>{setFullName("");setEmail("");setPhone("");setAddress("");setNotes("");setStatus("Active");};
   const load=useCallback(async()=>{setLoading(true);setErr("");const[pr,sr]=await Promise.all([db.getParents(),db.getStudents()]);if(pr.error)setErr(pr.error.message);else setRows(pr.data||[]);setStudents(sr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=p=>{setF({full_name:p.full_name,email:p.email||"",phone:p.phone||"",address:p.address||"",notes:p.notes||"",status:p.status});setEditRow(p);};
-  const save=async isEdit=>{if(!f.full_name.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:f.full_name.trim(),email:f.email,phone:f.phone,address:f.address,notes:f.notes,status:f.status};const{error}=isEdit?await db.updateParent(isEdit.id,payload):await db.createParent(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(isEdit?"Parent updated":"Parent added");setAddOpen(false);setEditRow(null);setF(blank);load();};
+  const openEdit=p=>{setFullName(p.full_name);setEmail(p.email||"");setPhone(p.phone||"");setAddress(p.address||"");setNotes(p.notes||"");setStatus(p.status);setEditRow(p);};
+  const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const{error}=editRow?await db.updateParent(editRow.id,{full_name:fullName.trim(),email,phone,address,notes,status}):await db.createParent({full_name:fullName.trim(),email,phone,address,notes,status});setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Parent updated":"Parent added");setAddOpen(false);setEditRow(null);resetForm();load();};
   const del=async()=>{setBusy(true);const{error}=await supabase.from("parents").delete().eq("id",delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Parent deleted");setDelRow(null);load();};
-  const Form=({isEdit})=>(<>
-    <Field label="Full Name" required><input style={inputStyle} value={f.full_name} onChange={e=>setF({...f,full_name:e.target.value})} placeholder="Full name"/></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Phone"><input style={inputStyle} value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} placeholder="+974…"/></Field><Field label="Email"><input style={inputStyle} type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} placeholder="email@example.com"/></Field></div>
-    <Field label="Address"><input style={inputStyle} value={f.address} onChange={e=>setF({...f,address:e.target.value})} placeholder="Area, City"/></Field>
-    <Field label="Notes"><textarea style={{...inputStyle,minHeight:52}} value={f.notes} onChange={e=>setF({...f,notes:e.target.value})}/></Field>
-    <Field label="Status"><select style={inputStyle} value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{["Active","Inactive"].map(s=><option key={s}>{s}</option>)}</select></Field>
-    <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={()=>save(isEdit)} disabled={busy}>{busy?"Saving…":isEdit?"Save Changes":"Add Parent"}</Button>
-  </>);
   return(<div>{el}
-    <SectionTitle title="Parent Management" action={<Button icon={Plus} onClick={()=>{setF(blank);setAddOpen(true);}}>Add Parent</Button>}/>
+    <SectionTitle title="Parents" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Parent</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
-    {loading?<Spinner/>:rows.length===0?<Empty icon={UserCircle} title="No parents yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Parent</Button>}/>:
+    {loading?<Spinner/>:rows.length===0?<Empty icon={UserCircle} title="No parents yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Parent</Button>}/>:(
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
         {rows.map(p=>{const ch=students.filter(s=>s.parent_id===p.id);return(
           <Card key={p.id}>
@@ -1040,12 +1056,25 @@ function AdminParents(){
             {p.email&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:5,fontSize:12.5,color:tokens.slate}}><Mail size={13}/>{p.email}</div>}
             {p.address&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:5,fontSize:12.5,color:tokens.slate}}><HomeIcon size={13}/>{p.address}</div>}
             {ch.length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${tokens.line}`,fontSize:12.5}}><strong>Children:</strong> {ch.map(c=>c.full_name).join(", ")}</div>}
-            <div style={{display:"flex",gap:8,marginTop:14}}><Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} onClick={()=>openEdit(p)}>Edit</Button><Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} onClick={()=>setDelRow(p)}/></div>
+            <div style={{display:"flex",gap:8,marginTop:14}}>
+              <Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} onClick={()=>openEdit(p)}>Edit</Button>
+              <Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} onClick={()=>setDelRow(p)}/>
+            </div>
           </Card>
         );})}
       </div>
-    }
-    {(addOpen||editRow)&&<Modal title={editRow?"Edit Parent":"Add Parent"} onClose={()=>{setAddOpen(false);setEditRow(null);}}><Form isEdit={editRow||false}/></Modal>}
+    )}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Parent":"Add Parent"} onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <Field label="Full Name" required><input style={inputStyle} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" autoFocus/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Phone"><input style={inputStyle} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+974…"/></Field>
+        <Field label="Email"><input style={inputStyle} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@example.com"/></Field>
+      </div>
+      <Field label="Address"><input style={inputStyle} value={address} onChange={e=>setAddress(e.target.value)} placeholder="Area, City"/></Field>
+      <Field label="Notes"><textarea style={{...inputStyle,minHeight:52}} value={notes} onChange={e=>setNotes(e.target.value)}/></Field>
+      <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive"].map(s=><option key={s}>{s}</option>)}</select></Field>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Parent"}</Button>
+    </Modal>)}
     {delRow&&<ConfirmModal message={`Delete "${delRow.full_name}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
@@ -1053,39 +1082,49 @@ function AdminParents(){
 /* ═══ ADMIN TUTORS ═══ */
 function AdminTutors(){
   const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
-  const blank={full_name:"",email:"",phone:"",subjects:"",curriculum:"",rate_qar:"",notes:"",status:"Active"};const[f,setF]=useState(blank);
+  const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[phone,setPhone]=useState("");const[subjects,setSubjects]=useState("");const[curriculum,setCurriculum]=useState("");const[rateQar,setRateQar]=useState("");const[notes,setNotes]=useState("");const[status,setStatus]=useState("Active");
+  const resetForm=()=>{setFullName("");setEmail("");setPhone("");setSubjects("");setCurriculum("");setRateQar("");setNotes("");setStatus("Active");};
   const load=useCallback(async()=>{setLoading(true);setErr("");const[tr,sr]=await Promise.all([db.getTutors(),db.getStudents()]);if(tr.error)setErr(tr.error.message);else setRows(tr.data||[]);setStudents(sr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=t=>{setF({full_name:t.full_name,email:t.email||"",phone:t.phone||"",subjects:(t.subjects||[]).join(", "),curriculum:(t.curriculum||[]).join(", "),rate_qar:t.rate_qar||"",notes:t.notes||"",status:t.status});setEditRow(t);};
-  const save=async isEdit=>{if(!f.full_name.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:f.full_name.trim(),email:f.email,phone:f.phone,subjects:f.subjects.split(",").map(s=>s.trim()).filter(Boolean),curriculum:f.curriculum.split(",").map(s=>s.trim()).filter(Boolean),rate_qar:Number(f.rate_qar)||0,notes:f.notes,status:f.status};const{error}=isEdit?await db.updateTutor(isEdit.id,payload):await db.createTutor(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(isEdit?"Tutor updated":"Tutor added");setAddOpen(false);setEditRow(null);setF(blank);load();};
+  const openEdit=t=>{setFullName(t.full_name);setEmail(t.email||"");setPhone(t.phone||"");setSubjects((t.subjects||[]).join(", "));setCurriculum((t.curriculum||[]).join(", "));setRateQar(t.rate_qar||"");setNotes(t.notes||"");setStatus(t.status);setEditRow(t);};
+  const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:fullName.trim(),email,phone,subjects:subjects.split(",").map(s=>s.trim()).filter(Boolean),curriculum:curriculum.split(",").map(s=>s.trim()).filter(Boolean),rate_qar:Number(rateQar)||0,notes,status};const{error}=editRow?await db.updateTutor(editRow.id,payload):await db.createTutor(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Tutor updated":"Tutor added");setAddOpen(false);setEditRow(null);resetForm();load();};
   const del=async()=>{setBusy(true);const{error}=await supabase.from("tutors").delete().eq("id",delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Tutor deleted");setDelRow(null);load();};
-  const Form=({isEdit})=>(<>
-    <Field label="Full Name" required><input style={inputStyle} value={f.full_name} onChange={e=>setF({...f,full_name:e.target.value})} placeholder="Full name"/></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Email"><input style={inputStyle} type="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/></Field><Field label="Phone"><input style={inputStyle} value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} placeholder="+974…"/></Field></div>
-    <Field label="Subjects (comma-separated)"><input style={inputStyle} value={f.subjects} onChange={e=>setF({...f,subjects:e.target.value})} placeholder="Mathematics, Physics"/></Field>
-    <Field label="Curricula (comma-separated)"><input style={inputStyle} value={f.curriculum} onChange={e=>setF({...f,curriculum:e.target.value})} placeholder="IGCSE, Edexcel"/></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Hourly Rate (QAR)"><input style={inputStyle} type="number" value={f.rate_qar} onChange={e=>setF({...f,rate_qar:e.target.value})} placeholder="150"/></Field><Field label="Status"><select style={inputStyle} value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{["Active","Inactive","On Leave"].map(s=><option key={s}>{s}</option>)}</select></Field></div>
-    <Field label="Notes"><textarea style={{...inputStyle,minHeight:52}} value={f.notes} onChange={e=>setF({...f,notes:e.target.value})}/></Field>
-    <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={()=>save(isEdit)} disabled={busy}>{busy?"Saving…":isEdit?"Save Changes":"Add Tutor"}</Button>
-  </>);
   return(<div>{el}
-    <SectionTitle title="Tutor Management" action={<Button icon={Plus} onClick={()=>{setF(blank);setAddOpen(true);}}>Add Tutor</Button>}/>
+    <SectionTitle title="Tutors" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Tutor</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
-    {loading?<Spinner/>:rows.length===0?<Empty icon={Users} title="No tutors yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Tutor</Button>}/>:
+    {loading?<Spinner/>:rows.length===0?<Empty icon={Users} title="No tutors yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Tutor</Button>}/>:(
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
-        {rows.map(t=>{const assigned=students.filter(s=>(s.student_tutors||[]).some(st=>st.tutor_id===t.id));return(
-          <Card key={t.id}>
+        {rows.map(t=>{
+          const assigned=students.filter(s=>(s.student_tutors||[]).some(st=>st.tutor_id===t.id));
+          return(<Card key={t.id}>
             <div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontWeight:700,fontSize:15}}>{t.full_name}</div><Pill value={t.status}/></div>
             <div style={{fontSize:12.5,color:tokens.slate,marginTop:4}}>{(t.subjects||[]).join(", ")||"—"}</div>
             <div style={{fontSize:12,color:tokens.slate}}>{(t.curriculum||[]).join(", ")||"—"}</div>
             <div style={{display:"flex",gap:16,marginTop:12,fontSize:12.5}}><div><strong>{fmt(t.rate_qar)}</strong>/hr</div><div><strong>{assigned.length}</strong> students</div></div>
             {t.notes&&<div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${tokens.line}`,fontSize:12.5,color:tokens.slate}}>{t.notes}</div>}
-            <div style={{display:"flex",gap:8,marginTop:14}}><Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} onClick={()=>openEdit(t)}>Edit</Button><Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} onClick={()=>setDelRow(t)}/></div>
-          </Card>
-        );})}
+            <div style={{display:"flex",gap:8,marginTop:14}}>
+              <Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} onClick={()=>openEdit(t)}>Edit</Button>
+              <Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} onClick={()=>setDelRow(t)}/>
+            </div>
+          </Card>);
+        })}
       </div>
-    }
-    {(addOpen||editRow)&&<Modal title={editRow?"Edit Tutor":"Add Tutor"} onClose={()=>{setAddOpen(false);setEditRow(null);}}><Form isEdit={editRow||false}/></Modal>}
+    )}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Tutor":"Add Tutor"} onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <Field label="Full Name" required><input style={inputStyle} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" autoFocus/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Email"><input style={inputStyle} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></Field>
+        <Field label="Phone"><input style={inputStyle} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+974…"/></Field>
+      </div>
+      <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
+      <Field label="Curricula (comma-separated)"><input style={inputStyle} value={curriculum} onChange={e=>setCurriculum(e.target.value)} placeholder="IGCSE, Edexcel"/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Hourly Rate (QAR)"><input style={inputStyle} type="number" value={rateQar} onChange={e=>setRateQar(e.target.value)} placeholder="150"/></Field>
+        <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive","On Leave"].map(s=><option key={s}>{s}</option>)}</select></Field>
+      </div>
+      <Field label="Notes"><textarea style={{...inputStyle,minHeight:52}} value={notes} onChange={e=>setNotes(e.target.value)}/></Field>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Tutor"}</Button>
+    </Modal>)}
     {delRow&&<ConfirmModal message={`Delete "${delRow.full_name}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
@@ -1094,36 +1133,21 @@ function AdminTutors(){
 function AdminClasses(){
   const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[tutors,setTutors]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[view,setView]=useState("list");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const todayStr=()=>new Date().toISOString().slice(0,10);
-  const blank={student_id:"",tutor_id:"",subject:SUBJECTS[0],topic:"",date:todayStr(),time:"16:00",duration_min:"60",mode:"Online",meeting_link:"",location:"",status:"Scheduled",rate_qar:""};const[f,setF]=useState(blank);
+  const[studentId,setStudentId]=useState("");const[tutorId,setTutorId]=useState("");const[subject,setSubject]=useState(SUBJECTS[0]);const[topic,setTopic]=useState("");const[date,setDate]=useState(todayStr());const[time,setTime]=useState("16:00");const[durationMin,setDurationMin]=useState("60");const[mode,setMode]=useState("Online");const[meetingLink,setMeetingLink]=useState("");const[location,setLocation]=useState("");const[classStatus,setClassStatus]=useState("Scheduled");const[rateQar,setRateQar]=useState("");
+  const resetForm=()=>{setStudentId("");setTutorId("");setSubject(SUBJECTS[0]);setTopic("");setDate(todayStr());setTime("16:00");setDurationMin("60");setMode("Online");setMeetingLink("");setLocation("");setClassStatus("Scheduled");setRateQar("");};
   const load=useCallback(async()=>{setLoading(true);setErr("");const[cr,sr,tr]=await Promise.all([db.getClasses(),db.getStudents(),db.getTutors()]);if(cr.error)setErr(cr.error.message);else setRows(cr.data||[]);setStudents(sr.data||[]);setTutors(tr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=c=>{const d=c.scheduled_at?new Date(c.scheduled_at):new Date();setF({student_id:c.student_id,tutor_id:c.tutor_id,subject:c.subject,topic:c.topic||"",date:d.toISOString().slice(0,10),time:d.toTimeString().slice(0,5),duration_min:String(c.duration_min||60),mode:c.mode,meeting_link:c.meeting_link||"",location:c.location||"",status:c.status,rate_qar:c.rate_qar||""});setEditRow(c);};
-  const save=async isEdit=>{if(!f.student_id||!f.tutor_id){fire("Student and tutor are required","error");return;}setBusy(true);const scheduled_at=new Date(`${f.date}T${f.time}:00`).toISOString();const payload={student_id:f.student_id,tutor_id:f.tutor_id,subject:f.subject,topic:f.topic,scheduled_at,duration_min:Number(f.duration_min)||60,mode:f.mode,meeting_link:f.meeting_link,location:f.location,status:f.status,rate_qar:Number(f.rate_qar)||null};const{error}=isEdit?await db.updateClass(isEdit.id,payload):await db.createClass(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(isEdit?"Class updated":"Class scheduled");setAddOpen(false);setEditRow(null);setF(blank);load();};
+  const openEdit=c=>{const d=c.scheduled_at?new Date(c.scheduled_at):new Date();setStudentId(c.student_id);setTutorId(c.tutor_id);setSubject(c.subject);setTopic(c.topic||"");setDate(d.toISOString().slice(0,10));setTime(d.toTimeString().slice(0,5));setDurationMin(String(c.duration_min||60));setMode(c.mode);setMeetingLink(c.meeting_link||"");setLocation(c.location||"");setClassStatus(c.status);setRateQar(c.rate_qar||"");setEditRow(c);};
+  const save=async()=>{if(!studentId||!tutorId){fire("Student and tutor are required","error");return;}setBusy(true);const scheduled_at=new Date(`${date}T${time}:00`).toISOString();const payload={student_id:studentId,tutor_id:tutorId,subject,topic,scheduled_at,duration_min:Number(durationMin)||60,mode,meeting_link:meetingLink,location,status:classStatus,rate_qar:Number(rateQar)||null};const{error}=editRow?await db.updateClass(editRow.id,payload):await db.createClass(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Class updated":"Class scheduled");setAddOpen(false);setEditRow(null);resetForm();load();};
   const del=async()=>{setBusy(true);const{error}=await db.deleteClass(delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Class deleted");setDelRow(null);load();};
   const cancel=async c=>{const{error}=await db.updateClassStatus(c.id,"Cancelled");if(error)fire(error.message,"error");else{fire("Class cancelled");load();}};
-  const Form=({isEdit})=>(<>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-      <Field label="Student" required><select style={inputStyle} value={f.student_id} onChange={e=>setF({...f,student_id:e.target.value})}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
-      <Field label="Tutor" required><select style={inputStyle} value={f.tutor_id} onChange={e=>setF({...f,tutor_id:e.target.value})}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
-      <Field label="Subject"><select style={inputStyle} value={f.subject} onChange={e=>setF({...f,subject:e.target.value})}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
-      <Field label="Topic"><input style={inputStyle} value={f.topic} onChange={e=>setF({...f,topic:e.target.value})} placeholder="e.g. Quadratic Equations"/></Field>
-      <Field label="Date"><input style={inputStyle} type="date" value={f.date} onChange={e=>setF({...f,date:e.target.value})}/></Field>
-      <Field label="Time"><input style={inputStyle} type="time" value={f.time} onChange={e=>setF({...f,time:e.target.value})}/></Field>
-      <Field label="Duration (min)"><input style={inputStyle} type="number" value={f.duration_min} onChange={e=>setF({...f,duration_min:e.target.value})}/></Field>
-      <Field label="Rate (QAR/hr)"><input style={inputStyle} type="number" value={f.rate_qar} onChange={e=>setF({...f,rate_qar:e.target.value})} placeholder="150"/></Field>
-      <Field label="Mode"><select style={inputStyle} value={f.mode} onChange={e=>setF({...f,mode:e.target.value})}><option>Online</option><option>Offline</option></select></Field>
-      <Field label="Status"><select style={inputStyle} value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{["Scheduled","Completed","Cancelled","Rescheduled"].map(s=><option key={s}>{s}</option>)}</select></Field>
-    </div>
-    <Field label={f.mode==="Online"?"Meeting Link":"Location"}><input style={inputStyle} value={f.mode==="Online"?f.meeting_link:f.location} onChange={e=>setF({...f,[f.mode==="Online"?"meeting_link":"location"]:e.target.value})} placeholder={f.mode==="Online"?"meet.learnwise.edu/…":"Student home, …"}/></Field>
-    <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={()=>save(isEdit)} disabled={busy}>{busy?"Saving…":isEdit?"Save Changes":"Schedule Class"}</Button>
-  </>);
   const byDay=rows.reduce((acc,c)=>{const d=c.scheduled_at?.slice(0,10)||"?";(acc[d]=acc[d]||[]).push(c);return acc;},{});
   return(<div>{el}
-    <SectionTitle title="Class Scheduling" action={<div style={{display:"flex",gap:8}}><Button variant={view==="list"?"primary":"ghost"} onClick={()=>setView("list")}>List</Button><Button variant={view==="calendar"?"primary":"ghost"} onClick={()=>setView("calendar")}>By Day</Button><Button icon={Plus} onClick={()=>{setF(blank);setAddOpen(true);}}>Create Class</Button></div>}/>
+    <SectionTitle title="Classes" action={<div style={{display:"flex",gap:8}}><Button variant={view==="list"?"primary":"ghost"} onClick={()=>setView("list")}>List</Button><Button variant={view==="calendar"?"primary":"ghost"} onClick={()=>setView("calendar")}>By Day</Button><Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Create Class</Button></div>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     {loading?<Spinner/>:rows.length===0?<Empty icon={CalendarDays} title="No classes yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Schedule First Class</Button>}/>:view==="list"?(
       <Card><Table columns={["Date/Time","Student","Tutor","Subject","Topic","Mode","Status","Attendance",""]}
-        rows={rows.map(c=>({cells:[fmtDT(c.scheduled_at),c.student?.full_name||"—",c.tutor?.full_name||"—",c.subject,c.topic||"—",
+        rows={rows.map(c=>({cells:[fmtDateTime(c.scheduled_at),c.student?.full_name||"—",c.tutor?.full_name||"—",c.subject,c.topic||"—",
           c.mode==="Online"?<span style={{display:"flex",alignItems:"center",gap:4}}><Video size={13}/> Online</span>:<span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={13}/> Offline</span>,
           <Pill value={c.status}/>,<Pill value={c.attendance||"Pending"}/>,
           <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
@@ -1145,7 +1169,22 @@ function AdminClasses(){
         ))}
       </div>
     )}
-    {(addOpen||editRow)&&<Modal title={editRow?"Edit Class":"Create Class"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}><Form isEdit={editRow||false}/></Modal>}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Class":"Create Class"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="Subject"><select style={inputStyle} value={subject} onChange={e=>setSubject(e.target.value)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
+        <Field label="Topic"><input style={inputStyle} value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Quadratic Equations"/></Field>
+        <Field label="Date"><input style={inputStyle} type="date" value={date} onChange={e=>setDate(e.target.value)}/></Field>
+        <Field label="Time"><input style={inputStyle} type="time" value={time} onChange={e=>setTime(e.target.value)}/></Field>
+        <Field label="Duration (min)"><input style={inputStyle} type="number" value={durationMin} onChange={e=>setDurationMin(e.target.value)}/></Field>
+        <Field label="Rate (QAR/hr)"><input style={inputStyle} type="number" value={rateQar} onChange={e=>setRateQar(e.target.value)} placeholder="150"/></Field>
+        <Field label="Mode"><select style={inputStyle} value={mode} onChange={e=>setMode(e.target.value)}><option>Online</option><option>Offline</option></select></Field>
+        <Field label="Status"><select style={inputStyle} value={classStatus} onChange={e=>setClassStatus(e.target.value)}>{["Scheduled","Completed","Cancelled","Rescheduled"].map(s=><option key={s}>{s}</option>)}</select></Field>
+      </div>
+      <Field label={mode==="Online"?"Meeting Link":"Location"}><input style={inputStyle} value={mode==="Online"?meetingLink:location} onChange={e=>mode==="Online"?setMeetingLink(e.target.value):setLocation(e.target.value)} placeholder={mode==="Online"?"meet.google.com/…":"Student home, …"}/></Field>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Schedule Class"}</Button>
+    </Modal>)}
     {delRow&&<ConfirmModal message="Delete this class? Cannot be undone." onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
@@ -1174,26 +1213,15 @@ function AdminAttendance(){
 /* ═══ ADMIN HOMEWORK ═══ */
 function AdminHomework(){
   const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[tutors,setTutors]=useState([]);const[classes,setClasses]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
-  const blank={title:"",description:"",student_id:"",tutor_id:"",class_id:"",due_at:"",status:"Assigned"};const[f,setF]=useState(blank);
+  const[title,setTitle]=useState("");const[description,setDescription]=useState("");const[studentId,setStudentId]=useState("");const[tutorId,setTutorId]=useState("");const[classId,setClassId]=useState("");const[dueAt,setDueAt]=useState("");const[hwStatus,setHwStatus]=useState("Assigned");
+  const resetForm=()=>{setTitle("");setDescription("");setStudentId("");setTutorId("");setClassId("");setDueAt("");setHwStatus("Assigned");};
   const load=useCallback(async()=>{setLoading(true);setErr("");const[hr,sr,tr,cr]=await Promise.all([db.getHomework(),db.getStudents(),db.getTutors(),db.getClasses()]);if(hr.error)setErr(hr.error.message);else setRows(hr.data||[]);setStudents(sr.data||[]);setTutors(tr.data||[]);setClasses(cr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=h=>{setF({title:h.title,description:h.description||"",student_id:h.student_id,tutor_id:h.tutor_id,class_id:h.class_id||"",due_at:h.due_at?.slice(0,10)||"",status:h.status});setEditRow(h);};
-  const save=async isEdit=>{if(!f.title.trim()||!f.student_id||!f.tutor_id){fire("Title, student and tutor are required","error");return;}setBusy(true);const payload={title:f.title.trim(),description:f.description,student_id:f.student_id,tutor_id:f.tutor_id,class_id:f.class_id||null,due_at:f.due_at?new Date(f.due_at).toISOString():null,status:f.status};const{error}=isEdit?await db.updateHomework(isEdit.id,payload):await db.createHomework(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(isEdit?"Homework updated":"Homework assigned");setAddOpen(false);setEditRow(null);setF(blank);load();};
+  const openEdit=h=>{setTitle(h.title);setDescription(h.description||"");setStudentId(h.student_id);setTutorId(h.tutor_id);setClassId(h.class_id||"");setDueAt(h.due_at?.slice(0,10)||"");setHwStatus(h.status);setEditRow(h);};
+  const save=async()=>{if(!title.trim()||!studentId||!tutorId){fire("Title, student and tutor are required","error");return;}setBusy(true);const payload={title:title.trim(),description,student_id:studentId,tutor_id:tutorId,class_id:classId||null,due_at:dueAt?new Date(dueAt).toISOString():null,status:hwStatus};const{error}=editRow?await db.updateHomework(editRow.id,payload):await db.createHomework(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Homework updated":"Homework assigned");setAddOpen(false);setEditRow(null);resetForm();load();};
   const del=async()=>{setBusy(true);const{error}=await db.deleteHomework(delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Homework deleted");setDelRow(null);load();};
-  const Form=({isEdit})=>(<>
-    <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e=>setF({...f,title:e.target.value})} placeholder="Homework title"/></Field>
-    <Field label="Description"><textarea style={{...inputStyle,minHeight:68}} value={f.description} onChange={e=>setF({...f,description:e.target.value})} placeholder="Instructions…"/></Field>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-      <Field label="Student" required><select style={inputStyle} value={f.student_id} onChange={e=>setF({...f,student_id:e.target.value})}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
-      <Field label="Tutor" required><select style={inputStyle} value={f.tutor_id} onChange={e=>setF({...f,tutor_id:e.target.value})}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
-      <Field label="Due Date"><input style={inputStyle} type="date" value={f.due_at} onChange={e=>setF({...f,due_at:e.target.value})}/></Field>
-      <Field label="Status"><select style={inputStyle} value={f.status} onChange={e=>setF({...f,status:e.target.value})}>{["Assigned","Submitted","Reviewed","Incomplete"].map(s=><option key={s}>{s}</option>)}</select></Field>
-    </div>
-    <Field label="Linked Class (optional)"><select style={inputStyle} value={f.class_id} onChange={e=>setF({...f,class_id:e.target.value})}><option value="">— None —</option>{classes.map(c=><option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>)}</select></Field>
-    <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={()=>save(isEdit)} disabled={busy}>{busy?"Saving…":isEdit?"Save Changes":"Assign Homework"}</Button>
-  </>);
   return(<div>{el}
-    <SectionTitle title="Homework" action={<Button icon={Plus} onClick={()=>{setF(blank);setAddOpen(true);}}>Add Homework</Button>}/>
+    <SectionTitle title="Homework" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Homework</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     {loading?<Spinner/>:rows.length===0?<Empty icon={BookOpenCheck} title="No homework yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Assign Homework</Button>}/>:(
       <Card><Table columns={["Title","Student","Tutor","Due Date","Status",""]}
@@ -1205,7 +1233,18 @@ function AdminHomework(){
         ]}))}
       /></Card>
     )}
-    {(addOpen||editRow)&&<Modal title={editRow?"Edit Homework":"Add Homework"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}><Form isEdit={editRow||false}/></Modal>}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Homework":"Add Homework"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <Field label="Title" required><input style={inputStyle} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Homework title" autoFocus/></Field>
+      <Field label="Description"><textarea style={{...inputStyle,minHeight:68}} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Instructions…"/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="Due Date"><input style={inputStyle} type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)}/></Field>
+        <Field label="Status"><select style={inputStyle} value={hwStatus} onChange={e=>setHwStatus(e.target.value)}>{["Assigned","Submitted","Reviewed","Incomplete"].map(s=><option key={s}>{s}</option>)}</select></Field>
+      </div>
+      <Field label="Linked Class (optional)"><select style={inputStyle} value={classId} onChange={e=>setClassId(e.target.value)}><option value="">— None —</option>{classes.filter(c=>!studentId||c.student_id===studentId).map(c=><option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>)}</select></Field>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Assign Homework"}</Button>
+    </Modal>)}
     {delRow&&<ConfirmModal message={`Delete "${delRow.title}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
@@ -1213,21 +1252,20 @@ function AdminHomework(){
 /* ═══ ADMIN PAYMENTS ═══ */
 function AdminPayments(){
   const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useState("invoices");const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
-  const blankP={invoice_id:"",parent_id:"",student_id:"",amount_qar:"",method:"Cash",reference:"",notes:""};
-  const blankI={parent_id:"",student_id:"",total_qar:"",discount_qar:"0",period_start:"",period_end:"",notes:"",status:"Draft"};
-  const[fp,setFp]=useState(blankP);const[fi,setFi]=useState(blankI);
+  const[payParentId,setPayParentId]=useState("");const[payInvId,setPayInvId]=useState("");const[payAmount,setPayAmount]=useState("");const[payMethod,setPayMethod]=useState("Cash");const[payRef,setPayRef]=useState("");const[payNotes,setPayNotes]=useState("");
+  const[invParentId,setInvParentId]=useState("");const[invStudentId,setInvStudentId]=useState("");const[invTotal,setInvTotal]=useState("");const[invDiscount,setInvDiscount]=useState("0");const[invPeriodStart,setInvPeriodStart]=useState("");const[invPeriodEnd,setInvPeriodEnd]=useState("");const[invNotes,setInvNotes]=useState("");const[invStatus,setInvStatus]=useState("Draft");
   const load=useCallback(async()=>{setLoading(true);setErr("");const[pr,ir,par,sr]=await Promise.all([db.getPayments(),db.getInvoices(),db.getParents(),db.getStudents()]);if(pr.error)setErr(pr.error.message);else setPayments(pr.data||[]);setInvoices(ir.data||[]);setParents(par.data||[]);setStudents(sr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
   const totalCollected=payments.reduce((s,p)=>s+Number(p.amount_qar||0),0);
   const totalOutstanding=invoices.filter(i=>["Issued","Partially Paid","Overdue"].includes(i.status)).reduce((s,i)=>s+Number(i.balance_qar||0),0);
-  const savePay=async()=>{if(!fp.parent_id||!fp.amount_qar){fire("Parent and amount are required","error");return;}setBusy(true);const{error}=await db.createPayment({...fp,amount_qar:Number(fp.amount_qar),invoice_id:fp.invoice_id||null,student_id:fp.student_id||null});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setFp(blankP);load();};
-  const saveInv=async()=>{if(!fi.parent_id||!fi.total_qar){fire("Parent and total are required","error");return;}setBusy(true);const invNum=await db.generateInvoiceNumber();const{error}=await db.createInvoice({...fi,invoice_number:invNum,total_qar:Number(fi.total_qar),subtotal_qar:Number(fi.total_qar),discount_qar:Number(fi.discount_qar)||0,student_id:fi.student_id||null});setBusy(false);if(error){fire(error.message,"error");return;}fire("Invoice created");setShowInv(false);setFi(blankI);load();};
+  const savePay=async()=>{if(!payParentId||!payAmount){fire("Parent and amount are required","error");return;}setBusy(true);const{error}=await db.createPayment({parent_id:payParentId,invoice_id:payInvId||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
+  const saveInv=async()=>{if(!invParentId||!invTotal){fire("Parent and total are required","error");return;}setBusy(true);const invNum=await db.generateInvoiceNumber();const{error}=await db.createInvoice({parent_id:invParentId,student_id:invStudentId||null,invoice_number:invNum,total_qar:Number(invTotal),subtotal_qar:Number(invTotal),discount_qar:Number(invDiscount)||0,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus});setBusy(false);if(error){fire(error.message,"error");return;}fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();};
   const issueInv=async inv=>{const{error}=await db.updateInvoice(inv.id,{status:"Issued",issued_at:new Date().toISOString()});if(error)fire(error.message,"error");else{fire("Invoice issued");load();}};
   return(<div>{el}
     <SectionTitle title="Payments & Invoices" action={<div style={{display:"flex",gap:8}}><Button variant="secondary" icon={Plus} onClick={()=>setShowInv(true)}>New Invoice</Button><Button icon={Plus} onClick={()=>setShowPay(true)}>Record Payment</Button></div>}/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:18}}>
       <StatCard icon={Wallet} label="Total Collected (QAR)" value={fmt(totalCollected)} accent={tokens.successBg}/>
-      <StatCard icon={AlertCircle} label="Outstanding Balance (QAR)" value={fmt(totalOutstanding)} accent={tokens.warnBg}/>
+      <StatCard icon={AlertCircle} label="Outstanding (QAR)" value={fmt(totalOutstanding)} accent={tokens.warnBg}/>
       <StatCard icon={FileText} label="Total Invoices" value={invoices.length}/>
     </div>
     <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",gap:8}}>
@@ -1250,24 +1288,27 @@ function AdminPayments(){
       }</Card>
     )}
     {showPay&&(<Modal title="Record Payment" onClose={()=>setShowPay(false)}>
-      <Field label="Parent" required><select style={inputStyle} value={fp.parent_id} onChange={e=>setFp({...fp,parent_id:e.target.value})}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-      <Field label="Link to Invoice (optional)"><select style={inputStyle} value={fp.invoice_id} onChange={e=>setFp({...fp,invoice_id:e.target.value})}><option value="">— None —</option>{invoices.filter(i=>!fp.parent_id||i.parent_id===fp.parent_id).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Field label="Amount (QAR)" required><input style={inputStyle} type="number" value={fp.amount_qar} onChange={e=>setFp({...fp,amount_qar:e.target.value})} placeholder="500"/></Field><Field label="Method"><select style={inputStyle} value={fp.method} onChange={e=>setFp({...fp,method:e.target.value})}>{["Cash","Bank Transfer","Card","Online","Cheque"].map(m=><option key={m}>{m}</option>)}</select></Field></div>
-      <Field label="Reference / Receipt #"><input style={inputStyle} value={fp.reference} onChange={e=>setFp({...fp,reference:e.target.value})}/></Field>
-      <Field label="Notes"><textarea style={{...inputStyle,minHeight:50}} value={fp.notes} onChange={e=>setFp({...fp,notes:e.target.value})}/></Field>
+      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>setPayParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+      <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>!payParentId||i.parent_id===payParentId).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Amount (QAR)" required><input style={inputStyle} type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="500"/></Field>
+        <Field label="Method"><select style={inputStyle} value={payMethod} onChange={e=>setPayMethod(e.target.value)}>{["Cash","Bank Transfer","Card","Online","Cheque"].map(m=><option key={m}>{m}</option>)}</select></Field>
+      </div>
+      <Field label="Reference"><input style={inputStyle} value={payRef} onChange={e=>setPayRef(e.target.value)}/></Field>
+      <Field label="Notes"><textarea style={{...inputStyle,minHeight:50}} value={payNotes} onChange={e=>setPayNotes(e.target.value)}/></Field>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={savePay} disabled={busy}>{busy?"Saving…":"Record Payment"}</Button>
     </Modal>)}
     {showInv&&(<Modal title="Create Invoice" wide onClose={()=>setShowInv(false)}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Parent" required><select style={inputStyle} value={fi.parent_id} onChange={e=>setFi({...fi,parent_id:e.target.value})}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-        <Field label="Student (optional)"><select style={inputStyle} value={fi.student_id} onChange={e=>setFi({...fi,student_id:e.target.value})}><option value="">— None —</option>{students.filter(s=>!fi.parent_id||s.parent_id===fi.parent_id).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
-        <Field label="Period Start"><input style={inputStyle} type="date" value={fi.period_start} onChange={e=>setFi({...fi,period_start:e.target.value})}/></Field>
-        <Field label="Period End"><input style={inputStyle} type="date" value={fi.period_end} onChange={e=>setFi({...fi,period_end:e.target.value})}/></Field>
-        <Field label="Total (QAR)" required><input style={inputStyle} type="number" value={fi.total_qar} onChange={e=>setFi({...fi,total_qar:e.target.value})} placeholder="1500"/></Field>
-        <Field label="Discount (QAR)"><input style={inputStyle} type="number" value={fi.discount_qar} onChange={e=>setFi({...fi,discount_qar:e.target.value})}/></Field>
-        <Field label="Status"><select style={inputStyle} value={fi.status} onChange={e=>setFi({...fi,status:e.target.value})}>{["Draft","Issued"].map(s=><option key={s}>{s}</option>)}</select></Field>
+        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>setInvParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+        <Field label="Student (optional)"><select style={inputStyle} value={invStudentId} onChange={e=>setInvStudentId(e.target.value)}><option value="">— None —</option>{students.filter(s=>!invParentId||s.parent_id===invParentId).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Period Start"><input style={inputStyle} type="date" value={invPeriodStart} onChange={e=>setInvPeriodStart(e.target.value)}/></Field>
+        <Field label="Period End"><input style={inputStyle} type="date" value={invPeriodEnd} onChange={e=>setInvPeriodEnd(e.target.value)}/></Field>
+        <Field label="Total (QAR)" required><input style={inputStyle} type="number" value={invTotal} onChange={e=>setInvTotal(e.target.value)} placeholder="1500"/></Field>
+        <Field label="Discount (QAR)"><input style={inputStyle} type="number" value={invDiscount} onChange={e=>setInvDiscount(e.target.value)}/></Field>
+        <Field label="Status"><select style={inputStyle} value={invStatus} onChange={e=>setInvStatus(e.target.value)}>{["Draft","Issued"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
-      <Field label="Notes"><textarea style={{...inputStyle,minHeight:50}} value={fi.notes} onChange={e=>setFi({...fi,notes:e.target.value})}/></Field>
+      <Field label="Notes"><textarea style={{...inputStyle,minHeight:50}} value={invNotes} onChange={e=>setInvNotes(e.target.value)}/></Field>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={saveInv} disabled={busy}>{busy?"Saving…":"Create Invoice"}</Button>
     </Modal>)}
   </div>);
@@ -1283,13 +1324,12 @@ function AdminAssessments(){
   if(detail)return(<div>{el}
     <div onClick={()=>setDetail(null)} style={{display:"flex",alignItems:"center",gap:6,color:tokens.slate,fontSize:13,cursor:"pointer",marginBottom:14}}><ArrowLeft size={14}/> Back to Requests</div>
     <Card>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}><div><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{detail.student_name}</div><div style={{fontSize:13,color:tokens.slate}}>Submitted {fmtDate(detail.submitted_at)}</div></div><Pill value={detail.status}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}><div><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{detail.student_name||"—"}</div><div style={{fontSize:13,color:tokens.slate}}>Submitted {fmtDate(detail.submitted_at)}</div></div><Pill value={detail.status}/></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:16}}>
-        <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>PARENT CONTACT</div><div style={{fontSize:13.5,fontWeight:600}}>{detail.parent_name}</div>{detail.parent_email&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,alignItems:"center",marginTop:4}}><Mail size={13}/>{detail.parent_email}</div>}{detail.parent_phone&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,alignItems:"center",marginTop:4}}><Phone size={13}/>{detail.parent_phone}</div>}</div>
-        <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>STUDENT INFO</div>{detail.student_age&&<div style={{fontSize:13.5}}>Age {detail.student_age}</div>}{detail.student_grade&&<div style={{fontSize:13.5}}>{detail.student_grade}</div>}{detail.school&&<div style={{fontSize:13.5}}>{detail.school}</div>}{detail.curriculum&&<div style={{fontSize:13.5}}>{detail.curriculum}</div>}</div>
+        <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>PARENT CONTACT</div><div style={{fontSize:13.5,fontWeight:600}}>{detail.parent_name}</div>{detail.parent_email&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,marginTop:4}}><Mail size={13}/>{detail.parent_email}</div>}{detail.parent_phone&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,marginTop:4}}><Phone size={13}/>{detail.parent_phone}</div>}</div>
+        <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>STUDENT INFO</div>{detail.student_grade&&<div style={{fontSize:13.5}}>{detail.student_grade}</div>}{detail.school&&<div style={{fontSize:13.5}}>{detail.school}</div>}{detail.curriculum&&<div style={{fontSize:13.5}}>{detail.curriculum}</div>}</div>
       </div>
       {detail.subjects?.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:6}}>SUBJECTS</div><div style={{fontSize:13.5}}>{detail.subjects.join(", ")}</div></div>}
-      {detail.goals&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:6}}>GOALS</div><div style={{fontSize:13.5}}>{detail.goals}</div></div>}
       {detail.message&&<div style={{marginBottom:18}}><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:6}}>MESSAGE</div><div style={{fontSize:13.5}}>{detail.message}</div></div>}
       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>{["New","Contacted","Converted","Closed"].map(s=><Button key={s} variant={detail.status===s?"primary":"ghost"} style={{padding:"7px 16px"}} onClick={()=>setStatus(detail.id,s)}>{s}</Button>)}</div>
     </Card>
@@ -1302,7 +1342,7 @@ function AdminAssessments(){
     </Card>
     {loading?<Spinner/>:visible.length===0?<Empty icon={CheckSquare} title="No requests" body={filter==="all"?"No assessment requests yet.":"No requests with this status."}/>:(
       <Card><Table columns={["Date","Student","Parent","Grade","Subjects","Status",""]}
-        rows={visible.map(r=>({cells:[fmtDate(r.submitted_at),r.student_name,r.parent_name,r.student_grade||"—",(r.subjects||[]).join(", ")||"—",<Pill value={r.status}/>,
+        rows={visible.map(r=>({cells:[fmtDate(r.submitted_at),r.student_name||"—",r.parent_name||"—",r.student_grade||"—",(r.subjects||[]).join(", ")||"—",<Pill value={r.status}/>,
           <Button variant="secondary" icon={ChevronRight} style={{padding:"5px 10px"}} onClick={()=>setDetail(r)}>View</Button>
         ]}))}
       /></Card>
@@ -1950,7 +1990,7 @@ function TutorClassNotes({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Note" : "Add Class Note"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          <NoteForm isEdit={editRow || false} />
+          {NoteForm({isEdit:editRow||false})}
         </Modal>
       )}
     </div>
@@ -2094,7 +2134,7 @@ function TutorHomework({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Homework" : "Assign Homework"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          <HwForm isEdit={editRow || false} />
+          {HwForm({isEdit:editRow||false})}
         </Modal>
       )}
       {showDel && <ConfirmModal message={`Delete "${showDel.title}"?`} onConfirm={del} onCancel={() => setShowDel(null)} busy={busy} />}
@@ -2222,7 +2262,7 @@ function TutorMaterials({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Material" : "Add Material"} onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          <MatForm isEdit={editRow || false} />
+          {MatForm({isEdit:editRow||false})}
         </Modal>
       )}
       {showDel && <ConfirmModal message={`Delete "${showDel.title}"?`} onConfirm={del} onCancel={() => setShowDel(null)} busy={busy} />}
