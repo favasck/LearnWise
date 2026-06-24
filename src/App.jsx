@@ -1686,7 +1686,7 @@ function AdminSettings(){
       <Field label="Academy Name"><input style={inputStyle} defaultValue="LearnWise Academy"/></Field>
       <Field label="Tagline"><input style={inputStyle} defaultValue="Smart Guidance. Better Learning."/></Field>
       <Field label="Support Email"><input style={inputStyle} defaultValue="support@learnwise.edu"/></Field>
-      <Field label="Default Currency"><select style={inputStyle} defaultValue="QAR"><option>QAR</option><option>USD</option><option>GBP</option></select></Field>
+      <Field label="Default Currency"><select style={inputStyle} defaultValue="QAR"><option>QAR</option></select></Field>
       <Button>Save Changes</Button>
     </Card>
   </div>);
