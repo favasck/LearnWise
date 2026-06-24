@@ -101,7 +101,7 @@ function ErrorBanner({message,onRetry}){return(<div style={{background:tokens.da
 const Spinner   = LoadingState;
 const Empty     = EmptyState;
 const ErrBanner = ErrorBanner;
-function useToast(){const[toast,setToast]=useState(null);const showToast=useCallback((message,type="success")=>setToast({message,type,key:Date.now()}),[]);const hideToast=useCallback(()=>setToast(null),[]);const ToastEl=toast?<Toast key={toast.key} message={toast.message} type={toast.type} onClose={hideToast}/>:null;return{showToast,ToastEl};}
+function useToast(){const[toast,setToast]=useState(null);const fire=useCallback((message,type="success")=>setToast({message,type,key:Date.now()}),[]);const hideToast=useCallback(()=>setToast(null),[]);const el=toast?<Toast key={toast.key} message={toast.message} type={toast.type} onClose={hideToast}/>:null;return{fire,el};}
 
 /* ═══ NAV ═══ */
 const NAV={
@@ -955,9 +955,16 @@ function AdminUsers(){
 /* ═══ ADMIN STUDENTS ═══ */
 function AdminStudentDetail({student,onBack}){
   const[classes,setClasses]=useState([]);const[homework,setHomework]=useState([]);const[notes,setNotes]=useState([]);const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);
-  useEffect(()=>{(async()=>{setLoading(true);const[cr,hr,nr,ir]=await Promise.all([db.getClasses({studentId:student.id}),db.getHomework({studentId:student.id}),db.getClassNotes({studentId:student.id}),student.parent_id?db.getInvoices({parentId:student.parent_id}):{data:[]}]);setClasses(cr.data||[]);setHomework(hr.data||[]);setNotes(nr.data||[]);setInvoices(ir.data||[]);setLoading(false);})();},[student.id,student.parent_id]);
-  const tutorNames=(student.student_tutors||[]).map(st=>st.tutor?.full_name).filter(Boolean).join(", ")||"—";
-  return(<div>
+  const[allTutors,setAllTutors]=useState([]);const[assignments,setAssignments]=useState([]);const[showAssign,setShowAssign]=useState(false);const[assignTutorId,setAssignTutorId]=useState("");const[assignBusy,setAssignBusy]=useState(false);
+  const{fire,el}=useToast();
+  const loadAll=async()=>{setLoading(true);const[cr,hr,nr,ir,tr,ar]=await Promise.all([db.getClasses({studentId:student.id}),db.getHomework({studentId:student.id}),db.getClassNotes({studentId:student.id}),student.parent_id?db.getInvoices({parentId:student.parent_id}):{data:[]},db.getTutors(),db.getStudentTutors({studentId:student.id})]);setClasses(cr.data||[]);setHomework(hr.data||[]);setNotes(nr.data||[]);setInvoices(ir.data||[]);setAllTutors(tr.data||[]);setAssignments(ar.data||[]);setLoading(false);};
+  useEffect(()=>{loadAll();},[student.id,student.parent_id]);
+  const doAssign=async()=>{if(!assignTutorId){fire("Select a tutor","error");return;}setAssignBusy(true);const{error}=await db.assignTutorToStudent(student.id,assignTutorId,[]);setAssignBusy(false);if(error){fire(error.message,"error");return;}fire("Tutor assigned");setShowAssign(false);setAssignTutorId("");loadAll();};
+  const doRemove=async(assignId)=>{const{error}=await db.removeStudentTutor(assignId);if(error)fire(error.message,"error");else{fire("Tutor removed");loadAll();}};
+  const assignedTutorIds=assignments.map(a=>a.tutor_id);
+  const availableTutors=allTutors.filter(t=>!assignedTutorIds.includes(t.id));
+  const tutorNames=assignments.map(a=>a.tutor?.full_name).filter(Boolean).join(", ")||"—";
+  return(<div>{el}
     <div onClick={onBack} style={{display:"flex",alignItems:"center",gap:6,color:tokens.slate,fontSize:13,cursor:"pointer",marginBottom:14}}><ArrowLeft size={14}/> Back to Students</div>
     <Card style={{marginBottom:18}}>
       <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
@@ -982,7 +989,9 @@ function AdminStudentDetail({student,onBack}){
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><Pill value={h.status}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{n.topic||"—"}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
       </div>
+      <Card style={{marginTop:18}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:700,fontSize:14}}>Assigned Tutors</div><Button icon={Plus} variant="secondary" style={{padding:"5px 12px",fontSize:12}} onClick={()=>setShowAssign(true)}>Assign Tutor</Button></div>{assignments.length===0?<div style={{fontSize:13,color:tokens.slate}}>No tutors assigned yet.</div>:assignments.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13.5,fontWeight:600}}>{a.tutor?.full_name||"—"}</div><Button variant="danger" icon={Trash2} style={{padding:"4px 8px",fontSize:12}} onClick={()=>doRemove(a.id)}>Remove</Button></div>))}</Card>
     </>)}
+    {showAssign&&(<Modal title="Assign Tutor" onClose={()=>{setShowAssign(false);setAssignTutorId("");}}><Field label="Select Tutor" required><select style={inputStyle} value={assignTutorId} onChange={e=>setAssignTutorId(e.target.value)}><option value="">— Choose tutor —</option>{availableTutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>{availableTutors.length===0&&<div style={{fontSize:13,color:tokens.slate,marginBottom:14}}>All tutors are already assigned to this student.</div>}<div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={()=>{setShowAssign(false);setAssignTutorId("");}}>Cancel</Button><Button onClick={doAssign} disabled={assignBusy||!assignTutorId||availableTutors.length===0}>{assignBusy?"Assigning…":"Confirm"}</Button></div></Modal>)}
   </div>);
 }
 
@@ -1892,60 +1901,6 @@ function TutorClassNotes({ tutorId }) {
     setShowAdd(false); setEditRow(null); setF(blank); load();
   };
 
-  const NoteForm = ({ isEdit }) => (
-    <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Student" required>
-          <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
-            <option value="">— Select student —</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-          </select>
-        </Field>
-        <Field label="Linked Class (optional)">
-          <select style={inputStyle} value={f.class_id} onChange={e => setF({ ...f, class_id: e.target.value })}>
-            <option value="">— None —</option>
-            {classes.filter(c => !f.student_id || c.student_id === f.student_id).map(c => (
-              <option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Topic / Subject covered" required>
-          <input style={inputStyle} value={f.topic} onChange={e => setF({ ...f, topic: e.target.value })} placeholder="e.g. Quadratic Equations" />
-        </Field>
-        <Field label="Understanding level">
-          <select style={inputStyle} value={f.understanding} onChange={e => setF({ ...f, understanding: e.target.value })}>
-            {["Excellent", "Good", "Fair", "Needs Support"].map(o => <option key={o}>{o}</option>)}
-          </select>
-        </Field>
-      </div>
-      <Field label="Strengths shown">
-        <input style={inputStyle} value={f.strengths} onChange={e => setF({ ...f, strengths: e.target.value })} placeholder="What the student did well…" />
-      </Field>
-      <Field label="Areas to improve">
-        <input style={inputStyle} value={f.improvement} onChange={e => setF({ ...f, improvement: e.target.value })} placeholder="What needs more practice…" />
-      </Field>
-      <Field label="Recommendation">
-        <input style={inputStyle} value={f.recommendation} onChange={e => setF({ ...f, recommendation: e.target.value })} placeholder="Suggested next steps…" />
-      </Field>
-      <Field label="Parent-friendly summary">
-        <textarea style={{ ...inputStyle, minHeight: 72 }} value={f.summary} onChange={e => setF({ ...f, summary: e.target.value })} placeholder="A plain-language update for the parent…" />
-      </Field>
-      <div style={{ display: "flex", gap: 18, marginBottom: 14 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={f.is_shared_with_parent} onChange={e => setF({ ...f, is_shared_with_parent: e.target.checked })} />
-          Share with parent
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={f.is_shared_with_student} onChange={e => setF({ ...f, is_shared_with_student: e.target.checked })} />
-          Share with student
-        </label>
-      </div>
-      <Button style={{ width: "100%", justifyContent: "center", marginTop: 4 }} onClick={() => save(isEdit)} disabled={busy}>
-        {busy ? "Saving…" : isEdit ? "Save Changes" : "Save Note"}
-      </Button>
-    </>
-  );
-
   const understandingColor = { Excellent: tokens.success, Good: tokens.teal, Fair: tokens.warn, "Needs Support": tokens.danger };
 
   return (
@@ -1990,7 +1945,55 @@ function TutorClassNotes({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Note" : "Add Class Note"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          {NoteForm({isEdit:editRow||false})}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Student" required>
+              <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
+                <option value="">— Select student —</option>
+                {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+            </Field>
+            <Field label="Linked Class (optional)">
+              <select style={inputStyle} value={f.class_id} onChange={e => setF({ ...f, class_id: e.target.value })}>
+                <option value="">— None —</option>
+                {classes.filter(c => !f.student_id || c.student_id === f.student_id).map(c => (
+                  <option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Topic / Subject covered" required>
+              <input style={inputStyle} value={f.topic} onChange={e => setF({ ...f, topic: e.target.value })} placeholder="e.g. Quadratic Equations" />
+            </Field>
+            <Field label="Understanding level">
+              <select style={inputStyle} value={f.understanding} onChange={e => setF({ ...f, understanding: e.target.value })}>
+                {["Excellent", "Good", "Fair", "Needs Support"].map(o => <option key={o}>{o}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Strengths shown">
+            <input style={inputStyle} value={f.strengths} onChange={e => setF({ ...f, strengths: e.target.value })} placeholder="What the student did well…" />
+          </Field>
+          <Field label="Areas to improve">
+            <input style={inputStyle} value={f.improvement} onChange={e => setF({ ...f, improvement: e.target.value })} placeholder="What needs more practice…" />
+          </Field>
+          <Field label="Recommendation">
+            <input style={inputStyle} value={f.recommendation} onChange={e => setF({ ...f, recommendation: e.target.value })} placeholder="Suggested next steps…" />
+          </Field>
+          <Field label="Parent-friendly summary">
+            <textarea style={{ ...inputStyle, minHeight: 72 }} value={f.summary} onChange={e => setF({ ...f, summary: e.target.value })} placeholder="A plain-language update for the parent…" />
+          </Field>
+          <div style={{ display: "flex", gap: 18, marginBottom: 14 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.is_shared_with_parent} onChange={e => setF({ ...f, is_shared_with_parent: e.target.checked })} />
+              Share with parent
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={f.is_shared_with_student} onChange={e => setF({ ...f, is_shared_with_student: e.target.checked })} />
+              Share with student
+            </label>
+          </div>
+          <Button style={{ width: "100%", justifyContent: "center", marginTop: 4 }} onClick={() => save(editRow || false)} disabled={busy}>
+            {busy ? "Saving…" : editRow ? "Save Changes" : "Save Note"}
+          </Button>
         </Modal>
       )}
     </div>
@@ -2060,38 +2063,6 @@ function TutorHomework({ tutorId }) {
 
   const visible = filter === "all" ? hw : hw.filter(h => h.status === filter);
 
-  const HwForm = ({ isEdit }) => (
-    <>
-      <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Homework title" /></Field>
-      <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 68 }} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} placeholder="Instructions for the student…" /></Field>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Student" required>
-          <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
-            <option value="">— Select student —</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-          </select>
-        </Field>
-        <Field label="Due Date"><input style={inputStyle} type="date" value={f.due_at} onChange={e => setF({ ...f, due_at: e.target.value })} /></Field>
-      </div>
-      <Field label="Linked Class (optional)">
-        <select style={inputStyle} value={f.class_id} onChange={e => setF({ ...f, class_id: e.target.value })}>
-          <option value="">— None —</option>
-          {classes.filter(c => !f.student_id || c.student_id === f.student_id).map(c => (
-            <option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Status">
-        <select style={inputStyle} value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>
-          {["Assigned", "Submitted", "Reviewed", "Incomplete"].map(s => <option key={s}>{s}</option>)}
-        </select>
-      </Field>
-      <Button style={{ width: "100%", justifyContent: "center", marginTop: 6 }} onClick={() => save(isEdit)} disabled={busy}>
-        {busy ? "Saving…" : isEdit ? "Save Changes" : "Assign Homework"}
-      </Button>
-    </>
-  );
-
   return (
     <div>
       {el}
@@ -2134,7 +2105,33 @@ function TutorHomework({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Homework" : "Assign Homework"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          {HwForm({isEdit:editRow||false})}
+          <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Homework title" /></Field>
+          <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 68 }} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} placeholder="Instructions for the student…" /></Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Student" required>
+              <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
+                <option value="">— Select student —</option>
+                {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+            </Field>
+            <Field label="Due Date"><input style={inputStyle} type="date" value={f.due_at} onChange={e => setF({ ...f, due_at: e.target.value })} /></Field>
+          </div>
+          <Field label="Linked Class (optional)">
+            <select style={inputStyle} value={f.class_id} onChange={e => setF({ ...f, class_id: e.target.value })}>
+              <option value="">— None —</option>
+              {classes.filter(c => !f.student_id || c.student_id === f.student_id).map(c => (
+                <option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Status">
+            <select style={inputStyle} value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>
+              {["Assigned", "Submitted", "Reviewed", "Incomplete"].map(s => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Button style={{ width: "100%", justifyContent: "center", marginTop: 6 }} onClick={() => save(editRow || false)} disabled={busy}>
+            {busy ? "Saving…" : editRow ? "Save Changes" : "Assign Homework"}
+          </Button>
         </Modal>
       )}
       {showDel && <ConfirmModal message={`Delete "${showDel.title}"?`} onConfirm={del} onCancel={() => setShowDel(null)} busy={busy} />}
@@ -2194,36 +2191,6 @@ function TutorMaterials({ tutorId }) {
     fire("Material deleted"); setShowDel(null); load();
   };
 
-  const MatForm = ({ isEdit }) => (
-    <>
-      <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="e.g. IGCSE Algebra Formula Sheet" /></Field>
-      <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 52 }} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></Field>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Subject">
-          <select style={inputStyle} value={f.subject} onChange={e => setF({ ...f, subject: e.target.value })}>
-            {SUBJECTS.map(s => <option key={s}>{s}</option>)}
-          </select>
-        </Field>
-        <Field label="For Student (optional)">
-          <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
-            <option value="">— All students —</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-          </select>
-        </Field>
-      </div>
-      <Field label="File URL or Link">
-        <input style={inputStyle} value={f.file_url} onChange={e => setF({ ...f, file_url: e.target.value })} placeholder="https://… or Supabase Storage path" />
-      </Field>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginBottom: 16 }}>
-        <input type="checkbox" checked={f.is_public} onChange={e => setF({ ...f, is_public: e.target.checked })} />
-        Visible to all students (public material)
-      </label>
-      <Button style={{ width: "100%", justifyContent: "center" }} onClick={() => save(isEdit)} disabled={busy}>
-        {busy ? "Saving…" : isEdit ? "Save Changes" : "Add Material"}
-      </Button>
-    </>
-  );
-
   return (
     <div>
       {el}
@@ -2262,7 +2229,31 @@ function TutorMaterials({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Material" : "Add Material"} onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          {MatForm({isEdit:editRow||false})}
+          <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="e.g. IGCSE Algebra Formula Sheet" /></Field>
+          <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 52 }} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Subject">
+              <select style={inputStyle} value={f.subject} onChange={e => setF({ ...f, subject: e.target.value })}>
+                {SUBJECTS.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="For Student (optional)">
+              <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
+                <option value="">— All students —</option>
+                {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="File URL or Link">
+            <input style={inputStyle} value={f.file_url} onChange={e => setF({ ...f, file_url: e.target.value })} placeholder="https://… or Supabase Storage path" />
+          </Field>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", marginBottom: 16 }}>
+            <input type="checkbox" checked={f.is_public} onChange={e => setF({ ...f, is_public: e.target.checked })} />
+            Visible to all students (public material)
+          </label>
+          <Button style={{ width: "100%", justifyContent: "center" }} onClick={() => save(editRow || false)} disabled={busy}>
+            {busy ? "Saving…" : editRow ? "Save Changes" : "Add Material"}
+          </Button>
         </Modal>
       )}
       {showDel && <ConfirmModal message={`Delete "${showDel.title}"?`} onConfirm={del} onCancel={() => setShowDel(null)} busy={busy} />}
