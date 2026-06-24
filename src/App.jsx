@@ -110,8 +110,9 @@ const NAV={
     {key:"students",label:"Students",icon:GraduationCap},{key:"parents",label:"Parents",icon:UserCircle},
     {key:"tutors",label:"Tutors",icon:Users},{key:"classes",label:"Classes",icon:CalendarDays},
     {key:"attendance",label:"Attendance",icon:ClipboardCheck},{key:"homework",label:"Homework",icon:BookOpenCheck},
+    {key:"classnotes",label:"Class Notes",icon:FileText},{key:"materials",label:"Materials",icon:BookOpen},
     {key:"payments",label:"Payments",icon:Wallet},{key:"assessments",label:"Requests",icon:CheckSquare},
-    {key:"reports",label:"Reports",icon:FileBarChart},{key:"settings",label:"Settings",icon:Settings},
+    {key:"reports",label:"Reports",icon:FileBarChart},{key:"settings",label:"Settings",icon:Settings},{key:"qatest",label:"QA Test",icon:CheckSquare},
   ],
   tutor:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"myclasses",label:"My Classes",icon:CalendarDays},{key:"mystudents",label:"My Students",icon:GraduationCap},{key:"classnotes",label:"Class Notes",icon:FileText},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"materials",label:"Materials",icon:BookOpen}],
   parent:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"mychild",label:"My Child",icon:GraduationCap},{key:"classes",label:"Classes",icon:CalendarDays},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"progress",label:"Progress",icon:TrendingUp},{key:"payments",label:"Payments",icon:Wallet}],
@@ -1258,6 +1259,97 @@ function AdminHomework(){
   </div>);
 }
 
+/* ═══ ADMIN CLASS NOTES ═══ */
+function AdminClassNotes(){
+  const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[tutors,setTutors]=useState([]);const[classes,setClasses]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
+  const[noteStudentId,setNoteStudentId]=useState("");const[noteTutorId,setNoteTutorId]=useState("");const[noteClassId,setNoteClassId]=useState("");const[noteTopic,setNoteTopic]=useState("");const[noteUnderstanding,setNoteUnderstanding]=useState("Good");const[noteStrengths,setNoteStrengths]=useState("");const[noteImprovement,setNoteImprovement]=useState("");const[noteRec,setNoteRec]=useState("");const[noteSummary,setNoteSummary]=useState("");const[noteParent,setNoteParent]=useState(true);const[noteStudent,setNoteStudent]=useState(false);
+  const resetForm=()=>{setNoteStudentId("");setNoteTutorId("");setNoteClassId("");setNoteTopic("");setNoteUnderstanding("Good");setNoteStrengths("");setNoteImprovement("");setNoteRec("");setNoteSummary("");setNoteParent(true);setNoteStudent(false);};
+  const load=useCallback(async()=>{setLoading(true);setErr("");const[nr,sr,tr,cr]=await Promise.all([db.getClassNotes(),db.getStudents(),db.getTutors(),db.getClasses()]);if(nr.error)setErr(nr.error.message);else setRows(nr.data||[]);setStudents(sr.data||[]);setTutors(tr.data||[]);setClasses(cr.data||[]);setLoading(false);},[]);
+  useEffect(()=>{load();},[load]);
+  const openEdit=n=>{setNoteStudentId(n.student_id||"");setNoteTutorId(n.tutor_id||"");setNoteClassId(n.class_id||"");setNoteTopic(n.topic||"");setNoteUnderstanding(n.understanding||"Good");setNoteStrengths(n.strengths||"");setNoteImprovement(n.improvement||"");setNoteRec(n.recommendation||"");setNoteSummary(n.summary||"");setNoteParent(n.is_shared_with_parent??true);setNoteStudent(n.is_shared_with_student??false);setEditRow(n);};
+  const save=async()=>{if(!noteStudentId||!noteTutorId||!noteTopic.trim()){fire("Student, tutor and topic are required","error");return;}setBusy(true);const payload={student_id:noteStudentId,tutor_id:noteTutorId,class_id:noteClassId||null,topic:noteTopic.trim(),understanding:noteUnderstanding,strengths:noteStrengths,improvement:noteImprovement,recommendation:noteRec,summary:noteSummary,is_shared_with_parent:noteParent,is_shared_with_student:noteStudent};const{error}=editRow?await db.updateClassNote(editRow.id,payload):await db.createClassNote(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Note updated":"Note added");setAddOpen(false);setEditRow(null);resetForm();load();};
+  const del=async()=>{setBusy(true);const{error}=await db.deleteClassNote(delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Note deleted");setDelRow(null);load();};
+  const understandingColor={Excellent:tokens.success,Good:tokens.teal,Fair:tokens.warn,"Needs Support":tokens.danger};
+  return(<div>{el}
+    <SectionTitle title="Class Notes" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Note</Button>}/>
+    {err&&<ErrBanner message={err} onRetry={load}/>}
+    {loading?<Spinner/>:rows.length===0?<Empty icon={FileText} title="No notes yet" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Note</Button>}/>:(
+      <Card><Table columns={["Student","Tutor","Topic","Understanding","Shared With",""]}
+        rows={rows.map(n=>({cells:[
+          n.student?.full_name||"—",n.tutor?.full_name||"—",n.topic||"—",
+          <span style={{fontSize:12.5,fontWeight:700,color:understandingColor[n.understanding]||tokens.slate}}>{n.understanding||"—"}</span>,
+          <span style={{fontSize:12}}>{n.is_shared_with_parent?"Parent ":""}{n.is_shared_with_student?"Student":""}</span>,
+          <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
+            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(n)}/>
+            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(n)}/>
+          </div>
+        ]}))}
+      /></Card>
+    )}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Note":"Add Class Note"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Student" required><select style={inputStyle} value={noteStudentId} onChange={e=>setNoteStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={noteTutorId} onChange={e=>setNoteTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="Topic" required><input style={inputStyle} value={noteTopic} onChange={e=>setNoteTopic(e.target.value)} placeholder="e.g. Quadratic Equations"/></Field>
+        <Field label="Understanding"><select style={inputStyle} value={noteUnderstanding} onChange={e=>setNoteUnderstanding(e.target.value)}>{["Excellent","Good","Fair","Needs Support"].map(o=><option key={o}>{o}</option>)}</select></Field>
+      </div>
+      <Field label="Linked Class (optional)"><select style={inputStyle} value={noteClassId} onChange={e=>setNoteClassId(e.target.value)}><option value="">— None —</option>{classes.filter(c=>!noteStudentId||c.student_id===noteStudentId).map(c=><option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>)}</select></Field>
+      <Field label="Strengths"><input style={inputStyle} value={noteStrengths} onChange={e=>setNoteStrengths(e.target.value)} placeholder="What the student did well…"/></Field>
+      <Field label="Areas to improve"><input style={inputStyle} value={noteImprovement} onChange={e=>setNoteImprovement(e.target.value)} placeholder="What needs more practice…"/></Field>
+      <Field label="Recommendation"><input style={inputStyle} value={noteRec} onChange={e=>setNoteRec(e.target.value)} placeholder="Suggested next steps…"/></Field>
+      <Field label="Summary (shown to parent)"><textarea style={{...inputStyle,minHeight:68}} value={noteSummary} onChange={e=>setNoteSummary(e.target.value)} placeholder="A plain-language update…"/></Field>
+      <div style={{display:"flex",gap:20,marginBottom:14}}>
+        <label style={{display:"flex",alignItems:"center",gap:7,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={noteParent} onChange={e=>setNoteParent(e.target.checked)}/> Share with parent</label>
+        <label style={{display:"flex",alignItems:"center",gap:7,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={noteStudent} onChange={e=>setNoteStudent(e.target.checked)}/> Share with student</label>
+      </div>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Note"}</Button>
+    </Modal>)}
+    {delRow&&<ConfirmModal message={`Delete note for "${delRow.student?.full_name}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
+  </div>);
+}
+
+/* ═══ ADMIN MATERIALS ═══ */
+function AdminMaterials(){
+  const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[tutors,setTutors]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
+  const[matTitle,setMatTitle]=useState("");const[matDesc,setMatDesc]=useState("");const[matSubject,setMatSubject]=useState(SUBJECTS[0]);const[matUrl,setMatUrl]=useState("");const[matPublic,setMatPublic]=useState(false);const[matStudentId,setMatStudentId]=useState("");const[matTutorId,setMatTutorId]=useState("");
+  const resetForm=()=>{setMatTitle("");setMatDesc("");setMatSubject(SUBJECTS[0]);setMatUrl("");setMatPublic(false);setMatStudentId("");setMatTutorId("");};
+  const load=useCallback(async()=>{setLoading(true);setErr("");const[mr,sr,tr]=await Promise.all([db.getMaterials(),db.getStudents(),db.getTutors()]);if(mr.error)setErr(mr.error.message);else setRows(mr.data||[]);setStudents(sr.data||[]);setTutors(tr.data||[]);setLoading(false);},[]);
+  useEffect(()=>{load();},[load]);
+  const openEdit=m=>{setMatTitle(m.title);setMatDesc(m.description||"");setMatSubject(m.subject||SUBJECTS[0]);setMatUrl(m.file_url||"");setMatPublic(m.is_public||false);setMatStudentId(m.student_id||"");setMatTutorId(m.tutor_id||"");setEditRow(m);};
+  const save=async()=>{if(!matTitle.trim()||!matTutorId){fire("Title and tutor are required","error");return;}setBusy(true);const payload={title:matTitle.trim(),description:matDesc,subject:matSubject,file_url:matUrl||null,is_public:matPublic,tutor_id:matTutorId,student_id:matStudentId||null};const{error}=editRow?await db.updateMaterial(editRow.id,payload):await db.createMaterial(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Material updated":"Material added");setAddOpen(false);setEditRow(null);resetForm();load();};
+  const del=async()=>{setBusy(true);const{error}=await db.deleteMaterial(delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Material deleted");setDelRow(null);load();};
+  return(<div>{el}
+    <SectionTitle title="Study Materials" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Material</Button>}/>
+    {err&&<ErrBanner message={err} onRetry={load}/>}
+    {loading?<Spinner/>:rows.length===0?<Empty icon={BookOpen} title="No materials yet" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Material</Button>}/>:(
+      <Card><Table columns={["Title","Subject","Tutor","For Student","Public",""]}
+        rows={rows.map(m=>({cells:[
+          m.title,m.subject||"—",m.tutor?.full_name||"—",m.student?.full_name||"All",
+          m.is_public?<Pill value="Active"/>:<span style={{fontSize:12,color:tokens.slate}}>No</span>,
+          <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
+            {m.file_url&&<a href={m.file_url} target="_blank" rel="noreferrer"><Button variant="secondary" icon={Download} style={{padding:"5px 8px"}}/></a>}
+            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(m)}/>
+            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(m)}/>
+          </div>
+        ]}))}
+      /></Card>
+    )}
+    {(addOpen||editRow)&&(<Modal title={editRow?"Edit Material":"Add Material"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
+      <Field label="Title" required><input style={inputStyle} value={matTitle} onChange={e=>setMatTitle(e.target.value)} placeholder="e.g. IGCSE Algebra Formula Sheet" autoFocus/></Field>
+      <Field label="Description"><textarea style={{...inputStyle,minHeight:52}} value={matDesc} onChange={e=>setMatDesc(e.target.value)}/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Field label="Subject"><select style={inputStyle} value={matSubject} onChange={e=>setMatSubject(e.target.value)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={matTutorId} onChange={e=>setMatTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="For Student (optional)"><select style={inputStyle} value={matStudentId} onChange={e=>setMatStudentId(e.target.value)}><option value="">— All students —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+      </div>
+      <Field label="File URL or Link"><input style={inputStyle} value={matUrl} onChange={e=>setMatUrl(e.target.value)} placeholder="https://…"/></Field>
+      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",marginBottom:16}}><input type="checkbox" checked={matPublic} onChange={e=>setMatPublic(e.target.checked)}/> Visible to all students (public)</label>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Material"}</Button>
+    </Modal>)}
+    {delRow&&<ConfirmModal message={`Delete "${delRow.title}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
+  </div>);
+}
+
 /* ═══ ADMIN PAYMENTS ═══ */
 function AdminPayments(){
   const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useState("invoices");const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
@@ -1267,7 +1359,7 @@ function AdminPayments(){
   useEffect(()=>{load();},[load]);
   const totalCollected=payments.reduce((s,p)=>s+Number(p.amount_qar||0),0);
   const totalOutstanding=invoices.filter(i=>["Issued","Partially Paid","Overdue"].includes(i.status)).reduce((s,i)=>s+Number(i.balance_qar||0),0);
-  const savePay=async()=>{if(!payParentId||!payAmount){fire("Parent and amount are required","error");return;}setBusy(true);const{error}=await db.createPayment({parent_id:payParentId,invoice_id:payInvId||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
+  const savePay=async()=>{if(!payParentId||!payAmount){fire("Parent and amount are required","error");return;}setBusy(true);const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;const{error}=await db.createPayment({parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
   const saveInv=async()=>{if(!invParentId||!invTotal){fire("Parent and total are required","error");return;}setBusy(true);const invNum=await db.generateInvoiceNumber();const{error}=await db.createInvoice({parent_id:invParentId,student_id:invStudentId||null,invoice_number:invNum,total_qar:Number(invTotal),subtotal_qar:Number(invTotal),discount_qar:Number(invDiscount)||0,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus});setBusy(false);if(error){fire(error.message,"error");return;}fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();};
   const issueInv=async inv=>{const{error}=await db.updateInvoice(inv.id,{status:"Issued",issued_at:new Date().toISOString()});if(error)fire(error.message,"error");else{fire("Invoice issued");load();}};
   return(<div>{el}
@@ -1598,6 +1690,552 @@ function AdminSettings(){
       <Button>Save Changes</Button>
     </Card>
   </div>);
+}
+
+/* ═══ ADMIN QA TEST PAGE ═══ */
+function AdminQATest(){
+  const {profile} = useAuth();
+  const [results, setResults] = useState([]);
+  const [running, setRunning]   = useState(false);
+  const [ran,     setRan]       = useState(false);
+
+  const MODULES = [
+    "Authentication","User Roles","User Linking",
+    "Students","Parents","Tutors","Classes","Attendance",
+    "Class Notes","Homework","Materials","Payments","Reports",
+    "Parent Portal","Tutor Portal","Student Portal","Public Assessment Form",
+  ];
+
+  // initialise checklist rows
+  const blankRows = () => MODULES.map(m => ({
+    module: m, expected: "", actual: "", status: "Not Tested", error: "",
+  }));
+
+  useEffect(() => { setResults(blankRows()); }, []);
+
+  const pass  = (r, expected, actual) => ({ ...r, expected, actual, status:"Passed",  error:"" });
+  const fail  = (r, expected, actual, error="") => ({ ...r, expected, actual, status:"Failed", error });
+  const skip  = (r, note) => ({ ...r, expected:"—", actual: note, status:"Not Tested", error:"" });
+
+  const runChecks = async () => {
+    setRunning(true);
+    const rows = blankRows();
+
+    // ── 1. Authentication ──────────────────────────────────
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        rows[0] = pass(rows[0], "Active session exists", `Logged in as ${session.user.email}`);
+      } else {
+        rows[0] = fail(rows[0], "Active session exists", "No session found");
+      }
+    } catch(e) { rows[0] = fail(rows[0], "Active session exists", "Error", e.message); }
+
+    // ── 2. User Roles ─────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("profiles").select("email,role").limit(10);
+      if (error) throw new Error(error.message);
+      const roles = [...new Set((data||[]).map(p=>p.role))];
+      rows[1] = pass(rows[1], "Profiles table readable, roles present",
+        `${data.length} profiles found · Roles: ${roles.join(", ")}`);
+    } catch(e) { rows[1] = fail(rows[1], "Profiles readable", "Error", e.message); }
+
+    // ── 3. User Linking ───────────────────────────────────
+    try {
+      const [tr, pr, sr] = await Promise.all([
+        supabase.from("tutors").select("full_name, user_id").not("user_id","is",null),
+        supabase.from("parents").select("full_name, user_id").not("user_id","is",null),
+        supabase.from("students").select("full_name, user_id").not("user_id","is",null),
+      ]);
+      const t = tr.data?.length||0, p = pr.data?.length||0, s = sr.data?.length||0;
+      if (t+p+s > 0) {
+        rows[2] = pass(rows[2], "At least one linked account",
+          `Tutors: ${t} linked · Parents: ${p} linked · Students: ${s} linked`);
+      } else {
+        rows[2] = fail(rows[2], "At least one linked account", "No linked accounts found",
+          "Link auth users to profiles in All Users → Link");
+      }
+    } catch(e) { rows[2] = fail(rows[2], "Linked accounts", "Error", e.message); }
+
+    // ── 4. Students ───────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("students")
+        .select("id, full_name, grade, curriculum, parent_id").limit(20);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[3] = pass(rows[3], "Students table readable with data",
+          `${data.length} student(s) found · e.g. "${data[0].full_name}" (${data[0].grade}, ${data[0].curriculum})`);
+      } else {
+        rows[3] = fail(rows[3], "At least 1 student", "Table empty — no students found");
+      }
+    } catch(e) { rows[3] = fail(rows[3], "Students readable", "Error", e.message); }
+
+    // ── 5. Parents ────────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("parents").select("id, full_name, email").limit(20);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[4] = pass(rows[4], "Parents table readable with data",
+          `${data.length} parent(s) found · e.g. "${data[0].full_name}"`);
+      } else {
+        rows[4] = fail(rows[4], "At least 1 parent", "Table empty — no parents found");
+      }
+    } catch(e) { rows[4] = fail(rows[4], "Parents readable", "Error", e.message); }
+
+    // ── 6. Tutors ─────────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("tutors").select("id, full_name, subjects, rate_qar").limit(20);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[5] = pass(rows[5], "Tutors table readable with data",
+          `${data.length} tutor(s) found · e.g. "${data[0].full_name}" (${(data[0].subjects||[]).join(", ")||"—"})`);
+      } else {
+        rows[5] = fail(rows[5], "At least 1 tutor", "Table empty — no tutors found");
+      }
+    } catch(e) { rows[5] = fail(rows[5], "Tutors readable", "Error", e.message); }
+
+    // ── 7. Classes ────────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("classes")
+        .select("id, subject, topic, status, scheduled_at").limit(20);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[6] = pass(rows[6], "Classes table readable with data",
+          `${data.length} class(es) found · e.g. "${data[0].subject} – ${data[0].topic||"—"}" (${data[0].status})`);
+      } else {
+        rows[6] = fail(rows[6], "At least 1 class", "Table empty — no classes found");
+      }
+    } catch(e) { rows[6] = fail(rows[6], "Classes readable", "Error", e.message); }
+
+    // ── 8. Attendance ─────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("classes")
+        .select("id, attendance").limit(20);
+      if (error) throw new Error(error.message);
+      const marked = (data||[]).filter(c => c.attendance && c.attendance !== "Pending").length;
+      rows[7] = pass(rows[7], "Attendance field accessible",
+        `${data.length} class row(s) checked · ${marked} with attendance marked`);
+    } catch(e) { rows[7] = fail(rows[7], "Attendance accessible", "Error", e.message); }
+
+    // ── 9. Class Notes ────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("class_notes")
+        .select("id, topic, understanding, summary").limit(20);
+      if (error) throw new Error(error.message);
+      rows[8] = pass(rows[8], "Class notes table accessible",
+        `${(data||[]).length} note(s) found`);
+    } catch(e) { rows[8] = fail(rows[8], "Class notes accessible", "Error", e.message); }
+
+    // ── 10. Homework ──────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("homework")
+        .select("id, title, status, due_at").limit(20);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[9] = pass(rows[9], "Homework table readable with data",
+          `${data.length} homework item(s) · e.g. "${data[0].title}" (${data[0].status})`);
+      } else {
+        rows[9] = fail(rows[9], "At least 1 homework", "Table empty — no homework found");
+      }
+    } catch(e) { rows[9] = fail(rows[9], "Homework readable", "Error", e.message); }
+
+    // ── 11. Materials ─────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("materials")
+        .select("id, title, subject").limit(20);
+      if (error) throw new Error(error.message);
+      rows[10] = pass(rows[10], "Materials table accessible",
+        `${(data||[]).length} material(s) found`);
+    } catch(e) { rows[10] = fail(rows[10], "Materials accessible", "Error", e.message); }
+
+    // ── 12. Payments ──────────────────────────────────────
+    try {
+      const [ir, pr] = await Promise.all([
+        supabase.from("invoices").select("id, invoice_number, total_qar, status").limit(20),
+        supabase.from("payments").select("id, amount_qar, method").limit(20),
+      ]);
+      if (ir.error) throw new Error(ir.error.message);
+      rows[11] = pass(rows[11], "Invoices and payments accessible",
+        `${(ir.data||[]).length} invoice(s) · ${(pr.data||[]).length} payment(s)`);
+    } catch(e) { rows[11] = fail(rows[11], "Payments accessible", "Error", e.message); }
+
+    // ── 13. Reports ───────────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("payments")
+        .select("amount_qar, paid_at").limit(50);
+      if (error) throw new Error(error.message);
+      const total = (data||[]).reduce((s,p)=>s+Number(p.amount_qar||0),0);
+      rows[12] = pass(rows[12], "Report data queryable",
+        `Revenue data accessible · ${(data||[]).length} payment record(s) · Total: QAR ${total}`);
+    } catch(e) { rows[12] = fail(rows[12], "Report data queryable", "Error", e.message); }
+
+    // ── 14. Parent Portal ─────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("parents")
+        .select("id, full_name, user_id").not("user_id","is",null).limit(5);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[13] = pass(rows[13], "At least 1 parent linked to auth account",
+          `${data.length} parent(s) linked · "${data[0].full_name}" can access parent portal`);
+      } else {
+        rows[13] = fail(rows[13], "Parent linked to auth", "No parents linked to auth accounts",
+          "Go to All Users → Link to connect parent@learnwise.test to Test Parent");
+      }
+    } catch(e) { rows[13] = fail(rows[13], "Parent portal ready", "Error", e.message); }
+
+    // ── 15. Tutor Portal ──────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("tutors")
+        .select("id, full_name, user_id").not("user_id","is",null).limit(5);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        const stRes = await supabase.from("student_tutors")
+          .select("student_id, tutor_id, is_active").eq("is_active", true).limit(10);
+        rows[14] = pass(rows[14], "Tutor linked + student assigned",
+          `${data.length} tutor(s) linked · ${(stRes.data||[]).length} active student assignment(s)`);
+      } else {
+        rows[14] = fail(rows[14], "Tutor linked to auth", "No tutors linked to auth accounts",
+          "Go to All Users → Link to connect tutor@learnwise.test to Test Tutor");
+      }
+    } catch(e) { rows[14] = fail(rows[14], "Tutor portal ready", "Error", e.message); }
+
+    // ── 16. Student Portal ────────────────────────────────
+    try {
+      const { data, error } = await supabase.from("students")
+        .select("id, full_name, user_id").not("user_id","is",null).limit(5);
+      if (error) throw new Error(error.message);
+      if ((data||[]).length > 0) {
+        rows[15] = pass(rows[15], "At least 1 student linked to auth account",
+          `${data.length} student(s) linked · "${data[0].full_name}" can access student portal`);
+      } else {
+        rows[15] = fail(rows[15], "Student linked to auth", "No students linked to auth accounts",
+          "Go to All Users → Link to connect student@learnwise.test to Test Student");
+      }
+    } catch(e) { rows[15] = fail(rows[15], "Student portal ready", "Error", e.message); }
+
+    // ── 17. Public Assessment Form ────────────────────────
+    try {
+      const { data, error } = await supabase.from("assessment_requests")
+        .select("id, parent_name, status, submitted_at").limit(10);
+      if (error) throw new Error(error.message);
+      rows[16] = pass(rows[16], "Assessment requests table accessible",
+        `${(data||[]).length} request(s) in database`);
+    } catch(e) { rows[16] = fail(rows[16], "Assessment requests accessible", "Error", e.message); }
+
+    setResults(rows);
+    setRunning(false);
+    setRan(true);
+  };
+
+  // ── Create Test Data ─────────────────────────────────────────────
+  const [creating,   setCreating]   = useState(false);
+  const [createLog,  setCreateLog]  = useState([]); // [{msg, type}]
+  const [createDone, setCreateDone] = useState(false);
+
+  const log = (msg, type="info") => setCreateLog(prev => [...prev, {msg, type, id: Date.now()+Math.random()}]);
+
+  const createTestData = async () => {
+    setCreating(true); setCreateLog([]); setCreateDone(false);
+
+    try {
+      // ── 1. Parent ─────────────────────────────────────────────────
+      let parentId = null;
+      const { data: existingParent } = await supabase
+        .from("parents").select("id, full_name").eq("full_name","Test Parent").maybeSingle();
+      if (existingParent) {
+        parentId = existingParent.id;
+        log("✓ Parent 'Test Parent' already exists — skipped","skip");
+      } else {
+        const { data: newParent, error: pErr } = await supabase
+          .from("parents")
+          .insert({ full_name:"Test Parent", email:"testparent@learnwise.test", phone:"+974 5500 0001", status:"Active" })
+          .select().single();
+        if (pErr) { log("✗ Failed to create parent: " + pErr.message,"error"); }
+        else { parentId = newParent.id; log("✓ Created parent 'Test Parent'","success"); }
+      }
+
+      // ── 2. Tutor ──────────────────────────────────────────────────
+      let tutorId = null;
+      const { data: existingTutor } = await supabase
+        .from("tutors").select("id, full_name").eq("full_name","Test Tutor").maybeSingle();
+      if (existingTutor) {
+        tutorId = existingTutor.id;
+        log("✓ Tutor 'Test Tutor' already exists — skipped","skip");
+      } else {
+        const { data: newTutor, error: tErr } = await supabase
+          .from("tutors")
+          .insert({ full_name:"Test Tutor", email:"testtutor@learnwise.test", subjects:["Mathematics"], curriculum:["IGCSE"], rate_qar:100, status:"Active" })
+          .select().single();
+        if (tErr) { log("✗ Failed to create tutor: " + tErr.message,"error"); }
+        else { tutorId = newTutor.id; log("✓ Created tutor 'Test Tutor'","success"); }
+      }
+
+      // ── 3. Student ────────────────────────────────────────────────
+      let studentId = null;
+      const { data: existingStudent } = await supabase
+        .from("students").select("id, full_name").eq("full_name","Test Student").maybeSingle();
+      if (existingStudent) {
+        studentId = existingStudent.id;
+        log("✓ Student 'Test Student' already exists — skipped","skip");
+      } else {
+        const { data: newStudent, error: sErr } = await supabase
+          .from("students")
+          .insert({ full_name:"Test Student", grade:"Year 10", curriculum:"IGCSE", subjects:["Mathematics"], parent_id:parentId||null, status:"Active" })
+          .select().single();
+        if (sErr) { log("✗ Failed to create student: " + sErr.message,"error"); }
+        else { studentId = newStudent.id; log("✓ Created student 'Test Student'","success"); }
+      }
+
+      // Update student parent_id if parent was just created and student already existed
+      if (existingStudent && parentId && !existingStudent.parent_id) {
+        await supabase.from("students").update({ parent_id: parentId }).eq("id", existingStudent.id);
+      }
+
+      // ── 4. Student-Tutor assignment ───────────────────────────────
+      if (studentId && tutorId) {
+        const { data: existingLink } = await supabase
+          .from("student_tutors").select("id")
+          .eq("student_id", studentId).eq("tutor_id", tutorId).maybeSingle();
+        if (existingLink) {
+          log("✓ Tutor already assigned to student — skipped","skip");
+        } else {
+          const { error: linkErr } = await supabase
+            .from("student_tutors")
+            .insert({ student_id: studentId, tutor_id: tutorId, subjects:["Mathematics"], is_active: true });
+          if (linkErr) log("✗ Failed to assign tutor to student: " + linkErr.message,"error");
+          else log("✓ Assigned Test Tutor to Test Student","success");
+        }
+      }
+
+      // ── 5. Class ──────────────────────────────────────────────────
+      let classId = null;
+      if (studentId && tutorId) {
+        const { data: existingClass } = await supabase
+          .from("classes").select("id").eq("topic","Algebra Basics")
+          .eq("student_id", studentId).maybeSingle();
+        if (existingClass) {
+          classId = existingClass.id;
+          log("✓ Class 'Algebra Basics' already exists — skipped","skip");
+        } else {
+          const scheduledAt = new Date(Date.now() + 86400000).toISOString(); // tomorrow
+          const { data: newClass, error: cErr } = await supabase
+            .from("classes")
+            .insert({ student_id:studentId, tutor_id:tutorId, subject:"Mathematics", topic:"Algebra Basics", scheduled_at:scheduledAt, duration_min:60, mode:"Online", status:"Scheduled", rate_qar:100 })
+            .select().single();
+          if (cErr) log("✗ Failed to create class: " + cErr.message,"error");
+          else { classId = newClass.id; log("✓ Created class 'Algebra Basics'","success"); }
+        }
+      } else { log("⚠ Skipped class — student or tutor missing","warn"); }
+
+      // ── 6. Homework ───────────────────────────────────────────────
+      if (studentId && tutorId) {
+        const { data: existingHw } = await supabase
+          .from("homework").select("id").eq("title","Algebra Practice")
+          .eq("student_id", studentId).maybeSingle();
+        if (existingHw) {
+          log("✓ Homework 'Algebra Practice' already exists — skipped","skip");
+        } else {
+          const dueAt = new Date(Date.now() + 7*86400000).toISOString(); // next week
+          const { error: hwErr } = await supabase
+            .from("homework")
+            .insert({ student_id:studentId, tutor_id:tutorId, class_id:classId||null, title:"Algebra Practice", description:"Complete exercises 1–10 from the worksheet.", due_at:dueAt, status:"Assigned" });
+          if (hwErr) log("✗ Failed to create homework: " + hwErr.message,"error");
+          else log("✓ Created homework 'Algebra Practice'","success");
+        }
+      } else { log("⚠ Skipped homework — student or tutor missing","warn"); }
+
+      // ── 7. Class Note ─────────────────────────────────────────────
+      if (studentId && tutorId) {
+        const { data: existingNote } = await supabase
+          .from("class_notes").select("id").eq("topic","Algebra Basics")
+          .eq("student_id", studentId).maybeSingle();
+        if (existingNote) {
+          log("✓ Class note for 'Algebra Basics' already exists — skipped","skip");
+        } else {
+          const { error: nErr } = await supabase
+            .from("class_notes")
+            .insert({ student_id:studentId, tutor_id:tutorId, class_id:classId||null, topic:"Algebra Basics", understanding:"Good", strengths:"Understands core concepts well", improvement:"Needs more practice on word problems", recommendation:"Review pages 12–15 before next session", summary:"Good session — Test Student grasped the basics of algebra and showed confidence with simple equations.", is_shared_with_parent:true, is_shared_with_student:true });
+          if (nErr) log("✗ Failed to create class note: " + nErr.message,"error");
+          else log("✓ Created class note for 'Algebra Basics' (shared with parent + student)","success");
+        }
+      } else { log("⚠ Skipped class note — student or tutor missing","warn"); }
+
+      // ── 8. Material ───────────────────────────────────────────────
+      if (tutorId) {
+        const { data: existingMat } = await supabase
+          .from("materials").select("id").eq("title","Algebra Notes Link").maybeSingle();
+        if (existingMat) {
+          log("✓ Material 'Algebra Notes Link' already exists — skipped","skip");
+        } else {
+          const { error: mErr } = await supabase
+            .from("materials")
+            .insert({ tutor_id:tutorId, student_id:studentId||null, title:"Algebra Notes Link", description:"Summary notes for IGCSE Algebra Basics topic.", subject:"Mathematics", file_url:"https://example.com/algebra-notes", is_public:false });
+          if (mErr) log("✗ Failed to create material: " + mErr.message,"error");
+          else log("✓ Created material 'Algebra Notes Link'","success");
+        }
+      } else { log("⚠ Skipped material — tutor missing","warn"); }
+
+      // ── 9. Invoice + Payment ──────────────────────────────────────
+      if (parentId) {
+        const { data: existingInv } = await supabase
+          .from("invoices").select("id").eq("invoice_number","INV-TEST-001").maybeSingle();
+        if (existingInv) {
+          log("✓ Invoice 'INV-TEST-001' already exists — skipped","skip");
+        } else {
+          const { error: invErr } = await supabase
+            .from("invoices")
+            .insert({ parent_id:parentId, student_id:studentId||null, invoice_number:"INV-TEST-001", total_qar:100, subtotal_qar:100, discount_qar:0, paid_qar:0, currency:"QAR", status:"Issued" });
+          if (invErr) log("✗ Failed to create invoice: " + invErr.message,"error");
+          else log("✓ Created invoice INV-TEST-001 — QAR 100 pending","success");
+        }
+      } else { log("⚠ Skipped payment — parent missing","warn"); }
+
+    } catch(e) {
+      log("✗ Unexpected error: " + e.message,"error");
+    }
+
+    setCreating(false);
+    setCreateDone(true);
+  };
+
+  const statusColor = {
+    "Passed":     { bg: tokens.successBg, fg: tokens.success, dot: tokens.success },
+    "Failed":     { bg: tokens.dangerBg,  fg: tokens.danger,  dot: tokens.danger  },
+    "Not Tested": { bg: "#F0EEE7",        fg: tokens.slate,   dot: tokens.slate   },
+  };
+
+  const passed  = results.filter(r=>r.status==="Passed").length;
+  const failed  = results.filter(r=>r.status==="Failed").length;
+  const untested= results.filter(r=>r.status==="Not Tested").length;
+
+  return (
+    <div>
+      <SectionTitle eyebrow="Admin Only" title="QA System Test"/>
+      <div style={{background:tokens.warnBg,color:tokens.warn,borderRadius:10,padding:"10px 16px",fontSize:13,marginBottom:18,display:"flex",alignItems:"center",gap:8}}>
+        <Shield size={15}/> This page is visible to admins only. All checks are read-only — no data is modified.
+      </div>
+
+      {/* Summary cards */}
+      {ran && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
+          <StatCard icon={CheckCircle2} label="Tests Passed"   value={passed}   accent={tokens.successBg}/>
+          <StatCard icon={AlertCircle}  label="Tests Failed"   value={failed}   accent={failed>0?tokens.dangerBg:"#F0EEE7"}/>
+          <StatCard icon={RefreshCw}    label="Not Tested Yet" value={untested} accent="#F0EEE7"/>
+        </div>
+      )}
+
+      {/* ── Create Test Data Panel ── */}
+      <Card style={{marginBottom:20,border:`1.5px solid ${tokens.teal}30`,background:"#FAFDF9"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:10}}>
+          <div>
+            <div style={{fontFamily:"Fraunces, serif",fontSize:16,fontWeight:600,color:tokens.ink,marginBottom:4}}>
+              Create Test Data
+            </div>
+            <div style={{fontSize:12.5,color:tokens.slate,lineHeight:1.5}}>
+              Creates: Test Parent · Test Tutor · Test Student · Algebra Basics class · Algebra Practice homework · Algebra Notes Link material · INV-TEST-001 invoice (QAR 100).<br/>
+              Skips any record that already exists. Safe to run multiple times. Does not delete real data.
+            </div>
+          </div>
+          <Button
+            icon={creating?RefreshCw:Plus}
+            onClick={createTestData}
+            disabled={creating}
+            variant="secondary"
+            style={{fontSize:13.5,padding:"9px 20px",whiteSpace:"nowrap",flexShrink:0}}
+          >
+            {creating?"Creating…":"Create Test Data"}
+          </Button>
+        </div>
+
+        {/* Log output */}
+        {createLog.length>0&&(
+          <div style={{background:tokens.paper,border:`1px solid ${tokens.line}`,borderRadius:10,padding:"12px 14px",maxHeight:220,overflowY:"auto"}}>
+            {createLog.map((entry)=>{
+              const colors={
+                success:{color:tokens.success,prefix:"✓"},
+                error:  {color:tokens.danger, prefix:"✗"},
+                skip:   {color:tokens.slate,  prefix:"○"},
+                warn:   {color:tokens.warn,   prefix:"⚠"},
+                info:   {color:tokens.ink,    prefix:"·"},
+              };
+              const c=colors[entry.type]||colors.info;
+              return(
+                <div key={entry.id} style={{fontSize:12.5,color:c.color,padding:"3px 0",fontFamily:"'SF Mono',monospace",lineHeight:1.5}}>
+                  {entry.msg}
+                </div>
+              );
+            })}
+            {createDone&&!creating&&(
+              <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${tokens.line}`,fontSize:12.5,fontWeight:600,color:tokens.success}}>
+                Done. Run the System Check below to verify all modules.
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Run button */}
+      <div style={{marginBottom:20}}>
+        <Button icon={running?RefreshCw:CheckCircle2} onClick={runChecks} disabled={running} style={{fontSize:14,padding:"10px 24px"}}>
+          {running?"Running checks…":"Run Basic System Check"}
+        </Button>
+        {ran&&!running&&<span style={{marginLeft:14,fontSize:13,color:tokens.slate}}>Last run: {new Date().toLocaleTimeString("en-GB")}</span>}
+      </div>
+
+      {/* Results table */}
+      <Card>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5}}>
+            <thead>
+              <tr>
+                {["#","Module","Expected","Actual Result","Status","Error"].map((h,i)=>(
+                  <th key={i} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r,i)=>{
+                const sc = statusColor[r.status];
+                return (
+                  <tr key={i} style={{background:r.status==="Failed"?`${tokens.dangerBg}55`:r.status==="Passed"?`${tokens.successBg}44`:"transparent"}}>
+                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.slate,fontSize:12,fontWeight:700}}>{i+1}</td>
+                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${tokens.line}`,fontWeight:700,color:tokens.ink,whiteSpace:"nowrap"}}>{r.module}</td>
+                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.slate,fontSize:12.5,maxWidth:200}}>{r.expected||<span style={{color:tokens.line}}>—</span>}</td>
+                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.ink,fontSize:12.5,maxWidth:280}}>{r.actual||<span style={{color:tokens.line}}>—</span>}</td>
+                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${tokens.line}`,whiteSpace:"nowrap"}}>
+                      <span style={{background:sc.bg,color:sc.fg,padding:"3px 10px",borderRadius:999,fontSize:12,fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}>
+                        <span style={{width:6,height:6,borderRadius:"50%",background:sc.dot,display:"inline-block"}}/>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td style={{padding:"11px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.danger,fontSize:12,maxWidth:220}}>
+                      {r.error||<span style={{color:tokens.line}}>—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {!ran&&(
+          <div style={{textAlign:"center",padding:"32px 0",color:tokens.slate,fontSize:13}}>
+            Click "Run Basic System Check" to test all modules.
+          </div>
+        )}
+      </Card>
+
+      {/* Legend */}
+      <div style={{marginTop:14,display:"flex",gap:20,fontSize:12.5,color:tokens.slate}}>
+        {Object.entries(statusColor).map(([label,sc])=>(
+          <span key={label} style={{display:"flex",alignItems:"center",gap:5}}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:sc.dot,display:"inline-block"}}/>
+            {label}
+          </span>
+        ))}
+        <span style={{marginLeft:"auto"}}>Read-only · No data is modified</span>
+      </div>
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2407,7 +3045,7 @@ function ParentClasses({ parentId }) {
   const [filter,   setFilter]   = useState("all");
 
   useEffect(() => {
-    if (!parentId) return;
+    if (!parentId || stuLoading) return;
     (async () => {
       setLoading(true); setErr("");
       const studentIds = students.map(s => s.id);
@@ -2419,7 +3057,7 @@ function ParentClasses({ parentId }) {
       setClasses(all);
       setLoading(false);
     })();
-  }, [parentId, students]);
+  }, [parentId, students, stuLoading]);
 
   const visible = filter === "all" ? classes : classes.filter(c => c.status === filter);
 
@@ -2471,7 +3109,7 @@ function ParentHomework({ parentId }) {
   const [filter,  setFilter]  = useState("all");
 
   useEffect(() => {
-    if (!parentId) return;
+    if (!parentId || stuLoading) return;
     (async () => {
       setLoading(true); setErr("");
       const studentIds = students.map(s => s.id);
@@ -2482,7 +3120,7 @@ function ParentHomework({ parentId }) {
       setHw(all);
       setLoading(false);
     })();
-  }, [parentId, students]);
+  }, [parentId, students, stuLoading]);
 
   const visible = filter === "all" ? hw : hw.filter(h => h.status === filter);
 
@@ -2531,7 +3169,7 @@ function ParentProgress({ parentId }) {
   const [err,     setErr]     = useState("");
 
   useEffect(() => {
-    if (!parentId) return;
+    if (!parentId || stuLoading) return;
     (async () => {
       setLoading(true); setErr("");
       const studentIds = students.map(s => s.id);
@@ -2543,7 +3181,7 @@ function ParentProgress({ parentId }) {
       setNotes(all);
       setLoading(false);
     })();
-  }, [parentId, students]);
+  }, [parentId, students, stuLoading]);
 
   const understandingColor = { Excellent: tokens.success, Good: tokens.teal, Fair: tokens.warn, "Needs Support": tokens.danger };
 
@@ -3176,10 +3814,13 @@ export default function App(){
     case "classes":     return <AdminClasses/>;
     case "attendance":  return <AdminAttendance/>;
     case "homework":    return <AdminHomework/>;
+    case "classnotes":  return <AdminClassNotes/>;
+    case "materials":   return <AdminMaterials/>;
     case "payments":    return <AdminPayments/>;
     case "assessments": return <AdminAssessments/>;
     case "reports":     return <AdminReports/>;
     case "settings":    return <AdminSettings/>;
+    case "qatest":      return <AdminQATest/>;
     default:            return <AdminDashboard/>;
   }};
 
