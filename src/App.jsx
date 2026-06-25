@@ -4,11 +4,13 @@ import {
   BookOpenCheck, Wallet, FileBarChart, Settings, LogOut, Search, Plus, X, ChevronRight,
   Clock, MapPin, Video, CheckCircle2, AlertCircle, FileText, Download, Edit2, Trash2,
   TrendingUp, Mail, Phone, Home as HomeIcon, ArrowLeft, BookOpen, Award, Target, Shield,
-  Link, RefreshCw, CheckSquare,
+  Link, RefreshCw, CheckSquare, FlaskConical, ScrollText,
 } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "./supabaseClient";
 import * as db from "./services/supabaseData";
+import { ROLES, ROLE_LABEL as ROLE_LABEL_CFG, NAV_BY_ROLE, isSuperAdmin as checkSuperAdmin, isAdminTutor as checkAdminTutor, isStaff as checkStaff, canDelete as checkCanDelete, requiresReason, AUDIT_ACTION } from "./config/roles";
+import { logAction, auditCreateStudent, auditEditStudent, auditDeactivateStudent, auditCreateParent, auditEditParent, auditCreateTutor, auditEditTutor, auditAssignTutor, auditCreateClass, auditEditClass, auditCancelClass, auditCreateInvoice, auditEditInvoice, auditVoidInvoice, auditPaymentCorrection, auditPaymentReversal, auditChangeRole, auditChangeUserStatus, auditLinkUser, auditDeleteRecord } from "./services/auditLog";
 
 const tokens = {
   paper:"#FAF8F3",ink:"#1F2A2E",slate:"#5B6B70",teal:"#2C5F63",tealDeep:"#1E4448",
@@ -18,7 +20,7 @@ const tokens = {
 };
 const SUBJECTS  = ["Mathematics","Physics","Chemistry","Biology","English","Computer Science","Economics","History","Geography"];
 const CURRICULA = ["IGCSE","Edexcel","Cambridge","School Curriculum","A-Level","IB"];
-const ROLE_LABEL= {admin:"Main Admin",tutor:"Tutor",parent:"Parent",student:"Student"};
+const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin Tutor",tutor:"Tutor",parent:"Parent",student:"Student",admin:"Super Admin"};
 const fmt       = (n) => `QAR ${Number(n||0).toLocaleString("en-QA",{minimumFractionDigits:0})}`;
 const fmtDate   = (v) => v ? new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "—";
 const fmtDateTime=(v) => v ? new Date(v).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "—";
@@ -80,7 +82,7 @@ const statusColors={
   New:{bg:tokens.tealSoft,fg:tokens.tealDeep},Contacted:{bg:tokens.warnBg,fg:tokens.warn},
   Converted:{bg:tokens.successBg,fg:tokens.success},Closed:{bg:"#F0EEE7",fg:tokens.slate},
   Issued:{bg:tokens.warnBg,fg:tokens.warn},Overdue:{bg:tokens.dangerBg,fg:tokens.danger},
-  Draft:{bg:"#F0EEE7",fg:tokens.slate},"On Leave":{bg:tokens.warnBg,fg:tokens.warn},
+  Draft:{bg:"#F0EEE7",fg:tokens.slate},Voided:{bg:tokens.dangerBg,fg:tokens.danger},"On Leave":{bg:tokens.warnBg,fg:tokens.warn},
   Graduated:{bg:tokens.tealSoft,fg:tokens.tealDeep},"—":{bg:"#F0EEE7",fg:tokens.slate},
 };
 function Pill({value}){const c=statusColors[value]||statusColors["—"];return <span style={{background:c.bg,color:c.fg,padding:"3px 10px",borderRadius:999,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{value}</span>;}
@@ -91,6 +93,25 @@ function Button({children,variant="primary",onClick,style,icon:Icon,type="button
 function Table({columns,rows,onRowClick}){if(!rows.length)return null;return(<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5}}><thead><tr>{columns.map((c,i)=><th key={i} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em"}}>{c}</th>)}</tr></thead><tbody>{rows.map((r,i)=>(<tr key={i} onClick={()=>onRowClick&&onRowClick(r)} style={{cursor:onRowClick?"pointer":"default"}} onMouseEnter={(e)=>e.currentTarget.style.background="#FBFAF7"} onMouseLeave={(e)=>e.currentTarget.style.background="transparent"}>{r.cells.map((cell,j)=><td key={j} style={{padding:"12px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.ink}}>{cell}</td>)}</tr>))}</tbody></table></div>);}
 function Modal({title,onClose,children,wide}){return(<div style={{position:"fixed",inset:0,background:"rgba(31,42,46,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:16}} onClick={onClose}><div onClick={(e)=>e.stopPropagation()} style={{background:tokens.cardBg,borderRadius:18,width:wide?680:480,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",padding:28,boxShadow:"0 20px 60px rgba(0,0,0,0.18)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontFamily:"Fraunces, serif",fontSize:19,fontWeight:600}}>{title}</div><button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:tokens.slate}}><X size={20}/></button></div>{children}</div></div>);}
 function ConfirmModal({message,onConfirm,onCancel,loading,busy}){const isBusy=loading||busy;return(<Modal title="Confirm" onClose={onCancel}><div style={{fontSize:14,color:tokens.ink,marginBottom:20,lineHeight:1.6}}>{message}</div><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={onCancel}>Cancel</Button><Button variant="danger" onClick={onConfirm} disabled={isBusy}>{isBusy?"Deleting…":"Delete"}</Button></div></Modal>);}
+
+/* Reason modal — required for admin_tutor sensitive actions */
+function ReasonModal({title,description,onConfirm,onCancel,busy}){
+  const [reason,setReason]=useState("");
+  return(<Modal title={title||"Reason Required"} onClose={onCancel}>
+    <div style={{fontSize:13.5,color:tokens.slate,marginBottom:14,lineHeight:1.6}}>{description||"Please provide a reason for this action. This will be recorded in the audit log."}</div>
+    <Field label="Reason" required>
+      <textarea style={{...inputStyle,minHeight:80,resize:"vertical"}} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Describe why you are making this change…"/>
+    </Field>
+    <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+      <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+      <Button onClick={()=>reason.trim()&&onConfirm(reason.trim())} disabled={!reason.trim()||busy}>{busy?"Saving…":"Confirm"}</Button>
+    </div>
+  </Modal>);
+}
+
+/* Hook — get current user's profile for permission checks inside sections */
+function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin"].includes(role)};}
+
 function Field({label,children,required}){return(<div style={{marginBottom:14}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.slate,marginBottom:6}}>{label}{required&&<span style={{color:tokens.coral}}> *</span>}</div>{children}</div>);}
 const inputStyle={width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${tokens.line}`,fontSize:13.5,fontFamily:"Inter, sans-serif",boxSizing:"border-box",color:tokens.ink,background:"#FCFBF8"};
 function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);const bg=type==="success"?tokens.successBg:tokens.dangerBg;const fg=type==="success"?tokens.success:tokens.danger;const Icon=type==="success"?CheckCircle2:AlertCircle;return(<div style={{position:"fixed",bottom:24,right:24,zIndex:200,background:bg,color:fg,border:`1px solid ${fg}30`,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13.5,fontWeight:600,boxShadow:"0 8px 30px rgba(0,0,0,0.12)",minWidth:260}}><Icon size={17}/>{message}<button onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:"none",cursor:"pointer",color:fg}}><X size={15}/></button></div>);}
@@ -105,19 +126,31 @@ function useToast(){const[toast,setToast]=useState(null);const fire=useCallback(
 
 /* ═══ NAV ═══ */
 const NAV={
-  admin:[
+  super_admin:[
     {key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"users",label:"All Users",icon:Shield},
     {key:"students",label:"Students",icon:GraduationCap},{key:"parents",label:"Parents",icon:UserCircle},
     {key:"tutors",label:"Tutors",icon:Users},{key:"classes",label:"Classes",icon:CalendarDays},
     {key:"attendance",label:"Attendance",icon:ClipboardCheck},{key:"homework",label:"Homework",icon:BookOpenCheck},
     {key:"classnotes",label:"Class Notes",icon:FileText},{key:"materials",label:"Materials",icon:BookOpen},
     {key:"payments",label:"Payments",icon:Wallet},{key:"assessments",label:"Requests",icon:CheckSquare},
-    {key:"reports",label:"Reports",icon:FileBarChart},{key:"settings",label:"Settings",icon:Settings},{key:"qatest",label:"QA Test",icon:CheckSquare},
+    {key:"reports",label:"Reports",icon:FileBarChart},{key:"auditlogs",label:"Audit Logs",icon:ScrollText},
+    {key:"settings",label:"Settings",icon:Settings},{key:"qatest",label:"QA Test",icon:FlaskConical},
+  ],
+  admin_tutor:[
+    {key:"dashboard",label:"Dashboard",icon:LayoutDashboard},
+    {key:"students",label:"Students",icon:GraduationCap},{key:"parents",label:"Parents",icon:UserCircle},
+    {key:"tutors",label:"Tutors",icon:Users},{key:"classes",label:"Classes",icon:CalendarDays},
+    {key:"attendance",label:"Attendance",icon:ClipboardCheck},{key:"homework",label:"Homework",icon:BookOpenCheck},
+    {key:"classnotes",label:"Class Notes",icon:FileText},{key:"materials",label:"Materials",icon:BookOpen},
+    {key:"payments",label:"Payments",icon:Wallet},{key:"assessments",label:"Requests",icon:CheckSquare},
+    {key:"reports",label:"Reports",icon:FileBarChart},
   ],
   tutor:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"myclasses",label:"My Classes",icon:CalendarDays},{key:"mystudents",label:"My Students",icon:GraduationCap},{key:"classnotes",label:"Class Notes",icon:FileText},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"materials",label:"Materials",icon:BookOpen}],
   parent:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"mychild",label:"My Child",icon:GraduationCap},{key:"classes",label:"Classes",icon:CalendarDays},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"progress",label:"Progress",icon:TrendingUp},{key:"payments",label:"Payments",icon:Wallet}],
   student:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"myclasses",label:"My Classes",icon:CalendarDays},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"materials",label:"Materials",icon:BookOpen},{key:"progress",label:"Progress",icon:Target}],
 };
+// backward compat alias
+NAV.admin = NAV.super_admin;
 
 /* ═══════════════════════════════════════════════════════════
    PUBLIC WEBSITE  —  LearnWise Academy
@@ -754,10 +787,10 @@ function AuthShell({title,subtitle,children,footer}){return(<div style={{minHeig
 function ErrorNote({message}){if(!message)return null;return <div style={{background:tokens.dangerBg,color:tokens.danger,fontSize:12.5,padding:"9px 12px",borderRadius:9,marginBottom:14}}>{message}</div>;}
 function SignIn({onGoSignUp,onGoStaff}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signIn({email,password});setLoading(false);if(error)setError(error.message);};return(<AuthShell title="Sign in" subtitle="Welcome back — sign in to your portal." footer={<div style={{textAlign:"center",marginTop:16}}><div style={{fontSize:12.5,color:tokens.slate}}>New here? <span onClick={onGoSignUp} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Create an account</span></div><div onClick={onGoStaff} style={{textAlign:"center",fontSize:11,color:tokens.line,marginTop:18,cursor:"pointer",userSelect:"none"}}>·</div></div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
 function SignUp({onGoSignIn}){const{signUp}=useAuth();const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[role,setRole]=useState("student");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[done,setDone]=useState(false);const roles=[{key:"tutor",label:"Tutor",icon:Users},{key:"parent",label:"Parent",icon:UserCircle},{key:"student",label:"Student",icon:GraduationCap}];const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signUp({email,password,fullName,role});setLoading(false);if(error)setError(error.message);else setDone(true);};if(done)return <AuthShell title="Check your inbox" subtitle=""><div style={{fontSize:13.5,color:tokens.ink,lineHeight:1.6}}>We've sent a confirmation link to <strong>{email}</strong>. Confirm your email, then sign in to reach your {ROLE_LABEL[role]} portal.</div><Button variant="secondary" style={{width:"100%",justifyContent:"center",marginTop:16}} onClick={onGoSignIn}>Back to sign in</Button></AuthShell>;return(<AuthShell title="Create an account" subtitle="Sign up as a tutor, parent, or student." footer={<div style={{textAlign:"center",fontSize:12.5,color:tokens.slate,marginTop:16}}>Already have an account? <span onClick={onGoSignIn} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Sign in</span></div>}><form onSubmit={submit}><ErrorNote message={error}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>{roles.map((r)=><div key={r.key} onClick={()=>setRole(r.key)} style={{border:`1.5px solid ${role===r.key?tokens.teal:tokens.line}`,background:role===r.key?tokens.tealSoft:"#fff",borderRadius:12,padding:"10px 8px",cursor:"pointer",textAlign:"center"}}><r.icon size={17} color={role===r.key?tokens.tealDeep:tokens.slate} style={{marginBottom:4}}/><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink}}>{r.label}</div></div>)}</div><Field label="Full Name"><input style={inputStyle} required value={fullName} onChange={(e)=>setFullName(e.target.value)} placeholder="Your full name"/></Field><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="At least 6 characters"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Creating account…":"Create account"}</Button></form></AuthShell>);}
-function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof}=await supabase.from("profiles").select("role").eq("id",data.user.id).maybeSingle();if(prof?.role!=="admin"){await supabase.auth.signOut();setError("This account doesn't have admin access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — administrators only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Admin Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="admin@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
+function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof}=await supabase.from("profiles").select("role").eq("id",data.user.id).maybeSingle();if(!prof||!["super_admin","admin_tutor","admin"].includes(prof.role)){await supabase.auth.signOut();setError("This account doesn't have staff access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — staff only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Staff Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="staff@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
 
 /* ═══ SHELL ═══ */
-function Shell({role,current,setCurrent,onLogout,children,who}){const nav=NAV[role];return(<div style={{display:"flex",minHeight:"100vh",background:tokens.paper,fontFamily:"Inter, sans-serif"}}><div style={{width:232,flexShrink:0,borderRight:`1px solid ${tokens.line}`,padding:"22px 14px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"0 8px",marginBottom:26}}><div style={{width:34,height:34,borderRadius:9,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><GraduationCap size={18} color="#fff"/></div><div><div style={{fontFamily:"Fraunces, serif",fontWeight:600,fontSize:14.5,color:tokens.ink,lineHeight:1.1}}>LearnWise</div><div style={{fontSize:10.5,color:tokens.coral,fontWeight:600}}>Academy</div></div></div><div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>{nav.map((n)=><div key={n.key} onClick={()=>setCurrent(n.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",background:current===n.key?tokens.tealSoft:"transparent",color:current===n.key?tokens.tealDeep:tokens.slate,fontWeight:current===n.key?700:500,fontSize:13.5}}><n.icon size={16}/>{n.label}</div>)}</div><div style={{borderTop:`1px solid ${tokens.line}`,paddingTop:14,marginTop:10}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"0 8px",marginBottom:10}}><div style={{width:30,height:30,borderRadius:"50%",background:tokens.coralSoft,display:"flex",alignItems:"center",justifyContent:"center",color:tokens.coral,fontWeight:700,fontSize:12.5,flexShrink:0}}>{initials(who)}</div><div style={{minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{who}</div><div style={{fontSize:11,color:tokens.slate}}>{ROLE_LABEL[role]}</div></div></div><div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,cursor:"pointer",color:tokens.slate,fontSize:13}}><LogOut size={15}/> Sign out</div></div></div><div style={{flex:1,padding:"26px 32px",minWidth:0}}>{children}</div></div>);}
+function Shell({role,current,setCurrent,onLogout,children,who}){const nav=NAV[role]||NAV.student;const isAdminTutorRole=role==="admin_tutor";return(<div style={{display:"flex",minHeight:"100vh",background:tokens.paper,fontFamily:"Inter, sans-serif"}}><div style={{width:232,flexShrink:0,borderRight:`1px solid ${tokens.line}`,padding:"22px 14px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"0 8px",marginBottom:26}}><div style={{width:34,height:34,borderRadius:9,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><GraduationCap size={18} color="#fff"/></div><div><div style={{fontFamily:"Fraunces, serif",fontWeight:600,fontSize:14.5,color:tokens.ink,lineHeight:1.1}}>LearnWise</div><div style={{fontSize:10.5,color:tokens.coral,fontWeight:600}}>Academy</div></div></div><div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>{nav.map((n)=><div key={n.key} onClick={()=>setCurrent(n.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",background:current===n.key?tokens.tealSoft:"transparent",color:current===n.key?tokens.tealDeep:tokens.slate,fontWeight:current===n.key?700:500,fontSize:13.5}}><n.icon size={16}/>{n.label}</div>)}</div><div style={{borderTop:`1px solid ${tokens.line}`,paddingTop:14,marginTop:10}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"0 8px",marginBottom:10}}><div style={{width:30,height:30,borderRadius:"50%",background:isAdminTutorRole?tokens.warnBg:tokens.coralSoft,display:"flex",alignItems:"center",justifyContent:"center",color:isAdminTutorRole?tokens.warn:tokens.coral,fontWeight:700,fontSize:12.5,flexShrink:0}}>{initials(who)}</div><div style={{minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{who}</div><div style={{fontSize:11,color:tokens.slate}}>{ROLE_LABEL[role]||role}</div></div></div><div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,cursor:"pointer",color:tokens.slate,fontSize:13}}><LogOut size={15}/> Sign out</div></div></div><div style={{flex:1,padding:"26px 32px",minWidth:0}}>{children}</div></div>);}
 
 /* ═══ ADMIN DASHBOARD ═══ */
 function AdminDashboard(){
@@ -856,7 +889,7 @@ function AdminUsers(){
   };
 
   const filtered=filter==="all"?users:users.filter(u=>u.role===filter);
-  const cnt=["admin","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
+  const cnt=["super_admin","admin_tutor","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
 
   const canLink=u=>["tutor","parent","student"].includes(u.role);
 
@@ -864,14 +897,14 @@ function AdminUsers(){
     {el}
     <SectionTitle eyebrow="Account Management" title="All Users"/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:18}}>
-      <StatCard icon={Shield}        label="Admins"   value={cnt.admin  ||0}/>
+      <StatCard icon={Shield}        label="Super Admins"  value={cnt.super_admin||0}/>
       <StatCard icon={Users}         label="Tutors"   value={cnt.tutor  ||0}/>
       <StatCard icon={UserCircle}    label="Parents"  value={cnt.parent ||0}/>
       <StatCard icon={GraduationCap} label="Students" value={cnt.student||0}/>
     </div>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",gap:8,flexWrap:"wrap"}}>
-      {["all","admin","tutor","parent","student"].map(f=>(
+      {["all","super_admin","admin_tutor","tutor","parent","student"].map(f=>(
         <div key={f} onClick={()=>setFilter(f)} style={{padding:"6px 14px",borderRadius:999,fontSize:12.5,fontWeight:600,cursor:"pointer",background:filter===f?tokens.teal:tokens.tealSoft,color:filter===f?"#fff":tokens.tealDeep,textTransform:"capitalize"}}>{f}</div>
       ))}
     </Card>
@@ -884,7 +917,7 @@ function AdminUsers(){
               u.full_name,
               u.email,
               <select value={u.role} onChange={e=>setRole(u.id,e.target.value)} disabled={u.id===myProfile?.id} style={{...inputStyle,padding:"5px 8px",width:110}}>
-                {["admin","tutor","parent","student"].map(r=><option key={r} value={r}>{r}</option>)}
+                {["super_admin","admin_tutor","tutor","parent","student"].map(r=><option key={r} value={r}>{ROLE_LABEL[r]||r}</option>)}
               </select>,
               <Pill value={u.status==="Active"?"Active":"Suspended"}/>,
               linked
@@ -922,7 +955,7 @@ function AdminUsers(){
         </div>
         {availableProfiles().length===0?(
           <div style={{background:tokens.warnBg,color:tokens.warn,borderRadius:10,padding:"12px 14px",fontSize:13,marginBottom:16}}>
-            No unlinked {linkUser.role} profiles found. Create one first in the {linkUser.role === "tutor" ? "Tutors" : linkUser.role === "parent" ? "Parents" : "Students"} section, then come back here.
+            No unlinked {ROLE_LABEL[linkUser.role]||linkUser.role} profiles found. Create one first in the {linkUser.role === "tutor" ? "Tutors" : linkUser.role === "parent" ? "Parents" : "Students"} section, then come back here.
           </div>
         ):(
           <Field label={`Select ${linkUser.role} profile to link`} required>
@@ -1266,8 +1299,8 @@ function AdminClassNotes(){
   const resetForm=()=>{setNoteStudentId("");setNoteTutorId("");setNoteClassId("");setNoteTopic("");setNoteUnderstanding("Good");setNoteStrengths("");setNoteImprovement("");setNoteRec("");setNoteSummary("");setNoteParent(true);setNoteStudent(false);};
   const load=useCallback(async()=>{setLoading(true);setErr("");const[nr,sr,tr,cr]=await Promise.all([db.getClassNotes(),db.getStudents(),db.getTutors(),db.getClasses()]);if(nr.error)setErr(nr.error.message);else setRows(nr.data||[]);setStudents(sr.data||[]);setTutors(tr.data||[]);setClasses(cr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=n=>{setNoteStudentId(n.student_id||"");setNoteTutorId(n.tutor_id||"");setNoteClassId(n.class_id||"");setNoteTopic(n.topic||"");setNoteUnderstanding(n.understanding||"Good");setNoteStrengths(n.strengths||"");setNoteImprovement(n.improvement||"");setNoteRec(n.recommendation||"");setNoteSummary(n.summary||"");setNoteParent(n.is_shared_with_parent??true);setNoteStudent(n.is_shared_with_student??false);setEditRow(n);};
-  const save=async()=>{if(!noteStudentId||!noteTutorId||!noteTopic.trim()){fire("Student, tutor and topic are required","error");return;}setBusy(true);const payload={student_id:noteStudentId,tutor_id:noteTutorId,class_id:noteClassId||null,topic:noteTopic.trim(),understanding:noteUnderstanding,strengths:noteStrengths,improvement:noteImprovement,recommendation:noteRec,summary:noteSummary,is_shared_with_parent:noteParent,is_shared_with_student:noteStudent};const{error}=editRow?await db.updateClassNote(editRow.id,payload):await db.createClassNote(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Note updated":"Note added");setAddOpen(false);setEditRow(null);resetForm();load();};
+  const openEdit=n=>{setNoteStudentId(n.student_id||"");setNoteTutorId(n.tutor_id||"");setNoteClassId(n.class_id||"");setNoteTopic(n.topic||"");setNoteUnderstanding(n.understanding||"Good");setNoteStrengths(n.strengths||"");setNoteImprovement(n.areas_to_improve||"");setNoteRec(n.recommendation||"");setNoteSummary(n.summary||"");setNoteParent(n.is_shared_with_parent??true);setNoteStudent(n.is_shared_with_student??false);setEditRow(n);};
+  const save=async()=>{if(!noteStudentId||!noteTutorId||!noteTopic.trim()){fire("Student, tutor and topic are required","error");return;}setBusy(true);const payload={student_id:noteStudentId,tutor_id:noteTutorId,class_id:noteClassId||null,topic:noteTopic.trim(),understanding:noteUnderstanding,strengths:noteStrengths,areas_to_improve:noteImprovement,recommendation:noteRec,summary:noteSummary,is_shared_with_parent:noteParent,is_shared_with_student:noteStudent};const{error}=editRow?await db.updateClassNote(editRow.id,payload):await db.createClassNote(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Note updated":"Note added");setAddOpen(false);setEditRow(null);resetForm();load();};
   const del=async()=>{setBusy(true);const{error}=await db.deleteClassNote(delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Note deleted");setDelRow(null);load();};
   const understandingColor={Excellent:tokens.success,Good:tokens.teal,Fair:tokens.warn,"Needs Support":tokens.danger};
   return(<div>{el}
@@ -1680,6 +1713,75 @@ function AdminReports() {
     </div>
   );
 }
+/* ═══ AUDIT LOGS (Super Admin only) ═══ */
+function AdminAuditLogs(){
+  const {profile}=useAuth();
+  const [logs,setLogs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+  const [filter,setFilter]=useState("all");
+
+  useEffect(()=>{
+    (async()=>{
+      setLoading(true);
+      const {data,error}=await supabase
+        .from("audit_logs")
+        .select("*")
+        .order("created_at",{ascending:false})
+        .limit(200);
+      if(error)setError(error.message);
+      else setLogs(data||[]);
+      setLoading(false);
+    })();
+  },[]);
+
+  const severityColor={info:{bg:tokens.tealSoft,fg:tokens.tealDeep},warning:{bg:tokens.warnBg,fg:tokens.warn},critical:{bg:tokens.dangerBg,fg:tokens.danger}};
+  const filtered=filter==="all"?logs:logs.filter(l=>l.severity===filter);
+
+  return(<div>
+    <SectionTitle eyebrow="Security" title="Audit Logs" action={
+      <div style={{display:"flex",gap:8}}>
+        {["all","info","warning","critical"].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${tokens.line}`,background:filter===f?tokens.teal:"transparent",color:filter===f?"#fff":tokens.slate,fontSize:12.5,fontWeight:600,cursor:"pointer",textTransform:"capitalize"}}>{f}</button>
+        ))}
+      </div>
+    }/>
+    <div style={{background:tokens.warnBg,border:`1px solid ${tokens.warn}30`,borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:tokens.warn}}>
+      Audit logs are immutable — they cannot be edited or deleted.
+    </div>
+    {loading&&<LoadingState label="Loading audit logs…"/>}
+    {error&&<ErrorBanner message={error}/>}
+    {!loading&&!error&&(
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr style={{background:tokens.paper}}>
+              {["Time","Actor","Role","Action","Table","Severity","Reason"].map(h=>(
+                <th key={h} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em",whiteSpace:"nowrap"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {filtered.length===0&&<tr><td colSpan={7} style={{padding:"32px",textAlign:"center",color:tokens.slate}}>No audit log entries found.</td></tr>}
+              {filtered.map((l,i)=>{
+                const sc=severityColor[l.severity]||severityColor.info;
+                return(<tr key={l.id} style={{borderBottom:`1px solid ${tokens.line}`}} onMouseEnter={e=>e.currentTarget.style.background="#FBFAF7"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <td style={{padding:"10px 14px",whiteSpace:"nowrap",color:tokens.slate,fontSize:12}}>{fmtDateTime(l.created_at)}</td>
+                  <td style={{padding:"10px 14px",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.actor_user_id?.slice(0,8)||"—"}</td>
+                  <td style={{padding:"10px 14px"}}><span style={{background:tokens.tealSoft,color:tokens.tealDeep,padding:"2px 8px",borderRadius:6,fontSize:11.5,fontWeight:600}}>{ROLE_LABEL[l.actor_role]||l.actor_role||"—"}</span></td>
+                  <td style={{padding:"10px 14px",fontWeight:600,color:tokens.ink,whiteSpace:"nowrap"}}>{l.action}</td>
+                  <td style={{padding:"10px 14px",color:tokens.slate}}>{l.table_name||"—"}</td>
+                  <td style={{padding:"10px 14px"}}><span style={{background:sc.bg,color:sc.fg,padding:"2px 8px",borderRadius:6,fontSize:11.5,fontWeight:600,textTransform:"capitalize"}}>{l.severity}</span></td>
+                  <td style={{padding:"10px 14px",color:tokens.slate,fontSize:12.5,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis"}}>{l.reason||"—"}</td>
+                </tr>);
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    )}
+  </div>);
+}
+
 function AdminSettings(){
   return(<div><SectionTitle title="Settings"/>
     <Card style={{maxWidth:520}}>
@@ -2054,7 +2156,7 @@ function AdminQATest(){
         } else {
           const { error: nErr } = await supabase
             .from("class_notes")
-            .insert({ student_id:studentId, tutor_id:tutorId, class_id:classId||null, topic:"Algebra Basics", understanding:"Good", strengths:"Understands core concepts well", improvement:"Needs more practice on word problems", recommendation:"Review pages 12–15 before next session", summary:"Good session — Test Student grasped the basics of algebra and showed confidence with simple equations.", is_shared_with_parent:true, is_shared_with_student:true });
+            .insert({ student_id:studentId, tutor_id:tutorId, class_id:classId||null, topic:"Algebra Basics", understanding:"Good", strengths:"Understands core concepts well", areas_to_improve:"Needs more practice on word problems", recommendation:"Review pages 12–15 before next session", summary:"Good session — Test Student grasped the basics of algebra and showed confidence with simple equations.", is_shared_with_parent:true, is_shared_with_student:true });
           if (nErr) log("✗ Failed to create class note: " + nErr.message,"error");
           else log("✓ Created class note for 'Algebra Basics' (shared with parent + student)","success");
         }
@@ -2505,7 +2607,7 @@ function TutorClassNotes({ tutorId }) {
   const [busy,     setBusy]     = useState(false);
   const { fire, el } = useToast();
 
-  const blank = { class_id: "", student_id: "", topic: "", understanding: "Good", strengths: "", improvement: "", recommendation: "", summary: "", is_shared_with_parent: true, is_shared_with_student: false };
+  const blank = { class_id: "", student_id: "", topic: "", understanding: "Good", strengths: "", areas_to_improve: "", recommendation: "", summary: "", is_shared_with_parent: true, is_shared_with_student: false };
   const [f, setF] = useState(blank);
 
   const load = useCallback(async () => {
@@ -2524,7 +2626,7 @@ function TutorClassNotes({ tutorId }) {
   useEffect(() => { load(); }, [load]);
 
   const openEdit = n => {
-    setF({ class_id: n.class_id || "", student_id: n.student_id, topic: n.topic || "", understanding: n.understanding || "Good", strengths: n.strengths || "", improvement: n.improvement || "", recommendation: n.recommendation || "", summary: n.summary || "", is_shared_with_parent: n.is_shared_with_parent ?? true, is_shared_with_student: n.is_shared_with_student ?? false });
+    setF({ class_id: n.class_id || "", student_id: n.student_id, topic: n.topic || "", understanding: n.understanding || "Good", strengths: n.strengths || "", areas_to_improve: n.areas_to_improve || "", recommendation: n.recommendation || "", summary: n.summary || "", is_shared_with_parent: n.is_shared_with_parent ?? true, is_shared_with_student: n.is_shared_with_student ?? false });
     setEditRow(n);
   };
 
@@ -2566,7 +2668,7 @@ function TutorClassNotes({ tutorId }) {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
               {n.strengths  && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.success }}>Strengths:</strong> {n.strengths}</div>}
-              {n.improvement && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Improve:</strong> {n.improvement}</div>}
+              {n.areas_to_improve && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Improve:</strong> {n.areas_to_improve}</div>}
               {n.recommendation && <div style={{ fontSize: 12.5, gridColumn: "1/-1" }}><strong>Recommendation:</strong> {n.recommendation}</div>}
             </div>
             {n.summary && (
@@ -2611,7 +2713,7 @@ function TutorClassNotes({ tutorId }) {
             <input style={inputStyle} value={f.strengths} onChange={e => setF({ ...f, strengths: e.target.value })} placeholder="What the student did well…" />
           </Field>
           <Field label="Areas to improve">
-            <input style={inputStyle} value={f.improvement} onChange={e => setF({ ...f, improvement: e.target.value })} placeholder="What needs more practice…" />
+            <input style={inputStyle} value={f.areas_to_improve} onChange={e => setF({ ...f, areas_to_improve: e.target.value })} placeholder="What needs more practice…" />
           </Field>
           <Field label="Recommendation">
             <input style={inputStyle} value={f.recommendation} onChange={e => setF({ ...f, recommendation: e.target.value })} placeholder="Suggested next steps…" />
@@ -3211,7 +3313,7 @@ function ParentProgress({ parentId }) {
             )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {n.strengths   && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.success }}>Strengths:</strong> {n.strengths}</div>}
-              {n.improvement && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Focus:</strong> {n.improvement}</div>}
+              {n.areas_to_improve && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Focus:</strong> {n.areas_to_improve}</div>}
               {n.recommendation && <div style={{ fontSize: 12.5, gridColumn: "1/-1" }}><strong>Recommendation:</strong> {n.recommendation}</div>}
             </div>
           </Card>
@@ -3671,7 +3773,7 @@ function StudentProgress({ studentId }) {
                     )}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       {n.strengths   && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.success }}>Strengths:</strong> {n.strengths}</div>}
-                      {n.improvement && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Focus:</strong> {n.improvement}</div>}
+                      {n.areas_to_improve && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Focus:</strong> {n.areas_to_improve}</div>}
                       {n.recommendation && <div style={{ fontSize: 12.5, gridColumn: "1/-1" }}><strong>Next steps:</strong> {n.recommendation}</div>}
                     </div>
                   </Card>
@@ -3750,7 +3852,7 @@ export default function App(){
   useEffect(()=>{
     if(!user||!profile)return;
     const role=profile.role;
-    if(role==="admin"){setProfileChecked(true);return;} // admins need no linked record
+    if(role==="super_admin"||role==="admin_tutor"||role==="admin"){setProfileChecked(true);return;} // staff need no linked record
     if(!["tutor","parent","student"].includes(role)){setProfileChecked(true);return;}
     setProfileLoading(true);
     const lookup=role==="tutor"?db.getMyTutorProfile:role==="parent"?db.getMyParentProfile:db.getMyStudentProfile;
@@ -3762,7 +3864,7 @@ export default function App(){
   },[user,profile]);
 
   /* ── Loading states ── */
-  if(loading||profileLoading||(!profileChecked&&profile&&profile.role!=="admin")){
+  if(loading||profileLoading||(!profileChecked&&profile&&!["super_admin","admin_tutor","admin"].includes(profile.role))){
     return(<div style={{minHeight:"100vh",background:tokens.paper,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter, sans-serif",color:tokens.slate,fontSize:13}}>Loading LearnWise Academy…</div>);
   }
 
@@ -3795,15 +3897,19 @@ export default function App(){
   const role=profile.role;
 
   /* ── Unknown role ── */
-  if(!["admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
+  if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
-  /* ── Non-admin with no linked profile record ── */
-  if(role!=="admin"&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
+  /* ── Non-staff with no linked profile record ── */
+  if(!["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
   const parentId =linkedProfile?.id||null;
   const studentId=linkedProfile?.id||null;
+
+  // Pass profile to section components that need permission checks
+  const isStaffRole = ["super_admin","admin_tutor","admin"].includes(role);
+  const isSuperAdminRole = ["super_admin","admin"].includes(role);
 
   const renderAdmin=()=>{switch(current){
     case "dashboard":   return <AdminDashboard/>;
@@ -3819,8 +3925,9 @@ export default function App(){
     case "payments":    return <AdminPayments/>;
     case "assessments": return <AdminAssessments/>;
     case "reports":     return <AdminReports/>;
-    case "settings":    return <AdminSettings/>;
-    case "qatest":      return <AdminQATest/>;
+    case "auditlogs":   return isSuperAdminRole ? <AdminAuditLogs/> : <AdminDashboard/>;
+    case "settings":    return isSuperAdminRole ? <AdminSettings/> : <AdminDashboard/>;
+    case "qatest":      return isSuperAdminRole ? <AdminQATest/> : <AdminDashboard/>;
     default:            return <AdminDashboard/>;
   }};
 
@@ -3856,7 +3963,14 @@ export default function App(){
     default:          return <StudentDashboard studentId={studentId} studentName={studentName}/>;
   }};
 
-  const renderers={admin:renderAdmin,tutor:renderTutor,parent:renderParent,student:renderStudent};
+  const renderers={
+    super_admin: renderAdmin,
+    admin_tutor: renderAdmin, // uses same section components — delete buttons hidden by role check inside each section
+    admin:       renderAdmin, // backward compat
+    tutor:       renderTutor,
+    parent:      renderParent,
+    student:     renderStudent,
+  };
   return(
     <Shell role={role} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
       {renderers[role]()}
