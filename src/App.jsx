@@ -3836,36 +3836,48 @@ function UnknownRoleScreen({name,onSignOut}){
 /* ═══ APP ROOT ═══ */
 
 export default function App(){
-  const{user,profile,loading,signOut}=useAuth();
+  const{user,profile,loading,authError,refreshProfile,signOut}=useAuth();
   const[authScreen,setAuthScreen] =useState("home"); // default to public home
   const[current,setCurrent]       =useState("dashboard");
 
   // Real linked profile records — fetched once after auth resolves
-  const[linkedProfile,setLinkedProfile] =useState(null);  // tutors/parents/students row
-  const[profileLoading,setProfileLoading]=useState(false);
-  const[profileChecked,setProfileChecked]=useState(false); // true once lookup attempted
+  const[linkedState,setLinkedState] =useState(null);
+  const ownerKey = user && profile ? `${user.id}:${profile.role}` : null;
+  const needsLink = !!profile && ["tutor","parent","student"].includes(profile.role);
+  const linkedIsCurrent = !!ownerKey && linkedState?.ownerKey === ownerKey;
+  const linkedProfile = linkedIsCurrent ? linkedState.data : null;
+  const profileLoading = needsLink && (!linkedIsCurrent || linkedState.loading);
+  const linkedError = linkedIsCurrent ? linkedState.error : null;
+  const[linkRetry,setLinkRetry]=useState(0);
 
   const who=profile?.full_name||profile?.email||"";
-  const handleSignOut=()=>{ setCurrent("dashboard"); setLinkedProfile(null); setProfileChecked(false); setAuthScreen("home"); signOut(); };
+  const handleSignOut=()=>{ setCurrent("dashboard"); setLinkedState(null); setAuthScreen("home"); signOut(); };
 
   // After we know the role, look up the corresponding linked record
   useEffect(()=>{
-    if(!user||!profile)return;
+    if(!ownerKey||!needsLink){setLinkedState(null);return;}
+    let cancelled=false;
     const role=profile.role;
-    if(role==="super_admin"||role==="admin_tutor"||role==="admin"){setProfileChecked(true);return;} // staff need no linked record
-    if(!["tutor","parent","student"].includes(role)){setProfileChecked(true);return;}
-    setProfileLoading(true);
+    setLinkedState({ownerKey,data:null,loading:true,error:null});
     const lookup=role==="tutor"?db.getMyTutorProfile:role==="parent"?db.getMyParentProfile:db.getMyStudentProfile;
-    lookup(user.id).then(({data})=>{
-      setLinkedProfile(data||null);
-      setProfileLoading(false);
-      setProfileChecked(true);
+    lookup(user.id).then(({data,error})=>{
+      if(!cancelled)setLinkedState({ownerKey,data:error?null:data||null,loading:false,error:!!error});
+    }).catch(()=>{
+      if(!cancelled)setLinkedState({ownerKey,data:null,loading:false,error:true});
     });
-  },[user,profile]);
+    return ()=>{cancelled=true;};
+  },[ownerKey,needsLink,user?.id,profile?.role,linkRetry]);
 
   /* ── Loading states ── */
-  if(loading||profileLoading||(!profileChecked&&profile&&!["super_admin","admin_tutor","admin"].includes(profile.role))){
+  if(loading||profileLoading){
     return(<div style={{minHeight:"100vh",background:tokens.paper,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter, sans-serif",color:tokens.slate,fontSize:13}}>Loading LearnWise Academy…</div>);
+  }
+
+  if(authError || (user&&!profile) || linkedError){
+    return <AuthShell title="Unable to load your account" subtitle="Please retry. If this continues, contact LearnWise Academy.">
+      <Button onClick={()=>linkedError?setLinkRetry(n=>n+1):refreshProfile()}>Retry</Button>
+      <Button variant="ghost" onClick={handleSignOut}>Sign out</Button>
+    </AuthShell>;
   }
 
   /* ── Public pages (shown when not logged in) ── */

@@ -64,9 +64,9 @@ export const getProfiles = () =>
 export const getProfileById = (userId) =>
   run(() => supabase.from("profiles").select("*").eq("id", userId).maybeSingle());
 
-/** Update role or status for a profile. */
+/** Privileged role/status update; authorization and audit are enforced in DB. */
 export const updateProfile = (userId, updates) =>
-  run(() => supabase.from("profiles").update(updates).eq("id", userId).select().single());
+  run(() => supabase.rpc("admin_update_profile", { p_user_id: userId, p_updates: updates }));
 
 
 // ─────────────────────────────────────────────
