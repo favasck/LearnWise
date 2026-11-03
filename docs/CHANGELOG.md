@@ -21,3 +21,5 @@ Added 14 deterministic auth-controller tests and a GitHub Actions workflow for n
 ## Batch 3 — deployment preparation
 
 User authorized Git and Vercel deployment. Added safe Supabase initialization and an unavailable page for missing/invalid configuration, preventing the previous module-initialization crash. Added six configuration tests. Preserved all existing database and role decisions; migrations remain local candidates. Added .vercel to ignore rules. Full test suite: 49 pass. Deployment/remote check results are recorded separately as they occur.
+
+Committed as 9bb89a8 and pushed the security branch. Existing Vercel GitHub integration completed its Preview deployment; remote CI passed. Unauthenticated live check reached the Vercel login gate, so rendered-app and authenticated portal verification remain outstanding. No production promotion or migration performed. TEST-RESULTS and DEPLOYMENT contain the verified preview link and evidence.

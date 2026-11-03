@@ -31,3 +31,11 @@ An initial auth test awaited an unresolved synthetic getSession promise and hung
 ## Batch 3 — deployment preparation
 
 `npm test`: PASS, 49 tests, 0 failures. Includes six configuration initialization checks (missing URL/key, malformed URL, unsupported protocol, successful factory call and SDK constructor failure). Existing 43 auth/database tests still pass. No real credentials or external database used. Missing configuration now renders a generic unavailable page rather than throwing before React mounts. Live browser verification remains incomplete after Computer Use's URL-safety check stopped the previous browser session; no claim of end-to-end live testing is made.
+
+`npm run build`: PASS, Vite 5.4.21, 1547 modules, output JS 374.13 kB / gzip 94.24 kB for this unconfigured local build. This artifact renders the unavailable screen; a configured Vercel build can differ. `git diff --check`: PASS.
+
+## Remote preview verification
+
+Source commit `9bb89a83ecc008aec0d4eab7ba4ef357fd796b70` pushed to `security/p0-profile-escalation`. [GitHub CI run 41641526458](https://github.com/favasck/LearnWise/actions/runs/41641526458) completed successfully, including locked installation, npm test and npm run build. Vercel's commit status and GitHub deployment 7519540791 report success for environment Preview.
+
+[Preview deployment](https://learn-wise-h810e3uov-fawazs-projects-788a623d.vercel.app). Unauthenticated HTTP check followed a redirect to vercel.com/login and received HTTP 200 with title "Login – Vercel", not the application. This is an access gate, not a passing application smoke test. Protection was not disabled or bypassed. Vercel CLI is logged out; the existing GitHub integration performed deployment successfully. Production remains on baseline commit 154984c; no database migration was applied and no account/portal persistence test was performed against production.
