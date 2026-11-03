@@ -39,3 +39,13 @@ An initial auth test awaited an unresolved synthetic getSession promise and hung
 Source commit `9bb89a83ecc008aec0d4eab7ba4ef357fd796b70` pushed to `security/p0-profile-escalation`. [GitHub CI run 41641526458](https://github.com/favasck/LearnWise/actions/runs/41641526458) completed successfully, including locked installation, npm test and npm run build. Vercel's commit status and GitHub deployment 7519540791 report success for environment Preview.
 
 [Preview deployment](https://learn-wise-h810e3uov-fawazs-projects-788a623d.vercel.app). Unauthenticated HTTP check followed a redirect to vercel.com/login and received HTTP 200 with title "Login – Vercel", not the application. This is an access gate, not a passing application smoke test. Protection was not disabled or bypassed. Vercel CLI is logged out; the existing GitHub integration performed deployment successfully. Production remains on baseline commit 154984c; no database migration was applied and no account/portal persistence test was performed against production.
+
+## Blank-page investigation
+
+The user reported a blank page; the exact affected URL has been requested and is not yet known. Browser app access approval timed out. The public production URL https://learn-wise-umber.vercel.app/ returned HTTP 200, title LearnWise Academy, and JavaScript asset index-DYZcLHlr.js (HTTP 200, JavaScript content type). Bundle metadata confirms this is the older production code, not the security-branch preview.
+
+Downloaded that public JavaScript and executed it in an isolated jsdom environment with empty storage and all application fetches blocked: rendered=true, homepage=true, unavailable=false, loading=false, blockedRequests=0, errors=[]. This verifies default DOM execution only, not browser appearance, a persisted user session, CSP behavior or protected preview access. An initial run lacked browser WebSocket support in the Node environment; providing jsdom's WebSocket corrected the harness, and the rerun passed. No backend data was requested or modified.
+
+Added real-source server-render tests for homepage content, account-load failure and unknown-role isolation, plus a built-JavaScript DOM check. The unconfigured local artifact renders its intended unavailable screen without errors. CI now includes the artifact render check after building. No root cause of the reported blank page has been confirmed and no claim of a production fix is made.
+
+Full local suite after these additions: 53 tests pass, 0 fail. Production build passes. These results do not establish that the user's browser or the protected preview is working.

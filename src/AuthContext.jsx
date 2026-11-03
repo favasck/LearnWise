@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import { ROLES, SIGNUP_ROLES } from "./config/roles";
 import { createAuthSession } from "./features/auth/authSession";
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 // Roles that are safe to accept from signup metadata.
 // super_admin and admin_tutor can NEVER be self-assigned.

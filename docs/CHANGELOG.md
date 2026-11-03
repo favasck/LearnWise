@@ -23,3 +23,7 @@ Added 14 deterministic auth-controller tests and a GitHub Actions workflow for n
 User authorized Git and Vercel deployment. Added safe Supabase initialization and an unavailable page for missing/invalid configuration, preventing the previous module-initialization crash. Added six configuration tests. Preserved all existing database and role decisions; migrations remain local candidates. Added .vercel to ignore rules. Full test suite: 49 pass. Deployment/remote check results are recorded separately as they occur.
 
 Committed as 9bb89a8 and pushed the security branch. Existing Vercel GitHub integration completed its Preview deployment; remote CI passed. Unauthenticated live check reached the Vercel login gate, so rendered-app and authenticated portal verification remain outstanding. No production promotion or migration performed. TEST-RESULTS and DEPLOYMENT contain the verified preview link and evidence.
+
+## Batch 4 — blank-page investigation and render coverage
+
+User reported a blank page. Public production HTML/assets load, and its downloaded JavaScript renders the homepage in an isolated DOM with application network access blocked. This does not reproduce the reported failure; the exact URL and live browser inspection remain outstanding. Added source-render and built-artifact checks, jsdom as a development dependency, and a CI artifact-render step. Exported the existing AuthContext for isolated component rendering. No production behavior, database policies or data changed in this batch; no blank-page fix is claimed.
