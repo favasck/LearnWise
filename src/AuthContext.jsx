@@ -8,10 +8,11 @@ export const AuthContext = createContext(null);
 // Roles that are safe to accept from signup metadata.
 // super_admin and admin_tutor can NEVER be self-assigned.
 const SAFE_SIGNUP_ROLES = SIGNUP_ROLES; // ["tutor", "parent", "student"]
+const unavailableAuth = () => ({ data: null, error: { message: "Account access is temporarily unavailable. Please try again later." } });
 
 export function AuthProvider({ children }) {
   const [{ user, profile, loading, authError }, setSession] = useState({
-    user: null, profile: null, loading: true, authError: null,
+    user: null, profile: null, loading: !!supabase, authError: null,
   });
   const sessionController = useRef(null);
 
@@ -26,6 +27,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signUp = async ({ email, password, fullName, role }) => {
+    if (!supabase) return unavailableAuth();
     // Sanitise role before passing to Supabase auth metadata
     const safeRole = SAFE_SIGNUP_ROLES.includes(role) ? role : ROLES.STUDENT;
     const { data, error } = await supabase.auth.signUp({
@@ -37,6 +39,7 @@ export function AuthProvider({ children }) {
   };
 
   const signIn = async ({ email, password }) => {
+    if (!supabase) return unavailableAuth();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -46,7 +49,7 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     sessionController.current?.clear();
-    return supabase.auth.signOut();
+    return supabase ? supabase.auth.signOut() : { error: null };
   };
 
   // Helpers for App.jsx routing — avoids role string comparisons outside this file

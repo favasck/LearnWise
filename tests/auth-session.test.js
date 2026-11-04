@@ -10,6 +10,15 @@ function deferred() {
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const session = id => ({ user: { id } });
 
+test('missing backend opens the public session and allows safe cleanup and refresh', async () => {
+  const states = [];
+  const controller = createAuthSession(null, state => states.push(state));
+  controller.start();
+  assert.deepEqual(states.at(-1), { user: null, profile: null, loading: false, authError: null });
+  assert.equal(await controller.refresh(), null);
+  controller.stop();
+});
+
 function fixture() {
   const initial = deferred();
   const requests = [];

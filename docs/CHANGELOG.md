@@ -27,3 +27,7 @@ Committed as 9bb89a8 and pushed the security branch. Existing Vercel GitHub inte
 ## Batch 4 — blank-page investigation and render coverage
 
 User reported a blank page. Public production HTML/assets load, and its downloaded JavaScript renders the homepage in an isolated DOM with application network access blocked. This does not reproduce the reported failure; the exact URL and live browser inspection remain outstanding. Added source-render and built-artifact checks, jsdom as a development dependency, and a CI artifact-render step. Exported the existing AuthContext for isolated component rendering. No production behavior, database policies or data changed in this batch; no blank-page fix is claimed.
+
+## Batch 5 — public startup independent of Supabase
+
+User supplied the exact preview URL; unauthenticated access reaches the Vercel login gate. Fixed the confirmed source behavior that suppressed public pages when preview/backend configuration is absent. Public pages now render normally, account actions/submissions fail with clear errors, and contact errors cannot produce false success. Strengthened the built-artifact check to require the homepage, seven public routes and the sign-in form. Local verification: 55 tests, build and artifact-render check pass. Protected preview runtime/configuration remains unverified pending Vercel account access. No database migrations or production promotion performed.

@@ -12,7 +12,7 @@ Test in an isolated Supabase project matching the actual schema. Apply this migr
 
 The migration is transactional and safely aborts on error. For post-application rollback, revert the frontend and prepare a reviewed forward migration; do not restore broad profile UPDATE grants, remove audit history or reintroduce the exploit. Coordinate client/server compatibility before release. This repository currently has no automated production migration runner. Existing audit_logs UI does not yet display the new permission-specific audit events.
 
-Missing or invalid Supabase configuration now renders a generic unavailable page without constructing a fake client, contacting an invented endpoint or exposing keys. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel for the intended environment before building. No local credentials are present. Preview deployments are not evidence that role-based workflows work against an approved database.
+Missing or invalid Supabase configuration leaves public pages available. Account actions and public submissions return an unavailable error without constructing a fake client, contacting an invented endpoint or exposing keys. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel for the intended environment before building to enable backend workflows. No local credentials are present. Preview deployments are not evidence that role-based workflows work against an approved database.
 
 ## Verified preview
 

@@ -58,8 +58,27 @@ try {
     blockedRequests,
     errors,
   };
+  if (result.homepage) {
+    const root = dom.window.document.getElementById('root');
+    for (const label of ['About', 'Subjects', 'IGCSE / Edexcel', 'Online Tuition', 'Book Assessment', 'Contact', 'Home']) {
+      const target = [...root.querySelectorAll('nav div')].find(element => element.textContent.trim() === label);
+      if (!target) throw new Error(`Public navigation missing: ${label}`);
+      target.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 50));
+      if (!root.querySelector('nav') || !root.querySelector('footer') || errors.length) {
+        throw new Error(`Public page failed to render: ${label}`);
+      }
+    }
+    const login = [...root.querySelectorAll('button')].find(element => element.textContent.trim() === 'Login');
+    if (!login) throw new Error('Login navigation missing');
+    login.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (!root.querySelector('form') || !root.querySelector('input[type="password"]')) throw new Error('Sign-in form did not render');
+    result.publicPages = 7;
+    result.signInForm = true;
+  }
   originalError(JSON.stringify(result, null, 2));
-  process.exit(result.rendered && !result.loading && !errors.length ? 0 : 1);
+  process.exit(result.homepage && !result.loading && !errors.length ? 0 : 1);
 } catch (error) {
   originalError(JSON.stringify({ rendered: false, error: error.message }, null, 2));
   process.exit(1);

@@ -717,13 +717,15 @@ function PublicContact() {
   const [form,   setForm]   = useState({ name: "", email: "", phone: "", message: "" });
   const [done,   setDone]   = useState(false);
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   const submit = async () => {
     if (!form.name || !form.email || !form.message) return;
-    setSaving(true);
+    setSaving(true); setErr("");
     // Store as an assessment request with no student data (contact form)
-    await db.submitAssessmentRequest({ parent_name: form.name, parent_email: form.email, parent_phone: form.phone, message: form.message, status: "New", submitted_at: new Date().toISOString() });
+    const { error } = await db.submitAssessmentRequest({ parent_name: form.name, parent_email: form.email, parent_phone: form.phone, message: form.message, status: "New", submitted_at: new Date().toISOString() });
     setSaving(false);
+    if (error) { setErr(error.message); return; }
     setDone(true);
   };
 
@@ -765,6 +767,7 @@ function PublicContact() {
               </div>
             ) : (
               <div style={{ background: tokens.cardBg, border: `1px solid ${tokens.line}`, borderRadius: 16, padding: 32 }}>
+                <ErrorNote message={err}/>
                 <Field label="Name" required><input style={inputStyle} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Your name" /></Field>
                 <Field label="Email" required><input style={inputStyle} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="your@email.com" /></Field>
                 <Field label="Phone"><input style={inputStyle} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+974 …" /></Field>

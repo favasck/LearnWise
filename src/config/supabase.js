@@ -1,5 +1,5 @@
 // Keep configuration failures out of module initialization so the entry point
-// can render an unavailable page without inventing a backend or credentials.
+// can keep public pages available without inventing a backend or credentials.
 export function initializeSupabase(createClient, url, publicKey) {
   if (!url || !publicKey) return { client: null, configured: false };
   try {

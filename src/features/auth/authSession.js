@@ -50,6 +50,7 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
 
   return {
     start() {
+      if (!client) { receive(null); return; }
       const initialRevision = revision;
       const result = client.auth.onAuthStateChange((_event, session) => {
         receive(session);
@@ -60,6 +61,7 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
     },
     refresh() {
       if (!active) return Promise.resolve(null);
+      if (!client) { receive(null); return Promise.resolve(null); }
       const ticket = ++revision;
       emit({ user: currentUser, profile: null, loading: true, authError: null });
       return currentUser ? load(currentUser, ticket) : restore(ticket);

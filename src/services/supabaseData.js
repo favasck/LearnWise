@@ -25,6 +25,11 @@ import { supabase } from "../supabaseClient";
  * Normalises network errors into the same { data, error } shape.
  */
 async function run(queryFn) {
+  if (!supabase) return {
+    data: null,
+    error: { message: "Online services are temporarily unavailable. Please try again later." },
+    count: null,
+  };
   try {
     const result = await queryFn();
     const { data, error, count } = result;

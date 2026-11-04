@@ -49,3 +49,11 @@ Downloaded that public JavaScript and executed it in an isolated jsdom environme
 Added real-source server-render tests for homepage content, account-load failure and unknown-role isolation, plus a built-JavaScript DOM check. The unconfigured local artifact renders its intended unavailable screen without errors. CI now includes the artifact render check after building. No root cause of the reported blank page has been confirmed and no claim of a production fix is made.
 
 Full local suite after these additions: 53 tests pass, 0 fail. Production build passes. These results do not establish that the user's browser or the protected preview is working.
+
+## Exact preview follow-up (2026-11-04)
+
+User identified https://learn-wise-g6s4646k7-fawazs-projects-788a623d.vercel.app/. An unauthenticated request to that exact URL redirects to vercel.com/login and returns the Vercel login page. Access protection was not bypassed. CLI account check reports logged out. Exact preview environment variables and rendered app state remain unverified.
+
+Confirmed an independent startup defect in the security branch: missing Supabase configuration suppressed the entire public website. Removed that dependency. AuthProvider now supports a public session without a client; account operations and public submissions return controlled errors. Contact no longer reports a successful send after a service failure.
+
+Verification: npm test PASS, 55 tests; npm run build PASS; npm run test:render PASS with homepage=true, unavailable=false, loading=false, blockedRequests=0, errors=[], publicPages=7, signInForm=true. These are actual built-JavaScript DOM checks with no Supabase credentials or backend requests. The specific cause of the user's blank page is not yet proven; no claim of authenticated live-preview verification is made.
