@@ -17,3 +17,5 @@ Missing or invalid Supabase configuration leaves public pages available. Account
 ## Verified preview
 
 The existing GitHub integration deployed source commit 9bb89a8 from security/p0-profile-escalation successfully to [Vercel Preview](https://learn-wise-h810e3uov-fawazs-projects-788a623d.vercel.app). GitHub CI also passed installation/tests/build. Unauthenticated access redirects to Vercel login; an authorized account must open the preview for browser verification. Do not disable deployment protection as a testing shortcut. Production promotion still requires verifying the RPC migration and approved environment configuration.
+
+Use the read-only staging procedure in STAGING-VERIFICATION.md before further release approval. npm run check:staging checks metadata and required RPC visibility only; it does not apply the migration or prove authorization. Missing RPC must be resolved through the reviewed database migration process rather than an insecure frontend fallback.

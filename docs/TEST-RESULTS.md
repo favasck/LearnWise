@@ -57,3 +57,11 @@ User identified https://learn-wise-g6s4646k7-fawazs-projects-788a623d.vercel.app
 Confirmed an independent startup defect in the security branch: missing Supabase configuration suppressed the entire public website. Removed that dependency. AuthProvider now supports a public session without a client; account operations and public submissions return controlled errors. Contact no longer reports a successful send after a service failure.
 
 Verification: npm test PASS, 55 tests; npm run build PASS; npm run test:render PASS with homepage=true, unavailable=false, loading=false, blockedRequests=0, errors=[], publicPages=7, signInForm=true. These are actual built-JavaScript DOM checks with no Supabase credentials or backend requests. The specific cause of the user's blank page is not yet proven; no claim of authenticated live-preview verification is made.
+
+## Staging readiness preparation (2026-11-05)
+
+Vercel account check still reports logged out. No Supabase environment variables or staging file were present. Supabase and Vercel integrations were discovered as available but not installed/connected and suggested to the user. Their connection has not been confirmed.
+
+Added scripts/staging-readiness.mjs and npm run check:staging. Fourteen targeted tests pass, covering connection approval, URL validation, key/session validation, GET-only behavior, missing RPC, inaccessible API, sanitized failures and modern publishable keys. Executing the actual staging command reports staging_configuration=blocked and makes no external request. Full authenticated integration testing remains pending. See STAGING-VERIFICATION.md for setup and exact limits.
+
+Full local suite after this batch: npm test PASS, 69 tests, 0 failures. git diff --check PASS. This batch changes tooling/documentation only; application assets and database state are unchanged.

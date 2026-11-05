@@ -6,12 +6,12 @@ Statuses distinguish local candidates from deployed/verified work. No migration 
 |---|---|---|---|---|
 | 1 | P0 | Current-state audit | Latest source references; separate production unknowns | Written |
 | 2 | P0 | Profile escalation repair | Direct authenticated-role attacks denied; legitimate edits work; atomic permission audit | Local candidate, 29 tests pass |
-| 3 | P0 | Production drift inventory and role decision | Read-only policy/grant/function/role export; intended legacy ownership mapping | Requires approved evidence/decision |
+| 3 | P0 | Production drift inventory and role decision | Read-only policy/grant/function/role export; intended legacy ownership mapping | Staging checker prepared; awaiting Supabase/Vercel connections, approved staging project and legacy ownership evidence |
 | 4 | P0 | Canonical role/RLS repair | Separate superadmin/staff capabilities; field limits, assignment isolation, suspension/revocation, eliminate recursion | Pending #3 |
 | 5 | P0 | Reliable audit foundation | Minimal server-authored events, required reasons, immutable records, atomic financial/permission mutations | Permission subset only |
 | 6 | P0 | Auth lifecycle/routing | No stale account/profile state; login/logout/refresh tests; fail-closed role handling | Local controller/lookup repairs; 14 unit tests pass. Browser/API validation pending. |
 | 7 | P0 | Financial/student data protection | Atomic idempotent payments, consistent relationships, restricted columns and deletion | Pending |
-| 8 | P0 | Migration/bootstrap and CI | Clean and upgrade replay; DB/API tests; dependency advisory triage | CI workflow added, remote run pending; bootstrap defects and 7 dependency findings remain |
+| 8 | P0 | Migration/bootstrap and CI | Clean and upgrade replay; DB/API tests; dependency advisory triage | Remote CI passes through c566403; staging metadata checker added; bootstrap defects and dependency findings remain |
 | 9 | P1 | Existing intake/management repairs | Contact errors, anonymous submission, enum/nullability contracts, persistent settings | Pending |
 | 10 | P1 | Scheduling/attendance | Qatar time, availability, conflicts, recurrence/occurrence exceptions, calendar views and cancellation rules | Pending business policy definition |
 | 11 | P1 | Tuition billing completion | Rate/package models, invoice linkage, refunds/credits/corrections, rounding and concurrency tests | Pending #7 and fee policies |

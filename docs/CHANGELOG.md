@@ -31,3 +31,7 @@ User reported a blank page. Public production HTML/assets load, and its download
 ## Batch 5 — public startup independent of Supabase
 
 User supplied the exact preview URL; unauthenticated access reaches the Vercel login gate. Fixed the confirmed source behavior that suppressed public pages when preview/backend configuration is absent. Public pages now render normally, account actions/submissions fail with clear errors, and contact errors cannot produce false success. Strengthened the built-artifact check to require the homepage, seven public routes and the sign-in form. Local verification: 55 tests, build and artifact-render check pass. Protected preview runtime/configuration remains unverified pending Vercel account access. No database migrations or production promotion performed.
+
+## Batch 6 — staging readiness and connection discovery
+
+Rechecked Vercel access and local staging configuration: still unavailable. Discovered and suggested Supabase/Vercel integrations, neither confirmed connected. Added a read-only staging API checker, an empty staging configuration example, ignored local staging configuration, and 14 targeted tests. The checker stops before network use until an approved staging project/session is provided, checks only metadata, and requires the new permission RPC to be visible. No browser protection, role mapping or database state changed. Authenticated portal testing remains pending account/project access.
