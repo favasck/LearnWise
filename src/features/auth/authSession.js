@@ -1,6 +1,7 @@
+import { boundedOperation, SERVICE_UNAVAILABLE } from '../../services/availability.js';
 // Supabase auth notifications must return synchronously. Profile queries run
 // afterward; revision checks prevent old responses from restoring permissions.
-export function createAuthSession(client, onChange, defer = fn => setTimeout(fn, 0)) {
+export function createAuthSession(client, onChange, defer = fn => setTimeout(fn, 0), timeoutMs = 12000) {
   let active = true;
   let revision = 0;
   let currentUser = null;
@@ -9,14 +10,14 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
   const emit = state => { if (active) onChange(state); };
   const fail = (user, ticket) => {
     if (active && ticket === revision) {
-      emit({ user, profile: null, loading: false, authError: 'Unable to load your account. Please retry or contact LearnWise Academy.' });
+      emit({ user, profile: null, loading: false, authError: SERVICE_UNAVAILABLE });
     }
   };
 
   async function load(user, ticket) {
     if (!active || ticket !== revision) return null;
     try {
-      const { data, error } = await client.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      const { data, error } = await boundedOperation(() => client.from('profiles').select('*').eq('id', user.id).maybeSingle(), timeoutMs);
       if (!active || ticket !== revision) return null;
       if (error || !data || data.id !== user.id) {
         fail(user, ticket);
@@ -41,7 +42,7 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
 
   async function restore(ticket) {
     try {
-      const { data, error } = await client.auth.getSession();
+      const { data, error } = await boundedOperation(() => client.auth.getSession(), timeoutMs);
       if (!active || revision !== ticket) return;
       if (error) fail(null, ticket);
       else receive(data?.session);

@@ -181,3 +181,18 @@ test('session initialization failure can be retried', async () => {
   assert.equal(f.latest().authError, null);
   assert.equal(f.latest().profile.role, 'tutor');
 });
+
+test('stalled injected session client stops loading with a friendly retry error', async () => {
+  const states = [];
+  const client = { auth: {
+    getSession: () => new Promise(() => {}),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+  } };
+  const controller = createAuthSession(client, value => states.push(value), fn => fn(), 10);
+  controller.start();
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(states.at(-1).loading, false);
+  assert.match(states.at(-1).authError, /Service temporarily unavailable/);
+  assert.equal(states.at(-1).profile, null);
+  controller.stop();
+});

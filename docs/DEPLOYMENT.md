@@ -2,7 +2,7 @@
 
 The user has authorized Git publishing and Vercel deployment. Release preparation targets the security branch and a Vercel preview; production promotion awaits verified database compatibility. Database migrations remain unapplied. Node 24.18.0 was used for verification. Install locked packages with `npm ci`; copy .env.example to .env and use an approved nonproduction Supabase URL/public anon key. Never put service-role keys in VITE variables. Run `npm test`, `npm run build`, then `npm run dev` for manual review. A passing Vite build does not prove Supabase is configured or reachable.
 
-Do not blindly run supabase_setup.sql against production or an empty project: it contains forward-reference and replay defects and does not upgrade old constraints. It is retained as baseline evidence. A clean bootstrap migration must be prepared separately.
+Do not blindly run supabase_setup.sql against production or an empty project: it contains forward-reference and replay defects and does not upgrade old constraints. It is retained as baseline evidence. Use the new clean bootstrap below for an empty project.
 
 ## Candidate 202611030001
 
@@ -19,3 +19,10 @@ Missing or invalid Supabase configuration leaves public pages available. Account
 The existing GitHub integration deployed source commit 9bb89a8 from security/p0-profile-escalation successfully to [Vercel Preview](https://learn-wise-h810e3uov-fawazs-projects-788a623d.vercel.app). GitHub CI also passed installation/tests/build. Unauthenticated access redirects to Vercel login; an authorized account must open the preview for browser verification. Do not disable deployment protection as a testing shortcut. Production promotion still requires verifying the RPC migration and approved environment configuration.
 
 Use the read-only staging procedure in STAGING-VERIFICATION.md before further release approval. npm run check:staging checks metadata and required RPC visibility only; it does not apply the migration or prove authorization. Missing RPC must be resolved through the reviewed database migration process rather than an insecure frontend fallback.
+
+
+## Empty-project bootstrap (2026-11-07)
+
+Follow [LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md). Run `migrations/202611070001_bootstrap_schema.sql` FIRST, then `migrations/202611030001_protect_profile_updates.sql` once. The explicit order is intentional despite the dates; do not feed these files to a runner that sorts names. The bootstrap creates all application tables before relationship helpers/policies, avoids policy recursion, and can be replayed before or after profile hardening without restoring profile permission grants. It preserves legacy admin authority and does not implement canonical staff roles. Existing populated databases need a drift review first.
+
+Local PGlite tests now apply both actual files to an empty database with only Supabase auth schema/roles stubbed. Production remains blocked by the owner-controlled Supabase project restoration. Vercel Production and Preview both need real project URL/public anon configuration and fresh builds. No credentials, environment settings, database access or deployment was changed.

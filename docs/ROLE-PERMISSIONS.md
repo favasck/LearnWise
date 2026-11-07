@@ -12,3 +12,10 @@
 Batch 1 preserves the actual baseline role model. Ordinary authenticated users can edit only full_name/phone on rows allowed by existing RLS. Permission changes require active legacy admin via RPC and cannot target the actor themselves. No canonical role is granted by this migration.
 
 Next authorization review must decide legacy account mapping, Tutor Admin scope, organization ownership, self-service field policy and sensitive-action reasons. Then implement separate DB capabilities and test each role/action/relationship pair, including suspended sessions and revoked assignments.
+
+
+## Empty-project bootstrap (2026-11-07)
+
+The new bootstrap preserves the legacy role constraint (`admin`, `tutor`, `parent`, `student`); it makes no canonical staff mapping. Active persisted admin retains baseline CRUD authority. Profiles permit only self name/phone edits; the existing hardening RPC remains the sole client permission-change path. Tutors read assigned student/class rows and manage their own academic content only for active assignments and matching classes. Class updates permit only attendance/status. Parents read linked rows and parent-shared notes; students read their own rows and student-shared notes. Students receive no broad homework UPDATE grant. Public visitors can insert enquiries but cannot read them. General audit rows allow active-admin append/read, no client edits/deletes; permission audit remains RPC-only and atomic. Suspended accounts cannot use relationship helpers to retain data access.
+
+These rules are exercised against actual bootstrap SQL in `tests/bootstrap-schema.test.js`. This resolves empty-project ordering/replay and several baseline relationship defects. It does not resolve column disclosure within otherwise permitted rows, canonical staff capabilities, complete audit coverage, or student submission. Those are explicit launch gaps in LAUNCH-CHECKLIST and FEATURE-AUDIT.

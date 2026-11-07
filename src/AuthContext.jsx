@@ -1,3 +1,4 @@
+import { safeServiceAction } from './services/availability.js';
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { ROLES, SIGNUP_ROLES } from "./config/roles";
@@ -30,26 +31,26 @@ export function AuthProvider({ children }) {
     if (!supabase) return unavailableAuth();
     // Sanitise role before passing to Supabase auth metadata
     const safeRole = SAFE_SIGNUP_ROLES.includes(role) ? role : ROLES.STUDENT;
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await safeServiceAction(() => supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: fullName, role: safeRole } },
-    });
+    }));
     return { data, error };
   };
 
   const signIn = async ({ email, password }) => {
     if (!supabase) return unavailableAuth();
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await safeServiceAction(() => supabase.auth.signInWithPassword({
       email,
       password,
-    });
+    }));
     return { data, error };
   };
 
   const signOut = async () => {
     sessionController.current?.clear();
-    return supabase ? supabase.auth.signOut() : { error: null };
+    return supabase ? safeServiceAction(() => supabase.auth.signOut()) : { error: null };
   };
 
   // Helpers for App.jsx routing — avoids role string comparisons outside this file

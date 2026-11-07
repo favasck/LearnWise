@@ -65,3 +65,17 @@ Vercel account check still reports logged out. No Supabase environment variables
 Added scripts/staging-readiness.mjs and npm run check:staging. Fourteen targeted tests pass, covering connection approval, URL validation, key/session validation, GET-only behavior, missing RPC, inaccessible API, sanitized failures and modern publishable keys. Executing the actual staging command reports staging_configuration=blocked and makes no external request. Full authenticated integration testing remains pending. See STAGING-VERIFICATION.md for setup and exact limits.
 
 Full local suite after this batch: npm test PASS, 69 tests, 0 failures. git diff --check PASS. This batch changes tooling/documentation only; application assets and database state are unchanged.
+
+## Launch preparation — 2026-11-07
+
+Verified shell runtime: Node 24.18.0 at `C:\Program Files\nodejs\node.exe`. `npm test` PASS: **92 tests, 0 failures**, including all 69 pre-existing cases. The supplied machine context reported Node 20.19.0, but this execution shell resolves Node 24. No local Node 20 executable was found in the standard installation/version-manager locations, so Node 20 execution is not claimed. The explicit-file runner removes the identified Node 20 glob-expansion defect using APIs/CLI options supported by both versions.
+
+`npm run build` PASS: Vite 5.4.21, 1548 modules, bundle `index-suPLJqq8.js` (375.22 kB, 94.58 kB gzip). No production credentials were needed. `npm run test:render` also PASS: seven public pages and the sign-in form, homepage=true, loading=false, blockedRequests=0, errors=[]. This verifies the built artifact with missing backend configuration, not a live deployment.
+
+New checks cover injected DNS/network failure, stalled requests/client/session calls, backend 5xx, preserved validation responses and successful minimal responses; public rendering during session failure/loading; real data-service failure propagation and public form insert payload/readback behavior. Vite SSR harnesses use isolated caches and unlistened HTTP transports so parallel tests do not fight over a websocket port.
+
+The bootstrap regression uses real PGlite PostgreSQL with only Supabase roles/auth schema/auth.uid() stubbed. It runs the actual bootstrap twice, applies actual profile hardening, then replays bootstrap. Assertions cover all 14 resulting application/audit tables with RLS/policies, RPC presence, denied escalation after replay, audited administrator changes, signup role sanitization, related reads without recursion, attendance-only tutor updates, forbidden academic assignments, private-note visibility, assignment revocation, public insert/no read, and suspension. The owner checklist's first-admin SQL is executed against a confirmed test user and rejects a second bootstrap administrator setup.
+
+Not verified: live Supabase auth/email, external database migrations, restored data compatibility, Vercel settings, protected preview or real role click-through. The known non-resolving project was not re-investigated. No credentials were sought and no external settings/data were changed. See FEATURE-AUDIT and LAUNCH-CHECKLIST for larger launch gaps.
+
+Git work remains uncommitted on the pre-existing `codex/launch-ready` branch at 363b1da: `git add` and `git commit` both failed because this workspace denies `.git/index.lock` creation. Claude Code must review and create the separate task commits. No push attempted.

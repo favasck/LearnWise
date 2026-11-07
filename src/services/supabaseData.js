@@ -1,3 +1,4 @@
+import { safeServiceAction, SERVICE_UNAVAILABLE } from './availability.js';
 /**
  * LearnWise Academy — Supabase Data Service
  * ==========================================
@@ -31,17 +32,17 @@ async function run(queryFn) {
     count: null,
   };
   try {
-    const result = await queryFn();
+    const result = await safeServiceAction(queryFn);
     const { data, error, count } = result;
     if (error) {
       console.error("[supabaseData]", error.message, error);
-      return { data: null, error, count: null };
+      return { data: null, error: /fetch|network|timeout|failed to send/i.test(error.message) ? { message: SERVICE_UNAVAILABLE } : error, count: null };
     }
     // For head:true count queries, data is null but count has the value
     return { data: (count !== null && count !== undefined) ? count : data, error: null, count };
   } catch (err) {
     console.error("[supabaseData] unexpected error:", err);
-    return { data: null, error: { message: err.message || "Unexpected error" }, count: null };
+    return { data: null, error: { message: SERVICE_UNAVAILABLE }, count: null };
   }
 }
 
@@ -240,11 +241,11 @@ export const getStudentsByParent = (parentId) =>
 /** Fetch all students assigned to a specific tutor. */
 export const getStudentsByTutor = async (tutorId) => {
   // Step 1: get student IDs from student_tutors
-  const { data: links, error: linkErr } = await supabase
+  const { data: links, error: linkErr } = await run(() => supabase
     .from("student_tutors")
     .select("student_id")
     .eq("tutor_id", tutorId)
-    .eq("is_active", true);
+    .eq("is_active", true));
   if (linkErr) return { data: null, error: linkErr };
   const ids = (links || []).map(l => l.student_id);
   if (ids.length === 0) return { data: [], error: null };
@@ -757,7 +758,10 @@ export const getAssessmentRequestById = (requestId) =>
  */
 export const submitAssessmentRequest = (requestData) =>
   run(() =>
-    supabase.from("assessment_requests").insert(requestData).select().single()
+    supabase.from("assessment_requests").insert(Object.fromEntries(
+      ['parent_name','parent_email','parent_phone','student_name','student_age','student_grade','school','curriculum','subjects','goals','preferred_mode','message']
+        .filter(key => requestData[key] !== undefined).map(key => [key, requestData[key]])
+    ))
   );
 
 /** Update request status or admin notes (admin only). */
@@ -835,6 +839,8 @@ export const getAdminDashboardStats = async () => {
     ),
   ]);
 
+  const failure = [studentsRes, tutorsRes, parentsRes, todayClassesRes, upcomingClassesRes, pendingHomeworkRes, unpaidInvoicesRes, monthPaymentsRes, newRequestsRes].find(r => r.error);
+  if (failure) return { data: null, error: failure.error };
   const outstandingQar = (unpaidInvoicesRes.data || []).reduce(
     (sum, inv) => sum + Number(inv.balance_qar || 0), 0
   );
@@ -900,6 +906,8 @@ export const getTutorDashboardStats = async (tutorId) => {
     ),
   ]);
 
+  const failure = [todayRes, upcomingRes, studentsRes, pendingHwRes].find(r => r.error);
+  if (failure) return { data: null, error: failure.error };
   return {
     data: {
       todayClasses:    todayRes.data     ?? 0,
@@ -916,6 +924,7 @@ export const getTutorDashboardStats = async (tutorId) => {
  */
 export const getParentDashboardStats = async (parentId) => {
   const studentsRes = await getStudentsByParent(parentId);
+  if (studentsRes.error) return studentsRes;
   const students = studentsRes.data || [];
   const studentIds = students.map((s) => s.id);
 
@@ -951,6 +960,8 @@ export const getParentDashboardStats = async (parentId) => {
     ),
   ]);
 
+  const failure = [upcomingRes, homeworkRes, invoicesRes].find(r => r.error);
+  if (failure) return { data: null, error: failure.error };
   const outstandingQar = (invoicesRes.data || []).reduce(
     (sum, inv) => sum + Number(inv.balance_qar || 0), 0
   );
@@ -1001,6 +1012,8 @@ export const getStudentDashboardStats = async (studentId) => {
     ),
   ]);
 
+  const failure = [upcomingRes, homeworkRes, notesRes].find(r => r.error);
+  if (failure) return { data: null, error: failure.error };
   return {
     data: {
       upcomingClasses: upcomingRes.data  || [],

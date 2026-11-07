@@ -1,3 +1,4 @@
+import { createServer as createHttpServer } from 'node:http';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
@@ -5,7 +6,7 @@ import { renderToString } from 'react-dom/server';
 import { createServer } from 'vite';
 
 test('application renders the real public homepage and account failure screens', async t => {
-  const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
+  const server = await createServer({ configFile: false, cacheDir: 'node_modules/.vite-render-tests', ssr: { optimizeDeps: { noDiscovery: true, include: [] } }, server: { middlewareMode: true, hmr: { server: createHttpServer() } }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   try {
     const { default: App } = await server.ssrLoadModule('/src/App.jsx');
     const { AuthContext, AuthProvider } = await server.ssrLoadModule('/src/AuthContext.jsx');
@@ -26,9 +27,14 @@ test('application renders the real public homepage and account failure screens',
       assert.match(html, /<nav/);
     });
     await t.test('session failure renders retry rather than empty content', () => {
-      const html = render({ authError: 'Unavailable' });
+      const html = render({ user: { id: 'test' }, profile: { id: 'test', role: 'admin' }, authError: 'Unavailable' });
       assert.match(html, /Unable to load your account/);
       assert.match(html, /Retry/);
+    });
+    await t.test('public homepage survives backend session loading and failure', () => {
+      for (const value of [{ loading: true }, { authError: 'Unavailable' }]) {
+        assert.match(render(value), /Smart Guidance/);
+      }
     });
     await t.test('unknown role does not render an admin portal', () => {
       const html = render({ user: { id: 'test' }, profile: { id: 'test', role: 'unknown', status: 'Active' } });

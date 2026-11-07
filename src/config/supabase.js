@@ -1,3 +1,4 @@
+import { createResilientFetch } from '../services/availability.js';
 // Keep configuration failures out of module initialization so the entry point
 // can keep public pages available without inventing a backend or credentials.
 export function initializeSupabase(createClient, url, publicKey) {
@@ -5,7 +6,7 @@ export function initializeSupabase(createClient, url, publicKey) {
   try {
     const parsed = new URL(url);
     if (!['https:', 'http:'].includes(parsed.protocol)) return { client: null, configured: false };
-    return { client: createClient(url, publicKey), configured: true };
+    return { client: createClient(url, publicKey, { global: { fetch: createResilientFetch() } }), configured: true };
   } catch {
     return { client: null, configured: false };
   }
