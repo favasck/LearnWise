@@ -119,7 +119,7 @@ create table if not exists public.classes (
 
 create table if not exists public.class_notes (
   id              uuid        primary key default gen_random_uuid(),
-  class_id        uuid        not null references public.classes(id) on delete cascade,
+  class_id        uuid        references public.classes(id) on delete cascade,
   tutor_id        uuid        not null references public.tutors(id)  on delete cascade,
   student_id      uuid        not null references public.students(id) on delete cascade,
   topic           text,

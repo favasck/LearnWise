@@ -19,6 +19,8 @@ The first file creates the tables and access rules. The second locks down accoun
 
 If you restored a project that already contains tables or permission rules, have the supervising developer compare its structure first. These files were tested together on an empty database; the first file does not replace every possible older access rule. If either query fails, keep the error for your developer. Do not remove security statements to make it run.
 
+**Existing production database (project `jllisbpzphxhbqqdpvtz`, checked 2026-11-09):** do not run the bootstrap file. It is missing `class_notes.areas_to_improve`, `students.date_of_birth` and `permission_audit_events`. In SQL Editor, run in this order: `scripts/production-schema-report.sql` (read-only; send the result to your developer and wait for review), then `migrations/202611030001_protect_profile_updates.sql` (once only), then `migrations/202611090001_reconcile_production_schema.sql`.
+
 ## 3. Connect Vercel and rebuild
 
 - In Supabase, find your project's URL and public anon key in its connection/API settings. Copy them from your own project.
