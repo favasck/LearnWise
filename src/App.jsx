@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Users, GraduationCap, UserCircle, CalendarDays, ClipboardCheck,
   BookOpenCheck, Wallet, FileBarChart, Settings, LogOut, Search, Plus, X, ChevronRight,
@@ -9,6 +9,7 @@ import {
 import { useAuth } from "./AuthContext";
 import { supabase } from "./supabaseClient";
 import * as db from "./services/supabaseData";
+import { billingRequest } from "./services/billingRequest.js";
 import { ROLES, ROLE_LABEL as ROLE_LABEL_CFG, NAV_BY_ROLE, isSuperAdmin as checkSuperAdmin, isAdminTutor as checkAdminTutor, isStaff as checkStaff, canDelete as checkCanDelete, requiresReason, AUDIT_ACTION } from "./config/roles";
 import { logAction, auditCreateStudent, auditEditStudent, auditDeactivateStudent, auditCreateParent, auditEditParent, auditCreateTutor, auditEditTutor, auditAssignTutor, auditCreateClass, auditEditClass, auditCancelClass, auditCreateInvoice, auditEditInvoice, auditVoidInvoice, auditPaymentCorrection, auditPaymentReversal, auditChangeRole, auditChangeUserStatus, auditLinkUser, auditDeleteRecord } from "./services/auditLog";
 
@@ -892,7 +893,7 @@ function AdminUsers(){
   };
 
   const filtered=filter==="all"?users:users.filter(u=>u.role===filter);
-  const cnt=["super_admin","admin_tutor","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
+  const cnt=["admin","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
 
   const canLink=u=>["tutor","parent","student"].includes(u.role);
 
@@ -907,7 +908,7 @@ function AdminUsers(){
     </div>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",gap:8,flexWrap:"wrap"}}>
-      {["all","super_admin","admin_tutor","tutor","parent","student"].map(f=>(
+      {["all","admin","tutor","parent","student"].map(f=>(
         <div key={f} onClick={()=>setFilter(f)} style={{padding:"6px 14px",borderRadius:999,fontSize:12.5,fontWeight:600,cursor:"pointer",background:filter===f?tokens.teal:tokens.tealSoft,color:filter===f?"#fff":tokens.tealDeep,textTransform:"capitalize"}}>{f}</div>
       ))}
     </Card>
@@ -920,7 +921,7 @@ function AdminUsers(){
               u.full_name,
               u.email,
               <select value={u.role} onChange={e=>setRole(u.id,e.target.value)} disabled={u.id===myProfile?.id} style={{...inputStyle,padding:"5px 8px",width:110}}>
-                {["super_admin","admin_tutor","tutor","parent","student"].map(r=><option key={r} value={r}>{ROLE_LABEL[r]||r}</option>)}
+                {["admin","tutor","parent","student"].map(r=><option key={r} value={r}>{ROLE_LABEL[r]||r}</option>)}
               </select>,
               <Pill value={u.status==="Active"?"Active":"Suspended"}/>,
               linked
@@ -1388,6 +1389,7 @@ function AdminMaterials(){
 
 /* ═══ ADMIN PAYMENTS ═══ */
 function AdminPayments(){
+  const {user}=useAuth(); const saving=useRef(false);
   const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useState("invoices");const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const[payParentId,setPayParentId]=useState("");const[payInvId,setPayInvId]=useState("");const[payAmount,setPayAmount]=useState("");const[payMethod,setPayMethod]=useState("Cash");const[payRef,setPayRef]=useState("");const[payNotes,setPayNotes]=useState("");
   const[invParentId,setInvParentId]=useState("");const[invStudentId,setInvStudentId]=useState("");const[invTotal,setInvTotal]=useState("");const[invDiscount,setInvDiscount]=useState("0");const[invPeriodStart,setInvPeriodStart]=useState("");const[invPeriodEnd,setInvPeriodEnd]=useState("");const[invNotes,setInvNotes]=useState("");const[invStatus,setInvStatus]=useState("Draft");
@@ -1395,8 +1397,28 @@ function AdminPayments(){
   useEffect(()=>{load();},[load]);
   const totalCollected=payments.reduce((s,p)=>s+Number(p.amount_qar||0),0);
   const totalOutstanding=invoices.filter(i=>["Issued","Partially Paid","Overdue"].includes(i.status)).reduce((s,i)=>s+Number(i.balance_qar||0),0);
-  const savePay=async()=>{if(!payParentId||!payAmount){fire("Parent and amount are required","error");return;}setBusy(true);const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;const{error}=await db.createPayment({parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
-  const saveInv=async()=>{if(!invParentId||!invTotal){fire("Parent and total are required","error");return;}setBusy(true);const invNum=await db.generateInvoiceNumber();const{error}=await db.createInvoice({parent_id:invParentId,student_id:invStudentId||null,invoice_number:invNum,total_qar:Number(invTotal),subtotal_qar:Number(invTotal),discount_qar:Number(invDiscount)||0,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus});setBusy(false);if(error){fire(error.message,"error");return;}fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();};
+  const savePay=async()=>{
+    if(saving.current)return;
+    if(!payParentId||!/^\d+(\.\d{1,2})?$/.test(payAmount)||Number(payAmount)<=0){fire("Enter a parent and positive amount with at most two decimal places","error");return;}
+    const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;
+    if(payInvId&&(!linkedInv||linkedInv.parent_id!==payParentId)){fire("Select an invoice belonging to this parent","error");return;}
+    saving.current=true;setBusy(true);
+    const payload={parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||null,amount_qar:payAmount,method:payMethod,reference:payRef,notes:payNotes};
+    const {error}=await billingRequest('payment',user.id,payload,db.createPayment);
+    saving.current=false;setBusy(false);
+    if(error){fire(error.message,"error");return;}
+    fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();
+  };
+  const saveInv=async()=>{
+    if(saving.current)return;
+    if(!invParentId||!/^\d+(\.\d{1,2})?$/.test(invTotal)||!/^\d+(\.\d{1,2})?$/.test(invDiscount)||Number(invTotal)<=0||Number(invDiscount)>=Number(invTotal)){fire("Enter a positive subtotal and a smaller non-negative discount, with at most two decimal places","error");return;}
+    saving.current=true;setBusy(true);
+    const payload={parent_id:invParentId,student_id:invStudentId||null,subtotal_qar:invTotal,discount_qar:invDiscount,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus};
+    const {error}=await billingRequest('invoice',user.id,payload,db.createInvoice);
+    saving.current=false;setBusy(false);
+    if(error){fire(error.message,"error");return;}
+    fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();
+  };
   const issueInv=async inv=>{const{error}=await db.updateInvoice(inv.id,{status:"Issued",issued_at:new Date().toISOString()});if(error)fire(error.message,"error");else{fire("Invoice issued");load();}};
   return(<div>{el}
     <SectionTitle title="Payments & Invoices" action={<div style={{display:"flex",gap:8}}><Button variant="secondary" icon={Plus} onClick={()=>setShowInv(true)}>New Invoice</Button><Button icon={Plus} onClick={()=>setShowPay(true)}>Record Payment</Button></div>}/>
@@ -1425,8 +1447,8 @@ function AdminPayments(){
       }</Card>
     )}
     {showPay&&(<Modal title="Record Payment" onClose={()=>setShowPay(false)}>
-      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>setPayParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-      <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>!payParentId||i.parent_id===payParentId).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
+      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>{setPayParentId(e.target.value);setPayInvId("");}}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+      <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>i.parent_id===payParentId&&["Issued","Partially Paid","Overdue"].includes(i.status)&&Number(i.balance_qar)>0).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Amount (QAR)" required><input style={inputStyle} type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="500"/></Field>
         <Field label="Method"><select style={inputStyle} value={payMethod} onChange={e=>setPayMethod(e.target.value)}>{["Cash","Bank Transfer","Card","Online","Cheque"].map(m=><option key={m}>{m}</option>)}</select></Field>
@@ -1437,11 +1459,11 @@ function AdminPayments(){
     </Modal>)}
     {showInv&&(<Modal title="Create Invoice" wide onClose={()=>setShowInv(false)}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>setInvParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>{setInvParentId(e.target.value);setInvStudentId("");}}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
         <Field label="Student (optional)"><select style={inputStyle} value={invStudentId} onChange={e=>setInvStudentId(e.target.value)}><option value="">— None —</option>{students.filter(s=>!invParentId||s.parent_id===invParentId).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Period Start"><input style={inputStyle} type="date" value={invPeriodStart} onChange={e=>setInvPeriodStart(e.target.value)}/></Field>
         <Field label="Period End"><input style={inputStyle} type="date" value={invPeriodEnd} onChange={e=>setInvPeriodEnd(e.target.value)}/></Field>
-        <Field label="Total (QAR)" required><input style={inputStyle} type="number" value={invTotal} onChange={e=>setInvTotal(e.target.value)} placeholder="1500"/></Field>
+        <Field label="Subtotal (QAR)" required><input style={inputStyle} type="number" value={invTotal} onChange={e=>setInvTotal(e.target.value)} placeholder="1500"/></Field>
         <Field label="Discount (QAR)"><input style={inputStyle} type="number" value={invDiscount} onChange={e=>setInvDiscount(e.target.value)}/></Field>
         <Field label="Status"><select style={inputStyle} value={invStatus} onChange={e=>setInvStatus(e.target.value)}>{["Draft","Issued"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
@@ -3993,3 +4015,4 @@ export default function App(){
     </Shell>
   );
 }
+

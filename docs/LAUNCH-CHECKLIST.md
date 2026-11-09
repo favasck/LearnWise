@@ -1,5 +1,7 @@
 # Owner launch checklist
 
+**9 November launch candidate:** the latest privacy/billing migrations and matching frontend must be released together. Follow [LAUNCH-BLOCKER-FIXES.md](LAUNCH-BLOCKER-FIXES.md) for the current production order, preflight and verification. The older service-restoration steps below do not complete that release.
+
 The public website can open while the account service is down. Signing in and saving forms need a working Supabase project. The last production project address no longer resolves. No live database or deployment changes were made in this work.
 
 ## 1. Bring the account service back
@@ -99,3 +101,4 @@ Restoring the service is necessary, but it does not finish these larger features
 - Messaging, payment gateways and the independent tutor marketplace are future work. They are not connected.
 
 No credentials, service settings or production data were changed by this task. Claude Code must review the pending files, create the separate commits and push them; this workspace denies writes to `.git`.
+
