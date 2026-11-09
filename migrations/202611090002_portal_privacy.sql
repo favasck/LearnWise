@@ -267,6 +267,11 @@ end $$;
 revoke all on public.portal_tutors from public,anon,authenticated;
 grant select on public.portal_tutors to authenticated;
 
+do $$ declare columns_sql text; begin
+ select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute where attrelid='public.portal_tutors'::regclass and attnum>0 and not attisdropped;
+ execute 'revoke insert ('||columns_sql||'),update ('||columns_sql||'),references ('||columns_sql||') on public.portal_tutors from public,anon,authenticated';
+end $$;
+
 do $$ begin if exists(select 1 from information_schema.columns where table_schema='public' and table_name='parents' and column_name<>all(array['id','user_id','full_name','email','phone','address','notes','status','created_at','updated_at'])) then raise exception 'Unexpected columns on parents; review disclosure rules before migration'; end if; end $$;
 
 -- The base table exposes only non-sensitive columns. The read-only view applies
@@ -282,6 +287,11 @@ do $$ declare all_columns text; safe_columns text; projection text; begin
 end $$;
 revoke all on public.portal_parents from public,anon,authenticated;
 grant select on public.portal_parents to authenticated;
+
+do $$ declare columns_sql text; begin
+ select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute where attrelid='public.portal_parents'::regclass and attnum>0 and not attisdropped;
+ execute 'revoke insert ('||columns_sql||'),update ('||columns_sql||'),references ('||columns_sql||') on public.portal_parents from public,anon,authenticated';
+end $$;
 
 do $$ begin if exists(select 1 from information_schema.columns where table_schema='public' and table_name='students' and column_name<>all(array['id','user_id','parent_id','full_name','email','phone','date_of_birth','age','grade','school','curriculum','subjects','goals','strengths','weak_areas','notes','status','created_at','updated_at'])) then raise exception 'Unexpected columns on students; review disclosure rules before migration'; end if; end $$;
 
@@ -299,6 +309,11 @@ end $$;
 revoke all on public.portal_students from public,anon,authenticated;
 grant select on public.portal_students to authenticated;
 
+do $$ declare columns_sql text; begin
+ select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute where attrelid='public.portal_students'::regclass and attnum>0 and not attisdropped;
+ execute 'revoke insert ('||columns_sql||'),update ('||columns_sql||'),references ('||columns_sql||') on public.portal_students from public,anon,authenticated';
+end $$;
+
 do $$ begin if exists(select 1 from information_schema.columns where table_schema='public' and table_name='classes' and column_name<>all(array['id','student_id','tutor_id','subject','topic','scheduled_at','duration_min','mode','meeting_link','location','status','attendance','payment_status','rate_qar','notes','created_at','updated_at'])) then raise exception 'Unexpected columns on classes; review disclosure rules before migration'; end if; end $$;
 
 -- The base table exposes only non-sensitive columns. The read-only view applies
@@ -314,6 +329,11 @@ do $$ declare all_columns text; safe_columns text; projection text; begin
 end $$;
 revoke all on public.portal_classes from public,anon,authenticated;
 grant select on public.portal_classes to authenticated;
+
+do $$ declare columns_sql text; begin
+ select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute where attrelid='public.portal_classes'::regclass and attnum>0 and not attisdropped;
+ execute 'revoke insert ('||columns_sql||'),update ('||columns_sql||'),references ('||columns_sql||') on public.portal_classes from public,anon,authenticated';
+end $$;
 
 do $$ begin if exists(select 1 from information_schema.columns where table_schema='public' and table_name='invoices' and column_name<>all(array['id','parent_id','student_id','invoice_number','period_start','period_end','subtotal_qar','discount_qar','total_qar','paid_qar','balance_qar','currency','status','issued_at','due_at','notes','created_at','updated_at'])) then raise exception 'Unexpected columns on invoices; review disclosure rules before migration'; end if; end $$;
 
@@ -331,6 +351,11 @@ end $$;
 revoke all on public.portal_invoices from public,anon,authenticated;
 grant select on public.portal_invoices to authenticated;
 
+do $$ declare columns_sql text; begin
+ select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute where attrelid='public.portal_invoices'::regclass and attnum>0 and not attisdropped;
+ execute 'revoke insert ('||columns_sql||'),update ('||columns_sql||'),references ('||columns_sql||') on public.portal_invoices from public,anon,authenticated';
+end $$;
+
 do $$ begin if exists(select 1 from information_schema.columns where table_schema='public' and table_name='payments' and column_name<>all(array['id','invoice_id','parent_id','student_id','tutor_id','amount_qar','method','reference','paid_at','notes','created_at','updated_at'])) then raise exception 'Unexpected columns on payments; review disclosure rules before migration'; end if; end $$;
 
 -- The base table exposes only non-sensitive columns. The read-only view applies
@@ -346,6 +371,11 @@ do $$ declare all_columns text; safe_columns text; projection text; begin
 end $$;
 revoke all on public.portal_payments from public,anon,authenticated;
 grant select on public.portal_payments to authenticated;
+
+do $$ declare columns_sql text; begin
+ select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute where attrelid='public.portal_payments'::regclass and attnum>0 and not attisdropped;
+ execute 'revoke insert ('||columns_sql||'),update ('||columns_sql||'),references ('||columns_sql||') on public.portal_payments from public,anon,authenticated';
+end $$;
 
 commit;
 notify pgrst,'reload schema';

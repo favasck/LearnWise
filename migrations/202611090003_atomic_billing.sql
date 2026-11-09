@@ -1,6 +1,14 @@
 -- Review against the production report first. Apply after schema reconciliation.
 -- Existing duplicate invoice numbers or inconsistent balances abort the transaction.
 begin;
+-- Table-level REVOKE does not remove older column-level write grants.
+do $$ declare t text; columns_sql text; begin
+ foreach t in array array['payments','invoices'] loop
+  select string_agg(quote_ident(attname),', ') into columns_sql from pg_attribute
+   where attrelid=('public.'||t)::regclass and attnum>0 and not attisdropped;
+  execute format('revoke insert (%s), update (%s), references (%s) on public.%I from public,anon,authenticated',columns_sql,columns_sql,columns_sql,t);
+ end loop;
+end $$;
 do $$ begin
  if exists (select 1 from public.payments where amount_qar <= 0) or exists (
    select 1 from public.invoices i where paid_qar <> coalesce((select sum(p.amount_qar) from public.payments p where p.invoice_id=i.id),0)

@@ -14,7 +14,9 @@ test('launch migrations enforce privacy, permissions and transactional billing',
   for(const f of ['202611070001_bootstrap_schema.sql','202611030001_protect_profile_updates.sql','202611090001_reconcile_production_schema.sql'])await db.exec(await sql(f));
   // Simulate an old permissive policy: the upgrade must remove it, not OR it in.
   await db.exec('create policy old_everyone on students for select to authenticated using(true)');
+  await db.exec('create view portal_students as select * from students; grant update(full_name) on portal_students to authenticated;');
   await db.exec(await sql('202611090002_portal_privacy.sql'));
+  await db.exec('grant insert(parent_id,amount_qar),update(amount_qar) on payments to authenticated; grant insert(parent_id,invoice_number),update(paid_qar) on invoices to authenticated;');
   await db.exec(await sql('202611090003_atomic_billing.sql'));
   for(const [n,role]of [[1,'student'],[2,'tutor'],[3,'parent'],[4,'student'],[5,'parent'],[6,'student'],[7,'tutor']]){
    await db.query('insert into auth.users(id,email,raw_user_meta_data)values($1,$2,$3)',[id(n),n+'@test.invalid',{role}]);
@@ -56,6 +58,7 @@ test('launch migrations enforce privacy, permissions and transactional billing',
   });
   await t.test('view writes and direct profile escalation remain denied',async()=>{
    await assert.rejects(asUser(2,()=>db.query("update portal_students set notes='forged'")),e=>['42501','0A000'].includes(e.code));
+   await assert.rejects(asUser(2,()=>db.query("update portal_students set full_name='forged'")),{code:'42501'});
    await assert.rejects(asUser(4,()=>db.query("update profiles set role='admin'where id=$1",[id(4)])),{code:'42501'});
    await asUser(1,()=>db.query('select admin_update_profile($1,$2)',[id(6),{status:'Suspended'}]));
   });
@@ -88,6 +91,8 @@ test('launch migrations enforce privacy, permissions and transactional billing',
    for(const patch of [{parent_id:id(5)},{student_id:id(6)},{amount_qar:'65'},{amount_qar:'0'},{amount_qar:'-1'},{amount_qar:'1.001'},{amount_qar:'NaN'},{paid_at:'2000-01-01'}])await assert.rejects(asUser(1,()=>post(31,payment(patch))));
    for(const user of [2,3,4,5])await assert.rejects(asUser(user,()=>post(31,payment())),{code:'42501'});
    await assert.rejects(asUser(1,()=>db.query("update invoices set paid_qar=90 where id=$1",[id(20)])),{code:'42501'});
+   await assert.rejects(asUser(1,()=>db.query('insert into payments(parent_id,amount_qar)values($1,10)',[id(3)])),{code:'42501'});
+   await assert.rejects(asUser(1,()=>db.query("insert into invoices(parent_id,invoice_number)values($1,'BYPASS')",[id(3)])),{code:'42501'});
    await assert.rejects(asUser(1,()=>db.query("update invoices set status='Paid'where id=$1",[id(20)])),/Unsupported invoice transition/);
    await assert.rejects(asUser(1,()=>db.query('delete from payments where id=$1',[id(30)])),{code:'42501'});
    await assert.rejects(asUser(1,()=>db.query('delete from parents where id=$1',[id(3)])));
