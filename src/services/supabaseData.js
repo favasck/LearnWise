@@ -15,9 +15,7 @@ import { safeServiceAction, SERVICE_UNAVAILABLE } from './availability.js';
  * automatically filter based on the signed-in user's role.
  */
 
-import { supabase as rawSupabase } from "../supabaseClient";
-import { createPortalClient } from './portalClient.js';
-const supabase = createPortalClient(rawSupabase);
+import { supabase } from "../supabaseClient";
 
 // ─────────────────────────────────────────────
 // INTERNAL HELPERS

@@ -1,6 +1,20 @@
 -- Review against the production report first. Apply after schema reconciliation.
 -- Existing duplicate invoice numbers or inconsistent balances abort the transaction.
 begin;
+
+-- Retire ALL older overloads from application roles, including the reported
+-- 10-argument function. Never trust caller-supplied actor IDs/roles.
+do $$ declare f record; begin
+ for f in select p.oid,pg_get_function_identity_arguments(p.oid) as args
+  from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+  where n.nspname='public' and p.proname='record_payment'
+ loop
+  execute format('revoke all on function public.record_payment(%s) from public,anon,authenticated',f.args);
+  if has_function_privilege('authenticated',f.oid,'EXECUTE') or has_function_privilege('anon',f.oid,'EXECUTE') then
+   raise exception 'Inherited privileges keep an old payment overload callable; review role grants';
+  end if;
+ end loop;
+end $$;
 -- Table-level REVOKE does not remove older column-level write grants.
 do $$ declare t text; columns_sql text; begin
  foreach t in array array['payments','invoices'] loop
@@ -25,7 +39,7 @@ create table public.billing_audit_events (
 alter table public.billing_audit_events enable row level security;
 revoke all on public.billing_audit_events from public, anon, authenticated;
 grant select on public.billing_audit_events to authenticated;
-create policy billing_admin_read on public.billing_audit_events for select to authenticated using(public.is_admin());
+create policy billing_admin_read on public.billing_audit_events for select to authenticated using(learnwise_private.active_profile_role()='super_admin');
 
 -- A request UUID is also the payment UUID. A retry must carry the same payload.
 create or replace function public.record_payment(p_request_id uuid, p_payment jsonb)
@@ -33,7 +47,7 @@ returns public.payments language plpgsql security definer set search_path='' as 
 declare inv public.invoices; previous public.payments; result public.payments;
  amount numeric; parent uuid; student uuid; invoice uuid; tutor uuid; method text; reference text; notes text;
 begin
- if not public.is_admin() then raise exception 'Active administrator required' using errcode='42501'; end if;
+ if coalesce(learnwise_private.active_profile_role() not in ('super_admin','admin_tutor'),true) then raise exception 'Active administrator required' using errcode='42501'; end if;
  if p_request_id is null or p_payment is null or jsonb_typeof(p_payment)<>'object' then raise exception 'Payment and request ID required'; end if;
  if exists(select 1 from jsonb_object_keys(p_payment) k where k not in ('invoice_id','parent_id','student_id','tutor_id','amount_qar','method','reference','notes')) then raise exception 'Unsupported payment field'; end if;
  amount := (p_payment->>'amount_qar')::numeric;
@@ -78,7 +92,7 @@ create or replace function public.create_invoice(p_request_id uuid,p_invoice jso
 returns public.invoices language plpgsql security definer set search_path='' as $$
 declare result public.invoices; subtotal numeric; discount numeric; parent uuid; student uuid;
 begin
- if not public.is_admin() then raise exception 'Active administrator required' using errcode='42501'; end if;
+ if coalesce(learnwise_private.active_profile_role() not in ('super_admin','admin_tutor'),true) then raise exception 'Active administrator required' using errcode='42501'; end if;
  if p_request_id is null or p_invoice is null or jsonb_typeof(p_invoice)<>'object' then raise exception 'Invoice and request ID required'; end if;
  if exists(select 1 from jsonb_object_keys(p_invoice) k where k not in ('parent_id','student_id','subtotal_qar','discount_qar','period_start','period_end','notes','status')) then raise exception 'Unsupported invoice field'; end if;
  perform pg_advisory_xact_lock(hashtextextended(p_request_id::text,0));
@@ -115,7 +129,8 @@ grant update(status,issued_at,due_at) on public.invoices to authenticated;
 create or replace function public.guard_invoice_status() returns trigger language plpgsql set search_path='' as $$
 begin
  if current_user in ('authenticated','anon') then
-  if not public.is_admin() then raise exception 'Active administrator required' using errcode='42501'; end if;
+  if coalesce(learnwise_private.active_profile_role() not in ('super_admin','admin_tutor'),true) then raise exception 'Active administrator required' using errcode='42501'; end if;
+  if new.status='Cancelled' and learnwise_private.active_profile_role()<>'super_admin' then raise exception 'Tutor Admin cancellation authority is pending owner decision' using errcode='42501'; end if;
   if not ((old.status='Draft' and new.status in ('Draft','Issued','Cancelled'))
     or (old.status in ('Issued','Overdue') and old.paid_qar=0 and new.status in (old.status,'Cancelled')))
    then raise exception 'Unsupported invoice transition'; end if;

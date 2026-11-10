@@ -21,7 +21,7 @@ const tokens = {
 };
 const SUBJECTS  = ["Mathematics","Physics","Chemistry","Biology","English","Computer Science","Economics","History","Geography"];
 const CURRICULA = ["IGCSE","Edexcel","Cambridge","School Curriculum","A-Level","IB"];
-const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin Tutor",tutor:"Tutor",parent:"Parent",student:"Student",admin:"Super Admin"};
+const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin Tutor",tutor:"Tutor",parent:"Parent",student:"Student"};
 const fmt       = (n) => `QAR ${Number(n||0).toLocaleString("en-QA",{minimumFractionDigits:0})}`;
 const fmtDate   = (v) => v ? new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "—";
 const fmtDateTime=(v) => v ? new Date(v).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "—";
@@ -111,7 +111,7 @@ function ReasonModal({title,description,onConfirm,onCancel,busy}){
 }
 
 /* Hook — get current user's profile for permission checks inside sections */
-function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin"].includes(role)};}
+function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor"].includes(role),canDelete:["super_admin"].includes(role)};}
 
 function Field({label,children,required}){return(<div style={{marginBottom:14}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.slate,marginBottom:6}}>{label}{required&&<span style={{color:tokens.coral}}> *</span>}</div>{children}</div>);}
 const inputStyle={width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${tokens.line}`,fontSize:13.5,fontFamily:"Inter, sans-serif",boxSizing:"border-box",color:tokens.ink,background:"#FCFBF8"};
@@ -151,7 +151,7 @@ const NAV={
   student:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"myclasses",label:"My Classes",icon:CalendarDays},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"materials",label:"Materials",icon:BookOpen},{key:"progress",label:"Progress",icon:Target}],
 };
 // backward compat alias
-NAV.admin = NAV.super_admin;
+
 
 /* ═══════════════════════════════════════════════════════════
    PUBLIC WEBSITE  —  LearnWise Academy
@@ -791,7 +791,7 @@ function AuthShell({title,subtitle,children,footer}){return(<div style={{minHeig
 function ErrorNote({message}){if(!message)return null;return <div style={{background:tokens.dangerBg,color:tokens.danger,fontSize:12.5,padding:"9px 12px",borderRadius:9,marginBottom:14}}>{message}</div>;}
 function SignIn({onGoSignUp,onGoStaff}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signIn({email,password});setLoading(false);if(error)setError(error.message);};return(<AuthShell title="Sign in" subtitle="Welcome back — sign in to your portal." footer={<div style={{textAlign:"center",marginTop:16}}><div style={{fontSize:12.5,color:tokens.slate}}>New here? <span onClick={onGoSignUp} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Create an account</span></div><div onClick={onGoStaff} style={{textAlign:"center",fontSize:11,color:tokens.line,marginTop:18,cursor:"pointer",userSelect:"none"}}>·</div></div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
 function SignUp({onGoSignIn}){const{signUp}=useAuth();const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[role,setRole]=useState("student");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[done,setDone]=useState(false);const roles=[{key:"tutor",label:"Tutor",icon:Users},{key:"parent",label:"Parent",icon:UserCircle},{key:"student",label:"Student",icon:GraduationCap}];const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signUp({email,password,fullName,role});setLoading(false);if(error)setError(error.message);else setDone(true);};if(done)return <AuthShell title="Check your inbox" subtitle=""><div style={{fontSize:13.5,color:tokens.ink,lineHeight:1.6}}>We've sent a confirmation link to <strong>{email}</strong>. Confirm your email, then sign in to reach your {ROLE_LABEL[role]} portal.</div><Button variant="secondary" style={{width:"100%",justifyContent:"center",marginTop:16}} onClick={onGoSignIn}>Back to sign in</Button></AuthShell>;return(<AuthShell title="Create an account" subtitle="Sign up as a tutor, parent, or student." footer={<div style={{textAlign:"center",fontSize:12.5,color:tokens.slate,marginTop:16}}>Already have an account? <span onClick={onGoSignIn} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Sign in</span></div>}><form onSubmit={submit}><ErrorNote message={error}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>{roles.map((r)=><div key={r.key} onClick={()=>setRole(r.key)} style={{border:`1.5px solid ${role===r.key?tokens.teal:tokens.line}`,background:role===r.key?tokens.tealSoft:"#fff",borderRadius:12,padding:"10px 8px",cursor:"pointer",textAlign:"center"}}><r.icon size={17} color={role===r.key?tokens.tealDeep:tokens.slate} style={{marginBottom:4}}/><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink}}>{r.label}</div></div>)}</div><Field label="Full Name"><input style={inputStyle} required value={fullName} onChange={(e)=>setFullName(e.target.value)} placeholder="Your full name"/></Field><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="At least 6 characters"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Creating account…":"Create account"}</Button></form></AuthShell>);}
-function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof,error:profileError}=await db.getProfileById(data.user.id);if(profileError){setError(profileError.message);return;}if(!prof||!["super_admin","admin_tutor","admin"].includes(prof.role)){await supabase.auth.signOut();setError("This account doesn't have staff access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — staff only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Staff Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="staff@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
+function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof,error:profileError}=await db.getProfileById(data.user.id);if(profileError){setError(profileError.message);return;}if(!prof||!["super_admin","admin_tutor"].includes(prof.role)){await supabase.auth.signOut();setError("This account doesn't have staff access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — staff only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Staff Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="staff@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
 
 /* ═══ SHELL ═══ */
 function Shell({role,current,setCurrent,onLogout,children,who}){const nav=NAV[role]||NAV.student;const isAdminTutorRole=role==="admin_tutor";return(<div style={{display:"flex",minHeight:"100vh",background:tokens.paper,fontFamily:"Inter, sans-serif"}}><div style={{width:232,flexShrink:0,borderRight:`1px solid ${tokens.line}`,padding:"22px 14px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"0 8px",marginBottom:26}}><div style={{width:34,height:34,borderRadius:9,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><GraduationCap size={18} color="#fff"/></div><div><div style={{fontFamily:"Fraunces, serif",fontWeight:600,fontSize:14.5,color:tokens.ink,lineHeight:1.1}}>LearnWise</div><div style={{fontSize:10.5,color:tokens.coral,fontWeight:600}}>Academy</div></div></div><div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>{nav.map((n)=><div key={n.key} onClick={()=>setCurrent(n.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",background:current===n.key?tokens.tealSoft:"transparent",color:current===n.key?tokens.tealDeep:tokens.slate,fontWeight:current===n.key?700:500,fontSize:13.5}}><n.icon size={16}/>{n.label}</div>)}</div><div style={{borderTop:`1px solid ${tokens.line}`,paddingTop:14,marginTop:10}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"0 8px",marginBottom:10}}><div style={{width:30,height:30,borderRadius:"50%",background:isAdminTutorRole?tokens.warnBg:tokens.coralSoft,display:"flex",alignItems:"center",justifyContent:"center",color:isAdminTutorRole?tokens.warn:tokens.coral,fontWeight:700,fontSize:12.5,flexShrink:0}}>{initials(who)}</div><div style={{minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{who}</div><div style={{fontSize:11,color:tokens.slate}}>{ROLE_LABEL[role]||role}</div></div></div><div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,cursor:"pointer",color:tokens.slate,fontSize:13}}><LogOut size={15}/> Sign out</div></div></div><div style={{flex:1,padding:"26px 32px",minWidth:0}}>{children}</div></div>);}
@@ -893,7 +893,7 @@ function AdminUsers(){
   };
 
   const filtered=filter==="all"?users:users.filter(u=>u.role===filter);
-  const cnt=["admin","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
+  const cnt=["super_admin","admin_tutor","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
 
   const canLink=u=>["tutor","parent","student"].includes(u.role);
 
@@ -908,7 +908,7 @@ function AdminUsers(){
     </div>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",gap:8,flexWrap:"wrap"}}>
-      {["all","admin","tutor","parent","student"].map(f=>(
+      {["all","super_admin","admin_tutor","tutor","parent","student"].map(f=>(
         <div key={f} onClick={()=>setFilter(f)} style={{padding:"6px 14px",borderRadius:999,fontSize:12.5,fontWeight:600,cursor:"pointer",background:filter===f?tokens.teal:tokens.tealSoft,color:filter===f?"#fff":tokens.tealDeep,textTransform:"capitalize"}}>{f}</div>
       ))}
     </Card>
@@ -921,7 +921,7 @@ function AdminUsers(){
               u.full_name,
               u.email,
               <select value={u.role} onChange={e=>setRole(u.id,e.target.value)} disabled={u.id===myProfile?.id} style={{...inputStyle,padding:"5px 8px",width:110}}>
-                {["admin","tutor","parent","student"].map(r=><option key={r} value={r}>{ROLE_LABEL[r]||r}</option>)}
+                {["super_admin","admin_tutor","tutor","parent","student"].map(r=><option key={r} value={r}>{ROLE_LABEL[r]||r}</option>)}
               </select>,
               <Pill value={u.status==="Active"?"Active":"Suspended"}/>,
               linked
@@ -3935,10 +3935,10 @@ export default function App(){
   const role=profile.role;
 
   /* ── Unknown role ── */
-  if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
+  if(!["super_admin","admin_tutor","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
   /* ── Non-staff with no linked profile record ── */
-  if(!["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
+  if(!["super_admin","admin_tutor"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
@@ -3946,8 +3946,8 @@ export default function App(){
   const studentId=linkedProfile?.id||null;
 
   // Pass profile to section components that need permission checks
-  const isStaffRole = ["super_admin","admin_tutor","admin"].includes(role);
-  const isSuperAdminRole = ["super_admin","admin"].includes(role);
+  const isStaffRole = ["super_admin","admin_tutor"].includes(role);
+  const isSuperAdminRole = ["super_admin"].includes(role);
 
   const renderAdmin=()=>{switch(current){
     case "dashboard":   return <AdminDashboard/>;
@@ -4004,7 +4004,6 @@ export default function App(){
   const renderers={
     super_admin: renderAdmin,
     admin_tutor: renderAdmin, // uses same section components — delete buttons hidden by role check inside each section
-    admin:       renderAdmin, // backward compat
     tutor:       renderTutor,
     parent:      renderParent,
     student:     renderStudent,

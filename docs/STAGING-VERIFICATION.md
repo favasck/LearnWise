@@ -1,3 +1,5 @@
+> Superseded production assumptions: the 10 November owner report identifies five canonical roles and an existing working backend. Older legacy-admin/missing-note/deployment statements below are historical, not current release instructions. PR #2 remains blocked; see [the current review](LAUNCH-BLOCKER-FIXES.md).
+
 # Staging connection and read-only verification
 
 Do not promote this branch based on build status alone. The existing preview is protected by Vercel login, Vercel CLI is logged out, and the checkout has no staging connection. Supabase and Vercel integrations were discovered as available but not installed/connected. Enabling them and identifying the approved nonproduction Supabase project is the preferred next step; no credentials should be pasted into chat.
@@ -15,3 +17,4 @@ Output contains only named checks and fixed status messages. Credentials, raw ba
 ## Current execution result
 
 The 14 new checker tests pass with synthetic credentials and injected HTTP responses. Running the actual command stops with staging_configuration=blocked because .env.staging.local does not exist. No external database requests or changes were made. No staging project or account has been fabricated.
+

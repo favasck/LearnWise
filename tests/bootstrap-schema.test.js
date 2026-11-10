@@ -26,10 +26,10 @@ test('clean bootstrap, profile protection and bootstrap replay work on empty Pos
       assert.equal((await db.query("select to_regprocedure('public.admin_update_profile(uuid,jsonb)') is not null as found")).rows[0].found,true);
     });
     const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
-    for (const [n,role] of [[1,'admin'],[2,'tutor'],[3,'parent'],[4,'student'],[5,'student'],[6,'tutor']]) {
+    for (const [n,role] of [[1,'super_admin'],[2,'tutor'],[3,'parent'],[4,'student'],[5,'student'],[6,'tutor']]) {
       await db.query('insert into auth.users(id,email,raw_user_meta_data) values ($1,$2,$3)',[id(n),`${n}@example.test`,{role}]);
     }
-    await db.query("update public.profiles set role='admin' where id=$1",[id(1)]);
+    await db.query("update public.profiles set role='super_admin' where id=$1",[id(1)]);
     await db.query('insert into public.parents(id,user_id,full_name) values ($1,$2,$3)',[id(3),id(3),'Parent']);
     for(const n of [2,6]) await db.query('insert into public.tutors(id,user_id,full_name) values ($1,$2,$3)',[id(n),id(n),'Tutor']);
     for(const n of [4,5]) await db.query('insert into public.students(id,user_id,parent_id,full_name) values ($1,$2,$3,$4)',[id(n),id(n),n===4?id(3):null,'Student']);
@@ -44,13 +44,13 @@ test('clean bootstrap, profile protection and bootstrap replay work on empty Pos
       } finally { await db.exec('rollback'); }
     }
     await t.test('signup metadata cannot create an administrator',async()=>{
-      assert.equal((await db.query('select role from profiles where id=$1',[id(1)])).rows[0].role,'admin');
+      assert.equal((await db.query('select role from profiles where id=$1',[id(1)])).rows[0].role,'super_admin');
       await db.query('insert into auth.users(id,email,raw_user_meta_data) values ($1,$2,$3)',[id(7),'7@example.test',{role:'super_admin'}]);
       assert.equal((await db.query('select role from profiles where id=$1',[id(7)])).rows[0].role,'student');
     });
     await t.test('replay cannot restore profile escalation grants',async()=>{
-      await assert.rejects(asUser(4,()=>db.query("update profiles set role='admin' where id=$1",[id(4)])),{code:'42501'});
-      await assert.rejects(asUser(4,()=>db.query('select admin_update_profile($1,$2)',[id(5),{role:'admin'}])),{code:'42501'});
+      await assert.rejects(asUser(4,()=>db.query("update profiles set role='super_admin' where id=$1",[id(4)])),{code:'42501'});
+      await assert.rejects(asUser(4,()=>db.query('select admin_update_profile($1,$2)',[id(5),{role:'super_admin'}])),{code:'42501'});
     });
     await t.test('admin RPC remains available and audited after replay',async()=>{
       await asUser(1,async()=>{
@@ -85,14 +85,10 @@ test('clean bootstrap, profile protection and bootstrap replay work on empty Pos
       await db.query("update profiles set status='Suspended' where id=$1",[id(3)]);
       await asUser(3,async()=>assert.equal((await db.query('select * from students')).rows.length,0));
     });
-    await t.test('owner first-admin SQL works once for a confirmed account', async () => {
-      await db.query("update profiles set role='student' where id=$1",[id(1)]);
-      await db.query('update auth.users set email_confirmed_at=now() where id=$1',[id(1)]);
-      const checklist = await readFile(new URL('../docs/LAUNCH-CHECKLIST.md', import.meta.url), 'utf8');
-      const sql = checklist.match(/```sql\r?\n([\s\S]*?)```/)[1].replaceAll('YOUR-ADMIN-EMAIL-HERE','1@example.test');
-      await db.exec(sql);
-      assert.equal((await db.query('select role from profiles where id=$1',[id(1)])).rows[0].role,'admin');
-      await assert.rejects(db.exec(sql), /active administrator already exists/);
+    await t.test('legacy admin is rejected without remapping existing accounts',async()=>{
+      await assert.rejects(db.query("update profiles set role='admin'where id=$1",[id(1)]),{code:'23514'});
+      assert.equal((await db.query('select role from profiles where id=$1',[id(1)])).rows[0].role,'super_admin');
     });
   } finally { await db.close(); }
 });
+

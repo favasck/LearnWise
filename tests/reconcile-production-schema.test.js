@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 const sql = name => readFile(new URL(`../${name}`, import.meta.url), 'utf8');
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 
-test('reconcile migration upgrades the older production shape without losing data', async t => {
+test('date-of-birth candidate preserves the note schema reported as already correct', async t => {
   const db = new PGlite();
   try {
     await db.exec(`create role anon; create role authenticated; create schema auth;
@@ -17,10 +17,8 @@ test('reconcile migration upgrades the older production shape without losing dat
       grant execute on function auth.uid() to anon, authenticated;`);
     await db.exec(await sql('migrations/202611070001_bootstrap_schema.sql'));
 
-    // Recreate what the live database reports: these two columns are absent.
-    await db.exec(`alter table public.class_notes drop column areas_to_improve;
-      alter table public.students drop column date_of_birth;
-      alter table public.class_notes alter column class_id set not null;`);
+    // Owner-reported gap only; this is not a direct production schema export.
+    await db.exec('alter table public.students drop column date_of_birth');
 
     await db.query('insert into auth.users(id,email,raw_user_meta_data) values ($1,$2,$3)', [id(1), '1@example.test', { role: 'tutor' }]);
     await db.query("insert into public.tutors(id,user_id,full_name) values ($1,$1,'Tutor')", [id(1)]);
@@ -38,7 +36,7 @@ test('reconcile migration upgrades the older production shape without losing dat
       assert.deepEqual(rows, [{ topic: 'Existing', class_id: id(3) }]);
     });
 
-    await t.test('the class note from the failing form saves, with and without a class', async () => {
+    await t.test('existing note fields continue working with and without a linked class', async () => {
       for (const classId of [id(3), null]) {
         await db.query(
           "insert into public.class_notes(class_id,tutor_id,student_id,topic,areas_to_improve) values ($1,$2,$3,'Note','concepts')",
@@ -63,3 +61,4 @@ test('reconcile migration upgrades the older production shape without losing dat
     });
   } finally { await db.close(); }
 });
+
