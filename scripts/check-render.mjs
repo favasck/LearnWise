@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 // account. All application fetches are blocked after downloading public assets.
 const source = process.argv[2] || 'dist';
 let entry;
+const routeChecks = [];
 if (source.startsWith('https://')) {
   const response = await fetch(source);
   const html = await response.text();
@@ -15,6 +16,15 @@ if (source.startsWith('https://')) {
   if (!response.ok || !script) throw new Error('Application module was not accessible at the supplied URL');
   const scriptResponse = await fetch(new URL(script[1], source));
   if (!scriptResponse.ok) throw new Error('Application JavaScript could not be downloaded');
+  if (process.argv.includes('--verify-routes')) {
+    for (const path of ['/about','/subjects?subject=Physics','/assessment?subject=Physics','/login','/reset-password','/portal/classes']) {
+      const routeResponse = await fetch(new URL(path,source),{signal:AbortSignal.timeout(15000)});
+      const routeHtml = await routeResponse.text();
+      const sameModule = routeHtml.includes(script[1]);
+      routeChecks.push({path,status:routeResponse.status,sameModule});
+      if (!routeResponse.ok || !sameModule) throw new Error(`Direct URL failed: ${path} (${routeResponse.status})`);
+    }
+  }
   const directory = await mkdtemp(join(tmpdir(), 'learnwise-render-'));
   entry = join(directory, 'app.mjs');
   await writeFile(entry, await scriptResponse.text());
@@ -26,9 +36,16 @@ if (source.startsWith('https://')) {
   entry = join(directory, script[1].replace(/^\//, ''));
 }
 
+if (process.argv.includes('--metadata-only')) {
+  const code = await readFile(entry,'utf8');
+  console.log(JSON.stringify({source,backendHosts:[...new Set(code.match(/https:\/\/[a-z0-9-]+\.supabase\.co/g) || [])],uiExperience:code.includes('confident learning.'),bytes:code.length,routeChecks},null,2));
+  process.exit(0);
+}
+
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
   url: 'http://localhost:4173/', pretendToBeVisual: true,
 });
+dom.window.scrollTo = () => {};
 for (const name of ['window', 'document', 'navigator', 'localStorage', 'sessionStorage', 'MutationObserver', 'HTMLElement', 'Event', 'MouseEvent', 'location', 'WebSocket']) {
   Object.defineProperty(globalThis, name, { value: dom.window[name], configurable: true });
 }
@@ -57,11 +74,12 @@ try {
     loading: text.startsWith('Loading LearnWise'),
     blockedRequests,
     errors,
+    routeChecks,
   };
   if (result.homepage) {
     const root = dom.window.document.getElementById('root');
     for (const label of ['About', 'Subjects', 'IGCSE / Edexcel', 'Online Tuition', 'Book Assessment', 'Contact', 'Home']) {
-      const target = [...root.querySelectorAll('nav div')].find(element => element.textContent.trim() === label);
+      const target = [...root.querySelectorAll('nav a')].find(element => element.textContent.trim() === label);
       if (!target) throw new Error(`Public navigation missing: ${label}`);
       target.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -69,7 +87,7 @@ try {
         throw new Error(`Public page failed to render: ${label}`);
       }
     }
-    const login = [...root.querySelectorAll('button')].find(element => element.textContent.trim() === 'Login');
+    const login = [...root.querySelectorAll('a')].find(element => element.textContent.trim() === 'Login');
     if (!login) throw new Error('Login navigation missing');
     login.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 50));

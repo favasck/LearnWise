@@ -46,3 +46,18 @@ test('real data service settles injected failures and public writes need no read
     });
   } finally { await server.close(); delete globalThis.__learnwiseTestClient; }
 });
+
+test('missing backend returns recoverable errors from filtered portal queries', async () => {
+  const server = await createServer({
+    plugins:[{name:'missing-client',enforce:'pre',resolveId(source){if(source.endsWith('supabaseClient'))return '\0missing-client';},load(id){if(id==='\0missing-client')return 'export const supabase = null;';}}],
+    configFile:false, cacheDir:'node_modules/.vite-missing-client-tests', ssr:{optimizeDeps:{noDiscovery:true,include:[]}},server:{middlewareMode:true,hmr:{server:createHttpServer()}},appType:'custom',optimizeDeps:{noDiscovery:true,include:[]},
+  });
+  try {
+    const db = await server.ssrLoadModule('/src/services/supabaseData.js');
+    for (const name of ['getClasses','getUpcomingClasses','getStudentTutors','getClassNotes','getHomework','getInvoices','getPayments','getMaterials']) {
+      const result = await db[name]();
+      assert.equal(result.data,null,name);
+      assert.match(result.error.message,/temporarily unavailable/,name);
+    }
+  } finally { await server.close(); }
+});

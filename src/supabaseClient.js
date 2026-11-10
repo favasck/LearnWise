@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { initializeSupabase } from "./config/supabase";
+import { createRecoveryState } from './features/auth/passwordRecovery';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -15,3 +16,5 @@ if (!result.configured) {
 
 export const supabase = result.client;
 export const supabaseConfigured = result.configured;
+export const recoveryState = createRecoveryState(supabase);
+if (import.meta.hot) import.meta.hot.dispose(() => recoveryState.stop());

@@ -1,5 +1,13 @@
 # Development batches
 
+## UI experience release completion — 2026-11-10
+
+Completed the public About, Subjects, Curriculum and Online Tuition redesign; added subject-preserving assessment links, refreshable/expiring password recovery and expired-link handling. Filtered portal queries now recover from missing backend configuration. Standard build works in Windows sandbox and CI. Local suite: 106 tests pass; live rollback-only assessment/signup/profile probes pass. Deployment is authorized through the existing GitHub/Vercel integration. Separate draft permissions work is excluded; visual browser access and SMTP delivery remain unverified. Details: [UI-EXPERIENCE.md](UI-EXPERIENCE.md).
+
+## UI experience foundation — 2026-11-10
+
+Local branch `feat/ui-experience`: redesigned public homepage/navigation/footer, URL-based public and portal routes, responsive portal drawer/grids, shared accessible forms/dialogs, assessment review flow, recoverable contact validation, clearer login/signup and password recovery. Added rendered interaction tests and fixed the SQL-fence test's Windows line-ending assumption. See [UI-EXPERIENCE.md](UI-EXPERIENCE.md) for scope and verification limits. No deployment or external data change performed.
+
 ## Batch 0 — read-only assessment
 
 Inspected latest working tree and recent history, architecture, source service/auth/role modules, SQL policies, public and portal actions, delivery/configuration and dependency manifests. Confirmed the master specification's ten known source findings remain relevant. Assessment written in audit/CURRENT-STATE.md; no production access.

@@ -89,7 +89,7 @@ test('clean bootstrap, profile protection and bootstrap replay work on empty Pos
       await db.query("update profiles set role='student' where id=$1",[id(1)]);
       await db.query('update auth.users set email_confirmed_at=now() where id=$1',[id(1)]);
       const checklist = await readFile(new URL('../docs/LAUNCH-CHECKLIST.md', import.meta.url), 'utf8');
-      const sql = checklist.match(/```sql\n([\s\S]*?)```/)[1].replaceAll('YOUR-ADMIN-EMAIL-HERE','1@example.test');
+      const sql = checklist.match(/```sql\r?\n([\s\S]*?)```/)[1].replaceAll('YOUR-ADMIN-EMAIL-HERE','1@example.test');
       await db.exec(sql);
       assert.equal((await db.query('select role from profiles where id=$1',[id(1)])).rows[0].role,'admin');
       await assert.rejects(db.exec(sql), /active administrator already exists/);
