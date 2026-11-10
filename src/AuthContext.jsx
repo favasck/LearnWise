@@ -8,7 +8,7 @@ export const AuthContext = createContext(null);
 
 // Roles that are safe to accept from signup metadata.
 // super_admin and admin_tutor can NEVER be self-assigned.
-const SAFE_SIGNUP_ROLES = SIGNUP_ROLES; // ["tutor", "parent", "student"]
+const SAFE_SIGNUP_ROLES = SIGNUP_ROLES; // ["parent", "student"]
 const unavailableAuth = () => ({ data: null, error: { message: "Account access is temporarily unavailable. Please try again later." } });
 
 export function AuthProvider({ children }) {
@@ -89,3 +89,4 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
+

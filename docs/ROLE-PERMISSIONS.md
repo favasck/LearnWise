@@ -1,21 +1,19 @@
-# Role permissions
+> Current implementation: [Firm access and onboarding](FIRM-ACCESS.md). The supplied production policy export is now installed in the new fixture. Later decisions permit explicitly delegated, firm-scoped Admin void/correction powers and tutor-created student/parent records. Earlier fixed-role restrictions and requests for a policy export below are historical. Production remains unchanged; PR #2 stays draft.
 
-| Intended role | Intended authority | Baseline mismatch |
+# Five-role candidate — not a production authorization export
+
+The owner-supplied 10 November report says production accepts only `super_admin`, `admin_tutor`, `tutor`, `parent`, `student`. The legacy `admin` role is rejected. No account is remapped by this branch.
+
+| Role | Source-supported authority | Candidate boundary |
 |---|---|---|
-| super_admin | Platform administration, roles, settings, authorized deletion, audit | Not accepted by SQL role constraint/helper |
-| admin_tutor | Authorized academic/tuition operations; no unrestricted roles/deletion | Frontend shares unguarded admin mutation components; SQL does not recognize role |
-| tutor | Assigned students/classes, owned academic records, limited attendance | SQL permits broad owned-row writes and lacks assignment validation for content |
-| parent | Linked children's permitted academic and financial views | Row scopes exist; column disclosure/recursion/revocation need verification |
-| student | Own permitted academic data and homework submission | UI is read-only; submission SQL grants whole-row update |
-| legacy admin | Existing SQL administrative authority | Requires ownership inventory before canonical mapping |
+| Super Admin | Academic/tuition operations, role changes, settings, audit access, permanent deletion | Permission RPC requires an active stored Super Admin; no self-permission changes. Payment records remain immutable. |
+| Tutor Admin | Academic operations, tutor assignment, invoice creation and payment recording | No role/status management, settings, audit read or permanent deletion. Invoice cancellation and financial corrections remain pending an owner decision. |
+| Tutor | Assigned students/classes and permitted academic work | No staff authority or ledger writes. |
+| Parent | Linked children's permitted academic and financial records | Read access follows existing production policies; precise disclosure still requires export/review. |
+| Student | Own permitted academic records | No staff or financial writes. |
 
-Batch 1 preserves the actual baseline role model. Ordinary authenticated users can edit only full_name/phone on rows allowed by existing RLS. Permission changes require active legacy admin via RPC and cannot target the actor themselves. No canonical role is granted by this migration.
+Evidence for intended capabilities: `src/config/roles.js`. This describes the product's intended split; it does not establish every existing production grant or policy. The empty-project bootstrap is a local reference, not a migration for the existing production database.
 
-Next authorization review must decide legacy account mapping, Tutor Admin scope, organization ownership, self-service field policy and sensitive-action reasons. Then implement separate DB capabilities and test each role/action/relationship pair, including suspended sessions and revoked assignments.
+The reported Tutor Admin profile-update policy has an uncorrelated comparison. The candidate narrows it to the caller's own name/phone edits. Whether Tutor Admin should edit other users' safe profile fields is unresolved; the conservative candidate must be reviewed against the actual policy export. Other application policies and existing `is_admin`/`is_super_admin`/`is_admin_tutor` helpers are not replaced by the profile/billing candidates.
 
-
-## Empty-project bootstrap (2026-11-07)
-
-The new bootstrap preserves the legacy role constraint (`admin`, `tutor`, `parent`, `student`); it makes no canonical staff mapping. Active persisted admin retains baseline CRUD authority. Profiles permit only self name/phone edits; the existing hardening RPC remains the sole client permission-change path. Tutors read assigned student/class rows and manage their own academic content only for active assignments and matching classes. Class updates permit only attendance/status. Parents read linked rows and parent-shared notes; students read their own rows and student-shared notes. Students receive no broad homework UPDATE grant. Public visitors can insert enquiries but cannot read them. General audit rows allow active-admin append/read, no client edits/deletes; permission audit remains RPC-only and atomic. Suspended accounts cannot use relationship helpers to retain data access.
-
-These rules are exercised against actual bootstrap SQL in `tests/bootstrap-schema.test.js`. This resolves empty-project ordering/replay and several baseline relationship defects. It does not resolve column disclosure within otherwise permitted rows, canonical staff capabilities, complete audit coverage, or student submission. Those are explicit launch gaps in LAUNCH-CHECKLIST and FEATURE-AUDIT.
+No claim is made that the full production role matrix has been reproduced. See `LAUNCH-BLOCKER-FIXES.md` for evidence labels and outstanding decisions.

@@ -1,3 +1,5 @@
+> Superseded production assumptions: the 10 November owner report identifies five canonical roles and an existing working backend. Older legacy-admin/missing-note/deployment statements below are historical, not current release instructions. PR #2 remains blocked; see [the current review](LAUNCH-BLOCKER-FIXES.md).
+
 # Implementation backlog
 
 Statuses distinguish local candidates from deployed/verified work. No migration has been applied externally.
@@ -22,3 +24,4 @@ Statuses distinguish local candidates from deployed/verified work. No migration 
 | 16 | P3 | Independent tutors/marketplace | Tenant isolation, verification, separate commerce ledger | After operational tuition system |
 
 Security-sensitive role mapping, destructive changes, production migration/deployment, paid activation and live messages/payments require explicit approval. Continue safe local implementation without per-edit approval.
+

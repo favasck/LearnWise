@@ -9,7 +9,7 @@ create table if not exists public.profiles (
   full_name   text        not null,
   email       text        not null,
   role        text        not null default 'student'
-                          check (role in ('admin','tutor','parent','student')),
+                          check (role in ('super_admin','admin_tutor','tutor','parent','student')),
   phone       text,
   status      text        not null default 'Active'
                           check (status in ('Active','Suspended')),
@@ -119,7 +119,7 @@ create table if not exists public.classes (
 
 create table if not exists public.class_notes (
   id              uuid        primary key default gen_random_uuid(),
-  class_id        uuid        not null references public.classes(id) on delete cascade,
+  class_id        uuid        references public.classes(id) on delete cascade,
   tutor_id        uuid        not null references public.tutors(id)  on delete cascade,
   student_id      uuid        not null references public.students(id) on delete cascade,
   topic           text,
@@ -252,7 +252,7 @@ language sql stable security definer set search_path = '' as $$
 $$;
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = '' as $$
- select coalesce(public.current_active_role() = 'admin', false)
+ select coalesce(public.current_active_role() in ('super_admin','admin_tutor'), false)
 $$;
 create or replace function public.owns_tutor(tid uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
@@ -387,27 +387,60 @@ grant select on public.audit_logs to authenticated;
 grant update (full_name, phone) on public.profiles to authenticated;
 -- No INSERT or role/status UPDATE grant for profiles, even before hardening.
 drop policy if exists admin_all on public.tutors;
-create policy admin_all on public.tutors for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.tutors;create policy staff_read on public.tutors for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.tutors;create policy staff_insert on public.tutors for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.tutors;create policy staff_update on public.tutors for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.tutors;create policy super_delete on public.tutors for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.parents;
-create policy admin_all on public.parents for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.parents;create policy staff_read on public.parents for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.parents;create policy staff_insert on public.parents for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.parents;create policy staff_update on public.parents for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.parents;create policy super_delete on public.parents for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.students;
-create policy admin_all on public.students for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.students;create policy staff_read on public.students for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.students;create policy staff_insert on public.students for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.students;create policy staff_update on public.students for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.students;create policy super_delete on public.students for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.student_tutors;
-create policy admin_all on public.student_tutors for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.student_tutors;create policy staff_read on public.student_tutors for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.student_tutors;create policy staff_insert on public.student_tutors for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.student_tutors;create policy staff_update on public.student_tutors for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.student_tutors;create policy super_delete on public.student_tutors for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.classes;
-create policy admin_all on public.classes for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.classes;create policy staff_read on public.classes for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.classes;create policy staff_insert on public.classes for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.classes;create policy staff_update on public.classes for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.classes;create policy super_delete on public.classes for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.class_notes;
-create policy admin_all on public.class_notes for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.class_notes;create policy staff_read on public.class_notes for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.class_notes;create policy staff_insert on public.class_notes for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.class_notes;create policy staff_update on public.class_notes for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.class_notes;create policy super_delete on public.class_notes for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.homework;
-create policy admin_all on public.homework for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.homework;create policy staff_read on public.homework for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.homework;create policy staff_insert on public.homework for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.homework;create policy staff_update on public.homework for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.homework;create policy super_delete on public.homework for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.invoices;
-create policy admin_all on public.invoices for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.invoices;create policy staff_read on public.invoices for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.invoices;create policy staff_insert on public.invoices for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.invoices;create policy staff_update on public.invoices for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.invoices;create policy super_delete on public.invoices for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.payments;
-create policy admin_all on public.payments for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.payments;create policy staff_read on public.payments for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.payments;create policy staff_insert on public.payments for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.payments;create policy staff_update on public.payments for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.payments;create policy super_delete on public.payments for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.materials;
-create policy admin_all on public.materials for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.materials;create policy staff_read on public.materials for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.materials;create policy staff_insert on public.materials for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.materials;create policy staff_update on public.materials for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.materials;create policy super_delete on public.materials for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists admin_all on public.assessment_requests;
-create policy admin_all on public.assessment_requests for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists staff_read on public.assessment_requests;create policy staff_read on public.assessment_requests for select to authenticated using(public.is_admin());
+drop policy if exists staff_insert on public.assessment_requests;create policy staff_insert on public.assessment_requests for insert to authenticated with check(public.is_admin());
+drop policy if exists staff_update on public.assessment_requests;create policy staff_update on public.assessment_requests for update to authenticated using(public.is_admin()) with check(public.is_admin());
+drop policy if exists super_delete on public.assessment_requests;create policy super_delete on public.assessment_requests for delete to authenticated using(public.current_active_role()='super_admin');
 drop policy if exists profile_read on public.profiles;
 create policy profile_read on public.profiles for select to authenticated using ((id = auth.uid() and public.current_active_role() is not null) or public.is_admin());
 drop policy if exists profile_edit on public.profiles;
@@ -460,7 +493,7 @@ create policy parent_read on public.invoices for select to authenticated using (
 drop policy if exists parent_read on public.payments;
 create policy parent_read on public.payments for select to authenticated using (public.owns_parent(parent_id));
 drop policy if exists admin_read on public.audit_logs;
-create policy admin_read on public.audit_logs for select to authenticated using (public.is_admin());
+create policy admin_read on public.audit_logs for select to authenticated using (public.current_active_role()='super_admin');
 drop policy if exists admin_append on public.audit_logs;
 create policy admin_append on public.audit_logs for insert to authenticated with check (public.is_admin() and actor_user_id = auth.uid() and actor_role = public.current_active_role());
 grant insert on public.audit_logs to authenticated;
@@ -488,3 +521,4 @@ revoke all on function public.handle_new_user() from public, anon, authenticated
 revoke all on function public.set_updated_at() from public, anon, authenticated;
 revoke all on function public.guard_class_update() from public, anon, authenticated;
 commit;
+

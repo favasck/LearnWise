@@ -1,3 +1,5 @@
+> Superseded production assumptions: the 10 November owner report identifies five canonical roles and an existing working backend. Older legacy-admin/missing-note/deployment statements below are historical, not current release instructions. PR #2 remains blocked; see [the current review](LAUNCH-BLOCKER-FIXES.md).
+
 # Local setup and migration review
 
 The user has authorized Git publishing and Vercel deployment. Release preparation targets the security branch and a Vercel preview; production promotion awaits verified database compatibility. Database migrations remain unapplied. Node 24.18.0 was used for verification. Install locked packages with `npm ci`; copy .env.example to .env and use an approved nonproduction Supabase URL/public anon key. Never put service-role keys in VITE variables. Run `npm test`, `npm run build`, then `npm run dev` for manual review. A passing Vite build does not prove Supabase is configured or reachable.
@@ -26,3 +28,4 @@ Use the read-only staging procedure in STAGING-VERIFICATION.md before further re
 Follow [LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md). Run `migrations/202611070001_bootstrap_schema.sql` FIRST, then `migrations/202611030001_protect_profile_updates.sql` once. The explicit order is intentional despite the dates; do not feed these files to a runner that sorts names. The bootstrap creates all application tables before relationship helpers/policies, avoids policy recursion, and can be replayed before or after profile hardening without restoring profile permission grants. It preserves legacy admin authority and does not implement canonical staff roles. Existing populated databases need a drift review first.
 
 Local PGlite tests now apply both actual files to an empty database with only Supabase auth schema/roles stubbed. Production remains blocked by the owner-controlled Supabase project restoration. Vercel Production and Preview both need real project URL/public anon configuration and fresh builds. No credentials, environment settings, database access or deployment was changed.
+

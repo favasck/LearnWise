@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Users, GraduationCap, UserCircle, CalendarDays, ClipboardCheck,
   BookOpenCheck, Wallet, FileBarChart, Settings, LogOut, Search, Plus, X, ChevronRight,
@@ -9,6 +9,10 @@ import {
 import { useAuth } from "./AuthContext";
 import { supabase } from "./supabaseClient";
 import * as db from "./services/supabaseData";
+import FirmWorkspace from "./features/firms/FirmWorkspace.jsx";
+import { useFirmContext } from "./features/firms/context.jsx";
+import { effectiveRole, visibleSection } from "./features/firms/access.js";
+import { billingRequest } from "./services/billingRequest.js";
 import { ROLES, ROLE_LABEL as ROLE_LABEL_CFG, NAV_BY_ROLE, isSuperAdmin as checkSuperAdmin, isAdminTutor as checkAdminTutor, isStaff as checkStaff, canDelete as checkCanDelete, requiresReason, AUDIT_ACTION } from "./config/roles";
 import { logAction, auditCreateStudent, auditEditStudent, auditDeactivateStudent, auditCreateParent, auditEditParent, auditCreateTutor, auditEditTutor, auditAssignTutor, auditCreateClass, auditEditClass, auditCancelClass, auditCreateInvoice, auditEditInvoice, auditVoidInvoice, auditPaymentCorrection, auditPaymentReversal, auditChangeRole, auditChangeUserStatus, auditLinkUser, auditDeleteRecord } from "./services/auditLog";
 
@@ -20,7 +24,7 @@ const tokens = {
 };
 const SUBJECTS  = ["Mathematics","Physics","Chemistry","Biology","English","Computer Science","Economics","History","Geography"];
 const CURRICULA = ["IGCSE","Edexcel","Cambridge","School Curriculum","A-Level","IB"];
-const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin Tutor",tutor:"Tutor",parent:"Parent",student:"Student",admin:"Super Admin"};
+const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin",tutor:"Tutor",parent:"Parent",student:"Student"};
 const fmt       = (n) => `QAR ${Number(n||0).toLocaleString("en-QA",{minimumFractionDigits:0})}`;
 const fmtDate   = (v) => v ? new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "—";
 const fmtDateTime=(v) => v ? new Date(v).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "—";
@@ -110,7 +114,7 @@ function ReasonModal({title,description,onConfirm,onCancel,busy}){
 }
 
 /* Hook — get current user's profile for permission checks inside sections */
-function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin"].includes(role)};}
+function useCurrentRole(){const{profile}=useAuth();const firm=useFirmContext();const role=effectiveRole(firm)||profile?.role||"";return{role,profile,isSuperAdmin:["super_admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor"].includes(role),canDelete:["super_admin"].includes(role)};}
 
 function Field({label,children,required}){return(<div style={{marginBottom:14}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.slate,marginBottom:6}}>{label}{required&&<span style={{color:tokens.coral}}> *</span>}</div>{children}</div>);}
 const inputStyle={width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${tokens.line}`,fontSize:13.5,fontFamily:"Inter, sans-serif",boxSizing:"border-box",color:tokens.ink,background:"#FCFBF8"};
@@ -150,7 +154,7 @@ const NAV={
   student:[{key:"dashboard",label:"Dashboard",icon:LayoutDashboard},{key:"myclasses",label:"My Classes",icon:CalendarDays},{key:"homework",label:"Homework",icon:BookOpenCheck},{key:"materials",label:"Materials",icon:BookOpen},{key:"progress",label:"Progress",icon:Target}],
 };
 // backward compat alias
-NAV.admin = NAV.super_admin;
+
 
 /* ═══════════════════════════════════════════════════════════
    PUBLIC WEBSITE  —  LearnWise Academy
@@ -789,11 +793,11 @@ function PublicContact() {
 function AuthShell({title,subtitle,children,footer}){return(<div style={{minHeight:"100vh",background:tokens.paper,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter, sans-serif",padding:20}}><div style={{width:420,maxWidth:"100%"}}><div style={{textAlign:"center",marginBottom:28}}><div style={{width:52,height:52,borderRadius:14,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}><GraduationCap size={26} color="#fff"/></div><div style={{fontFamily:"Fraunces, serif",fontSize:26,fontWeight:600,color:tokens.ink}}>LearnWise Academy</div><div style={{color:tokens.coral,fontSize:13,fontWeight:600,marginTop:4,letterSpacing:"0.02em"}}>Smart Guidance. Better Learning.</div></div><Card style={{padding:24}}><div style={{fontFamily:"Fraunces, serif",fontSize:18,fontWeight:600,marginBottom:2}}>{title}</div>{subtitle&&<div style={{fontSize:12.5,color:tokens.slate,marginBottom:16}}>{subtitle}</div>}{children}</Card>{footer}</div></div>);}
 function ErrorNote({message}){if(!message)return null;return <div style={{background:tokens.dangerBg,color:tokens.danger,fontSize:12.5,padding:"9px 12px",borderRadius:9,marginBottom:14}}>{message}</div>;}
 function SignIn({onGoSignUp,onGoStaff}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signIn({email,password});setLoading(false);if(error)setError(error.message);};return(<AuthShell title="Sign in" subtitle="Welcome back — sign in to your portal." footer={<div style={{textAlign:"center",marginTop:16}}><div style={{fontSize:12.5,color:tokens.slate}}>New here? <span onClick={onGoSignUp} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Create an account</span></div><div onClick={onGoStaff} style={{textAlign:"center",fontSize:11,color:tokens.line,marginTop:18,cursor:"pointer",userSelect:"none"}}>·</div></div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
-function SignUp({onGoSignIn}){const{signUp}=useAuth();const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[role,setRole]=useState("student");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[done,setDone]=useState(false);const roles=[{key:"tutor",label:"Tutor",icon:Users},{key:"parent",label:"Parent",icon:UserCircle},{key:"student",label:"Student",icon:GraduationCap}];const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signUp({email,password,fullName,role});setLoading(false);if(error)setError(error.message);else setDone(true);};if(done)return <AuthShell title="Check your inbox" subtitle=""><div style={{fontSize:13.5,color:tokens.ink,lineHeight:1.6}}>We've sent a confirmation link to <strong>{email}</strong>. Confirm your email, then sign in to reach your {ROLE_LABEL[role]} portal.</div><Button variant="secondary" style={{width:"100%",justifyContent:"center",marginTop:16}} onClick={onGoSignIn}>Back to sign in</Button></AuthShell>;return(<AuthShell title="Create an account" subtitle="Sign up as a tutor, parent, or student." footer={<div style={{textAlign:"center",fontSize:12.5,color:tokens.slate,marginTop:16}}>Already have an account? <span onClick={onGoSignIn} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Sign in</span></div>}><form onSubmit={submit}><ErrorNote message={error}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>{roles.map((r)=><div key={r.key} onClick={()=>setRole(r.key)} style={{border:`1.5px solid ${role===r.key?tokens.teal:tokens.line}`,background:role===r.key?tokens.tealSoft:"#fff",borderRadius:12,padding:"10px 8px",cursor:"pointer",textAlign:"center"}}><r.icon size={17} color={role===r.key?tokens.tealDeep:tokens.slate} style={{marginBottom:4}}/><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink}}>{r.label}</div></div>)}</div><Field label="Full Name"><input style={inputStyle} required value={fullName} onChange={(e)=>setFullName(e.target.value)} placeholder="Your full name"/></Field><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="At least 6 characters"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Creating account…":"Create account"}</Button></form></AuthShell>);}
-function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof,error:profileError}=await db.getProfileById(data.user.id);if(profileError){setError(profileError.message);return;}if(!prof||!["super_admin","admin_tutor","admin"].includes(prof.role)){await supabase.auth.signOut();setError("This account doesn't have staff access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — staff only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Staff Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="staff@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
+function SignUp({onGoSignIn}){const{signUp}=useAuth();const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[role,setRole]=useState("student");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[done,setDone]=useState(false);const roles=[{key:"parent",label:"Parent",icon:UserCircle},{key:"student",label:"Student",icon:GraduationCap}];const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signUp({email,password,fullName,role});setLoading(false);if(error)setError(error.message);else setDone(true);};if(done)return <AuthShell title="Check your inbox" subtitle=""><div style={{fontSize:13.5,color:tokens.ink,lineHeight:1.6}}>We've sent a confirmation link to <strong>{email}</strong>. Confirm your email, then sign in to reach your {ROLE_LABEL[role]} portal.</div><Button variant="secondary" style={{width:"100%",justifyContent:"center",marginTop:16}} onClick={onGoSignIn}>Back to sign in</Button></AuthShell>;return(<AuthShell title="Create an account" subtitle="Sign up as a parent or student. Tutors are added by staff." footer={<div style={{textAlign:"center",fontSize:12.5,color:tokens.slate,marginTop:16}}>Already have an account? <span onClick={onGoSignIn} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Sign in</span></div>}><form onSubmit={submit}><ErrorNote message={error}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>{roles.map((r)=><div key={r.key} onClick={()=>setRole(r.key)} style={{border:`1.5px solid ${role===r.key?tokens.teal:tokens.line}`,background:role===r.key?tokens.tealSoft:"#fff",borderRadius:12,padding:"10px 8px",cursor:"pointer",textAlign:"center"}}><r.icon size={17} color={role===r.key?tokens.tealDeep:tokens.slate} style={{marginBottom:4}}/><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink}}>{r.label}</div></div>)}</div><Field label="Full Name"><input style={inputStyle} required value={fullName} onChange={(e)=>setFullName(e.target.value)} placeholder="Your full name"/></Field><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="At least 6 characters"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Creating account…":"Create account"}</Button></form></AuthShell>);}
+function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof,error:profileError}=await db.getProfileById(data.user.id);if(profileError){setError(profileError.message);return;}if(!prof){await supabase.auth.signOut();setError("This account doesn't have staff access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — staff only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Staff Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="staff@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
 
 /* ═══ SHELL ═══ */
-function Shell({role,current,setCurrent,onLogout,children,who}){const nav=NAV[role]||NAV.student;const isAdminTutorRole=role==="admin_tutor";return(<div style={{display:"flex",minHeight:"100vh",background:tokens.paper,fontFamily:"Inter, sans-serif"}}><div style={{width:232,flexShrink:0,borderRight:`1px solid ${tokens.line}`,padding:"22px 14px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"0 8px",marginBottom:26}}><div style={{width:34,height:34,borderRadius:9,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><GraduationCap size={18} color="#fff"/></div><div><div style={{fontFamily:"Fraunces, serif",fontWeight:600,fontSize:14.5,color:tokens.ink,lineHeight:1.1}}>LearnWise</div><div style={{fontSize:10.5,color:tokens.coral,fontWeight:600}}>Academy</div></div></div><div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>{nav.map((n)=><div key={n.key} onClick={()=>setCurrent(n.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",background:current===n.key?tokens.tealSoft:"transparent",color:current===n.key?tokens.tealDeep:tokens.slate,fontWeight:current===n.key?700:500,fontSize:13.5}}><n.icon size={16}/>{n.label}</div>)}</div><div style={{borderTop:`1px solid ${tokens.line}`,paddingTop:14,marginTop:10}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"0 8px",marginBottom:10}}><div style={{width:30,height:30,borderRadius:"50%",background:isAdminTutorRole?tokens.warnBg:tokens.coralSoft,display:"flex",alignItems:"center",justifyContent:"center",color:isAdminTutorRole?tokens.warn:tokens.coral,fontWeight:700,fontSize:12.5,flexShrink:0}}>{initials(who)}</div><div style={{minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{who}</div><div style={{fontSize:11,color:tokens.slate}}>{ROLE_LABEL[role]||role}</div></div></div><div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,cursor:"pointer",color:tokens.slate,fontSize:13}}><LogOut size={15}/> Sign out</div></div></div><div style={{flex:1,padding:"26px 32px",minWidth:0}}>{children}</div></div>);}
+function Shell({role,current,setCurrent,onLogout,children,who}){const firm=useFirmContext();const nav=(NAV[role]||NAV.student).filter(item=>!firm||visibleSection(firm,item.key));const isAdminTutorRole=role==="admin_tutor";return(<div style={{display:"flex",minHeight:"100vh",background:tokens.paper,fontFamily:"Inter, sans-serif"}}><div style={{width:232,flexShrink:0,borderRight:`1px solid ${tokens.line}`,padding:"22px 14px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"0 8px",marginBottom:26}}><div style={{width:34,height:34,borderRadius:9,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><GraduationCap size={18} color="#fff"/></div><div><div style={{fontFamily:"Fraunces, serif",fontWeight:600,fontSize:14.5,color:tokens.ink,lineHeight:1.1}}>LearnWise</div><div style={{fontSize:10.5,color:tokens.coral,fontWeight:600}}>Academy</div></div></div><div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>{nav.map((n)=><div key={n.key} onClick={()=>setCurrent(n.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",background:current===n.key?tokens.tealSoft:"transparent",color:current===n.key?tokens.tealDeep:tokens.slate,fontWeight:current===n.key?700:500,fontSize:13.5}}><n.icon size={16}/>{n.label}</div>)}</div><div style={{borderTop:`1px solid ${tokens.line}`,paddingTop:14,marginTop:10}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"0 8px",marginBottom:10}}><div style={{width:30,height:30,borderRadius:"50%",background:isAdminTutorRole?tokens.warnBg:tokens.coralSoft,display:"flex",alignItems:"center",justifyContent:"center",color:isAdminTutorRole?tokens.warn:tokens.coral,fontWeight:700,fontSize:12.5,flexShrink:0}}>{initials(who)}</div><div style={{minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{who}</div><div style={{fontSize:11,color:tokens.slate}}>{ROLE_LABEL[role]||role}</div></div></div><div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,cursor:"pointer",color:tokens.slate,fontSize:13}}><LogOut size={15}/> Sign out</div></div></div><div style={{flex:1,padding:"26px 32px",minWidth:0}}>{children}</div></div>);}
 
 /* ═══ ADMIN DASHBOARD ═══ */
 function AdminDashboard(){
@@ -894,7 +898,7 @@ function AdminUsers(){
   const filtered=filter==="all"?users:users.filter(u=>u.role===filter);
   const cnt=["super_admin","admin_tutor","tutor","parent","student"].reduce((a,r)=>({...a,[r]:users.filter(u=>u.role===r).length}),{});
 
-  const canLink=u=>["tutor","parent","student"].includes(u.role);
+  const canLink=()=>false; // Account links use verified invitations in firm tools.
 
   return(<div>
     {el}
@@ -1388,6 +1392,7 @@ function AdminMaterials(){
 
 /* ═══ ADMIN PAYMENTS ═══ */
 function AdminPayments(){
+  const {user}=useAuth(); const saving=useRef(false);
   const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useState("invoices");const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const[payParentId,setPayParentId]=useState("");const[payInvId,setPayInvId]=useState("");const[payAmount,setPayAmount]=useState("");const[payMethod,setPayMethod]=useState("Cash");const[payRef,setPayRef]=useState("");const[payNotes,setPayNotes]=useState("");
   const[invParentId,setInvParentId]=useState("");const[invStudentId,setInvStudentId]=useState("");const[invTotal,setInvTotal]=useState("");const[invDiscount,setInvDiscount]=useState("0");const[invPeriodStart,setInvPeriodStart]=useState("");const[invPeriodEnd,setInvPeriodEnd]=useState("");const[invNotes,setInvNotes]=useState("");const[invStatus,setInvStatus]=useState("Draft");
@@ -1395,8 +1400,28 @@ function AdminPayments(){
   useEffect(()=>{load();},[load]);
   const totalCollected=payments.reduce((s,p)=>s+Number(p.amount_qar||0),0);
   const totalOutstanding=invoices.filter(i=>["Issued","Partially Paid","Overdue"].includes(i.status)).reduce((s,i)=>s+Number(i.balance_qar||0),0);
-  const savePay=async()=>{if(!payParentId||!payAmount){fire("Parent and amount are required","error");return;}setBusy(true);const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;const{error}=await db.createPayment({parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
-  const saveInv=async()=>{if(!invParentId||!invTotal){fire("Parent and total are required","error");return;}setBusy(true);const invNum=await db.generateInvoiceNumber();const{error}=await db.createInvoice({parent_id:invParentId,student_id:invStudentId||null,invoice_number:invNum,total_qar:Number(invTotal),subtotal_qar:Number(invTotal),discount_qar:Number(invDiscount)||0,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus});setBusy(false);if(error){fire(error.message,"error");return;}fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();};
+  const savePay=async()=>{
+    if(saving.current)return;
+    if(!payParentId||!/^\d+(\.\d{1,2})?$/.test(payAmount)||Number(payAmount)<=0){fire("Enter a parent and positive amount with at most two decimal places","error");return;}
+    const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;
+    if(payInvId&&(!linkedInv||linkedInv.parent_id!==payParentId)){fire("Select an invoice belonging to this parent","error");return;}
+    saving.current=true;setBusy(true);
+    const payload={parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||null,amount_qar:payAmount,method:payMethod,reference:payRef,notes:payNotes};
+    const {error}=await billingRequest('payment',user.id,payload,db.createPayment);
+    saving.current=false;setBusy(false);
+    if(error){fire(error.message,"error");return;}
+    fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();
+  };
+  const saveInv=async()=>{
+    if(saving.current)return;
+    if(!invParentId||!/^\d+(\.\d{1,2})?$/.test(invTotal)||!/^\d+(\.\d{1,2})?$/.test(invDiscount)||Number(invTotal)<=0||Number(invDiscount)>=Number(invTotal)){fire("Enter a positive subtotal and a smaller non-negative discount, with at most two decimal places","error");return;}
+    saving.current=true;setBusy(true);
+    const payload={parent_id:invParentId,student_id:invStudentId||null,subtotal_qar:invTotal,discount_qar:invDiscount,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus};
+    const {error}=await billingRequest('invoice',user.id,payload,db.createInvoice);
+    saving.current=false;setBusy(false);
+    if(error){fire(error.message,"error");return;}
+    fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();
+  };
   const issueInv=async inv=>{const{error}=await db.updateInvoice(inv.id,{status:"Issued",issued_at:new Date().toISOString()});if(error)fire(error.message,"error");else{fire("Invoice issued");load();}};
   return(<div>{el}
     <SectionTitle title="Payments & Invoices" action={<div style={{display:"flex",gap:8}}><Button variant="secondary" icon={Plus} onClick={()=>setShowInv(true)}>New Invoice</Button><Button icon={Plus} onClick={()=>setShowPay(true)}>Record Payment</Button></div>}/>
@@ -1425,8 +1450,8 @@ function AdminPayments(){
       }</Card>
     )}
     {showPay&&(<Modal title="Record Payment" onClose={()=>setShowPay(false)}>
-      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>setPayParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-      <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>!payParentId||i.parent_id===payParentId).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
+      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>{setPayParentId(e.target.value);setPayInvId("");}}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+      <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>i.parent_id===payParentId&&["Issued","Partially Paid","Overdue"].includes(i.status)&&Number(i.balance_qar)>0).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Amount (QAR)" required><input style={inputStyle} type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="500"/></Field>
         <Field label="Method"><select style={inputStyle} value={payMethod} onChange={e=>setPayMethod(e.target.value)}>{["Cash","Bank Transfer","Card","Online","Cheque"].map(m=><option key={m}>{m}</option>)}</select></Field>
@@ -1437,11 +1462,11 @@ function AdminPayments(){
     </Modal>)}
     {showInv&&(<Modal title="Create Invoice" wide onClose={()=>setShowInv(false)}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>setInvParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>{setInvParentId(e.target.value);setInvStudentId("");}}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
         <Field label="Student (optional)"><select style={inputStyle} value={invStudentId} onChange={e=>setInvStudentId(e.target.value)}><option value="">— None —</option>{students.filter(s=>!invParentId||s.parent_id===invParentId).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Period Start"><input style={inputStyle} type="date" value={invPeriodStart} onChange={e=>setInvPeriodStart(e.target.value)}/></Field>
         <Field label="Period End"><input style={inputStyle} type="date" value={invPeriodEnd} onChange={e=>setInvPeriodEnd(e.target.value)}/></Field>
-        <Field label="Total (QAR)" required><input style={inputStyle} type="number" value={invTotal} onChange={e=>setInvTotal(e.target.value)} placeholder="1500"/></Field>
+        <Field label="Subtotal (QAR)" required><input style={inputStyle} type="number" value={invTotal} onChange={e=>setInvTotal(e.target.value)} placeholder="1500"/></Field>
         <Field label="Discount (QAR)"><input style={inputStyle} type="number" value={invDiscount} onChange={e=>setInvDiscount(e.target.value)}/></Field>
         <Field label="Status"><select style={inputStyle} value={invStatus} onChange={e=>setInvStatus(e.target.value)}>{["Draft","Issued"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
@@ -3838,10 +3863,11 @@ function UnknownRoleScreen({name,onSignOut}){
 
 /* ═══ APP ROOT ═══ */
 
-export default function App(){
-  const{user,profile,loading,authError,refreshProfile,signOut}=useAuth();
+function PortalApp({firmContext}){
+  const auth=useAuth();const{user,loading,authError,refreshProfile,signOut}=auth;
+  const profile=firmContext?{...auth.profile,role:effectiveRole(firmContext)}:auth.profile;
   const[authScreen,setAuthScreen] =useState("home"); // default to public home
-  const[current,setCurrent]       =useState("dashboard");
+  const[current,setCurrent]       =useState(()=>firmContext?.role==='admin'?(NAV.admin_tutor.find(item=>visibleSection(firmContext,item.key))?.key||'dashboard'):'dashboard');
 
   // Real linked profile records — fetched once after auth resolves
   const[linkedState,setLinkedState] =useState(null);
@@ -3913,10 +3939,10 @@ export default function App(){
   const role=profile.role;
 
   /* ── Unknown role ── */
-  if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
+  if(!["super_admin","admin_tutor","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
   /* ── Non-staff with no linked profile record ── */
-  if(!["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
+  if(!["super_admin","admin_tutor"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
@@ -3924,8 +3950,8 @@ export default function App(){
   const studentId=linkedProfile?.id||null;
 
   // Pass profile to section components that need permission checks
-  const isStaffRole = ["super_admin","admin_tutor","admin"].includes(role);
-  const isSuperAdminRole = ["super_admin","admin"].includes(role);
+  const isStaffRole = ["super_admin","admin_tutor"].includes(role);
+  const isSuperAdminRole = ["super_admin"].includes(role);
 
   const renderAdmin=()=>{switch(current){
     case "dashboard":   return <AdminDashboard/>;
@@ -3982,7 +4008,6 @@ export default function App(){
   const renderers={
     super_admin: renderAdmin,
     admin_tutor: renderAdmin, // uses same section components — delete buttons hidden by role check inside each section
-    admin:       renderAdmin, // backward compat
     tutor:       renderTutor,
     parent:      renderParent,
     student:     renderStudent,
@@ -3992,4 +4017,13 @@ export default function App(){
       {renderers[role]()}
     </Shell>
   );
+}
+
+
+// Firm selection is required before protected portal queries. There is no
+// fallback to the old global Admin portal when firm services are unavailable.
+export default function App(){
+ const {user,profile,loading,authError}=useAuth();
+ if(user&&profile&&!loading&&!authError&&profile.status==='Active'&&['super_admin','admin_tutor','tutor','parent','student'].includes(profile.role))return <FirmWorkspace key={user.id}>{context=><PortalApp firmContext={context}/>}</FirmWorkspace>;
+ return <PortalApp/>;
 }

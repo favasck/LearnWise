@@ -2,6 +2,29 @@
 -- Does not map roles or promote any account. Requires the baseline profiles schema.
 begin;
 
+-- Canonical five-role candidate; preserves unrelated production policies.
+create schema if not exists learnwise_private;
+revoke all on schema learnwise_private from public,anon;
+grant usage on schema learnwise_private to authenticated;
+create or replace function learnwise_private.active_profile_role() returns text
+language sql stable security definer set search_path='' as $$
+ select role from public.profiles where id=auth.uid() and status='Active'
+$$;
+revoke all on function learnwise_private.active_profile_role() from public,anon;
+grant execute on function learnwise_private.active_profile_role() to authenticated;
+
+-- Remove the known JWT-metadata authorization bypass. Do not test it on production.
+drop policy if exists "profiles: admin all" on public.profiles;
+create policy "profiles: stored super_admin read" on public.profiles for select to authenticated
+ using(learnwise_private.active_profile_role()='super_admin');
+-- Existing non-self safe-field scope is not established by the summary. This
+-- conservative replacement authorizes only the caller's own row, explicitly
+-- correlating the target. Broader Tutor Admin profile editing remains a decision.
+drop policy if exists "profiles: admin_tutor update safe fields" on public.profiles;
+create policy "profiles: admin_tutor update safe fields" on public.profiles for update to authenticated
+ using(id=auth.uid() and learnwise_private.active_profile_role()='admin_tutor')
+ with check(id=auth.uid() and learnwise_private.active_profile_role()='admin_tutor');
+
 -- Fail closed if an incompatible preexisting audit table exists; do not mask drift.
 create table public.permission_audit_events (
   id uuid primary key default gen_random_uuid(),
@@ -18,7 +41,7 @@ grant select on public.permission_audit_events to authenticated;
 create policy permission_audit_admin_read on public.permission_audit_events
   for select to authenticated using (
     exists (select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'admin' and p.status = 'Active')
+      where p.id = auth.uid() and p.role = 'super_admin' and p.status = 'Active')
   );
 
 -- Row policies do not protect columns. Remove table AND existing column UPDATE
@@ -47,8 +70,8 @@ declare
   updated public.profiles;
 begin
   select * into actor from public.profiles where id = auth.uid() for update;
-  if actor.id is null or actor.role <> 'admin' or actor.status <> 'Active' then
-    raise exception 'Active administrator required' using errcode = '42501';
+  if actor.id is null or actor.role <> 'super_admin' or actor.status <> 'Active' then
+    raise exception 'Active Super Admin required' using errcode = '42501';
   end if;
   if p_updates is null or jsonb_typeof(p_updates) <> 'object'
       or p_updates = '{}'::jsonb then
@@ -80,3 +103,4 @@ $$;
 revoke all on function public.admin_update_profile(uuid, jsonb) from public, anon;
 grant execute on function public.admin_update_profile(uuid, jsonb) to authenticated;
 commit;
+

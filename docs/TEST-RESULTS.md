@@ -1,3 +1,23 @@
+# Current draft verification — firm permissions and onboarding
+
+115 tests pass, 0 fail. New tests load every supplied production policy and the supplied role-helper expressions, including broad legacy permissions. The two summarized function bodies and missing table DDL/grants are explicitly identified as reconstruction/scaffolding, not exact exports. Earlier reconstructed-policy tests remain historical coverage of the preceding candidates.
+
+The latest production build passes (1553 modules; 390.11 kB JavaScript / 99.31 kB gzip using the equivalent programmatic Vite build). The protected-workspace DOM test selects a firm and verifies permission-driven controls; the public artifact check renders seven pages and sign-in without backend calls or runtime errors. Real Supabase REST/auth/email/advisors and browser appearance/concurrent sessions remain release checks.
+
+No production query, attack, migration, account mapping, message or manual deployment was performed. The new SQL is a locally tested candidate outside migration discovery. See [current behavior and release boundaries](FIRM-ACCESS.md).
+
+---
+
+# Current branch review — 10 November 2026
+
+94 tests pass, 0 fail after replacing the invalid legacy-role fixture tests. The reconstructed fixture uses the reported five-role constraint and all three staff accounts; the full production policy/function export is still missing. This is not production verification. Private-view protection was withdrawn rather than claimed fixed.
+
+The equivalent programmatic Vite build passed (1549 modules, 375.79 kB JavaScript / 95.15 kB gzip); the usual local configuration-loader parent-directory restriction remains. Seven public pages and sign-in render with no errors or backend requests. Remote CI must verify the standard build. No production query, attack, migration, deployment or account mapping was performed. The site/signups stay open for team testing.
+
+See [the current evidence assessment](LAUNCH-BLOCKER-FIXES.md). All older results below describe earlier candidates and cannot establish production readiness.
+
+---
+
 # Test results
 
 Batch 1, 2026-11-03, baseline 154984c plus local candidate changes; Node 24.18.0 on Windows.
@@ -79,3 +99,4 @@ The bootstrap regression uses real PGlite PostgreSQL with only Supabase roles/au
 Not verified: live Supabase auth/email, external database migrations, restored data compatibility, Vercel settings, protected preview or real role click-through. The known non-resolving project was not re-investigated. No credentials were sought and no external settings/data were changed. See FEATURE-AUDIT and LAUNCH-CHECKLIST for larger launch gaps.
 
 Git work remains uncommitted on the pre-existing `codex/launch-ready` branch at 363b1da: `git add` and `git commit` both failed because this workspace denies `.git/index.lock` creation. Claude Code must review and create the separate task commits. No push attempted.
+

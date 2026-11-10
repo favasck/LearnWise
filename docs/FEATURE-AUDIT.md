@@ -1,3 +1,5 @@
+> Superseded production assumptions: the 10 November owner report identifies five canonical roles and an existing working backend. Older legacy-admin/missing-note/deployment statements below are historical, not current release instructions. PR #2 remains blocked; see [the current review](LAUNCH-BLOCKER-FIXES.md).
+
 # Launch feature audit — 2026-11-07
 
 Scope: every requirement in PRODUCT-SPECIFICATION.md, plus existing portal sections. Source inspection and local PostgreSQL tests; no live backend access. A visible screen alone is not treated as a finished feature.
@@ -27,3 +29,4 @@ Scope: every requirement in PRODUCT-SPECIFICATION.md, plus existing portal secti
 All active table references in `src/` are covered by the bootstrap: profiles, tutors, parents, students, student_tutors, classes, class_notes, homework, invoices, payments, materials, assessment_requests, audit_logs. The hardening migration adds permission_audit_events and admin_update_profile. There are no active references requiring a settings or curriculum table yet.
 
 The obsolete duplicate `src/supabaseData.js` now re-exports the active service, so its old direct profile permission update cannot diverge from the protected RPC. Its prior contents are preserved under `_archive/src/`. The SQL-generation scratch script is archived and is not a migration runner; the checked-in SQL is authoritative. Migration application must use the explicit bootstrap-first order in LAUNCH-CHECKLIST, not filename sorting.
+

@@ -1,3 +1,11 @@
+## Firm permissions and tutor onboarding — draft only
+
+Added per-firm delegated permissions, explicit membership grants/revocation, student/parent signup sanitization, tutor-created roster records, verified single-use invitations, restrictive tenant guards, immutable audit events and append-only billing corrections. Connected firm selection and management tools to existing portals; effective payment balances reflect corrections. 115 local tests pass, including exported-policy isolation and protected-screen checks. Production unchanged. See FIRM-ACCESS.md.
+
+## 2026-11-10 — blocked role-model rework
+
+Corrected five-role assumptions; narrowed profile-policy changes; retired client execution of legacy payment overloads; withdrew blanket privacy policies and dependent frontend adapter; corrected schema claims to date-of-birth only. 94 local tests pass. Full policy export/private-field review remains open. No production changes.
+
 # Development batches
 
 ## Batch 0 — read-only assessment
@@ -44,3 +52,4 @@ Rechecked Vercel access and local staging configuration: still unavailable. Disc
 4. Audited every product specification requirement in FEATURE-AUDIT. Fixed public insert readback denied by RLS and the Contact form's missing student name. Public payload fields are allowlisted. Replaced the stale duplicate data service with a compatibility re-export; preserved its previous contents under `_archive/src`. Larger scheduling/billing/roles/privacy/academic gaps are explicitly listed.
 5. Wrote owner instructions in LAUNCH-CHECKLIST: project recovery, exact migration order, both Vercel environments, first administrator SQL, public deployment protection, and per-role click-through checks. Updated deployment and permission documentation.
 6. Final required local checks: 92 tests pass, build and built-artifact render check pass. External restoration, migrations and live portal verification await owner access. No push, credentials, deployment or external data changes. Separate commits could not be created because `.git` writes are denied in this workspace; all changes remain pending on `codex/launch-ready` for Claude Code.
+

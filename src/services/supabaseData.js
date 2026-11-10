@@ -15,7 +15,9 @@ import { safeServiceAction, SERVICE_UNAVAILABLE } from './availability.js';
  * automatically filter based on the signed-in user's role.
  */
 
-import { supabase } from "../supabaseClient";
+import { supabase as rawSupabase } from "../supabaseClient";
+import { scopedClient,firmPayload } from './firmScope.js';
+const supabase=scopedClient(rawSupabase);
 
 // ─────────────────────────────────────────────
 // INTERNAL HELPERS
@@ -582,20 +584,16 @@ export const getInvoiceById = (invoiceId) =>
   );
 
 /** Create an invoice (admin). */
-export const createInvoice = (invoiceData) =>
-  run(() =>
-    supabase.from("invoices").insert(invoiceData).select().single()
-  );
+export const createInvoice = (invoiceData, requestId) =>
+  run(() => supabase.rpc('create_invoice', {p_request_id: requestId, p_invoice: firmPayload(invoiceData)}));
 
 /** Update an invoice (change status, adjust totals). */
 export const updateInvoice = (invoiceId, updates) =>
-  run(() =>
-    supabase.from("invoices").update(updates).eq("id", invoiceId).select().single()
-  );
+  updates.status==='Issued'?run(()=>supabase.rpc('invoice_issue',{p_invoice_id:invoiceId})):
+  Promise.resolve({data:null,error:{message:'Use the audited invoice actions in Access & onboarding.'}});
 
 /** Mark invoice as paid (sets status + paid_qar = total_qar). */
-export const markInvoicePaid = (invoiceId, totalQar) =>
-  updateInvoice(invoiceId, { status: "Paid", paid_qar: totalQar });
+export const markInvoicePaid = () => Promise.resolve({data:null,error:{message:'Record a payment against the invoice to settle it.'}});
 
 /** Delete a draft invoice. */
 export const deleteInvoice = (invoiceId) =>
@@ -605,20 +603,7 @@ export const deleteInvoice = (invoiceId) =>
  * Generate the next invoice number in the format INV-YYYY-NNN.
  * Reads the latest invoice to find the current sequence.
  */
-export const generateInvoiceNumber = async () => {
-  const year = new Date().getFullYear();
-  const { data } = await supabase
-    .from("invoices")
-    .select("invoice_number")
-    .like("invoice_number", `INV-${year}-%`)
-    .order("invoice_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const last = data?.invoice_number ? parseInt(data.invoice_number.split("-")[2], 10) : 0;
-  const next = String(last + 1).padStart(3, "0");
-  return `INV-${year}-${next}`;
-};
+// Invoice numbers are generated atomically by create_invoice in PostgreSQL.
 
 
 // ─────────────────────────────────────────────
@@ -628,7 +613,7 @@ export const generateInvoiceNumber = async () => {
 /** Fetch payments. Admin gets all; parent gets their own via RLS. */
 export const getPayments = ({ parentId, invoiceId, tutorId } = {}) => {
   let q = supabase
-    .from("payments")
+    .from("payment_balances")
     .select(`
       *,
       parent:parents(id, full_name),
@@ -646,43 +631,14 @@ export const getPayments = ({ parentId, invoiceId, tutorId } = {}) => {
 };
 
 /** Create a payment record and update the linked invoice's paid_qar. */
-export const createPayment = async (paymentData) => {
-  // 1. Insert the payment row
-  const { data: payment, error: payErr } = await run(() =>
-    supabase.from("payments").insert(paymentData).select().single()
-  );
-  if (payErr) return { data: null, error: payErr };
-
-  // 2. Update the linked invoice's paid_qar if an invoice_id was supplied
-  if (paymentData.invoice_id) {
-    const { data: inv } = await getInvoiceById(paymentData.invoice_id);
-    if (inv) {
-      const newPaid = Number(inv.paid_qar) + Number(paymentData.amount_qar);
-      const newStatus =
-        newPaid >= Number(inv.total_qar)
-          ? "Paid"
-          : newPaid > 0
-          ? "Partially Paid"
-          : "Issued";
-      await updateInvoice(paymentData.invoice_id, {
-        paid_qar: newPaid,
-        status: newStatus,
-      });
-    }
-  }
-
-  return { data: payment, error: null };
-};
+export const createPayment = (paymentData, requestId) =>
+  run(() => supabase.rpc('record_payment', {p_request_id: requestId, p_payment: firmPayload(paymentData)}));
 
 /** Update a payment record. */
-export const updatePayment = (paymentId, updates) =>
-  run(() =>
-    supabase.from("payments").update(updates).eq("id", paymentId).select().single()
-  );
+export const updatePayment = () => Promise.resolve({data:null,error:{message:'Posted payments are immutable. Request an audited correction.'}});
 
 /** Delete a payment (admin only). */
-export const deletePayment = (paymentId) =>
-  run(() => supabase.from("payments").delete().eq("id", paymentId));
+export const deletePayment = () => Promise.resolve({data:null,error:{message:'Posted payments are immutable. Request an audited correction.'}});
 
 
 // ─────────────────────────────────────────────
@@ -827,7 +783,7 @@ export const getAdminDashboardStats = async () => {
     ),
     run(() =>
       supabase
-        .from("payments")
+        .from("payment_balances")
         .select("amount_qar")
         .gte("paid_at", startOfMonth())
     ),
@@ -1056,7 +1012,7 @@ export const getAttendanceReport = ({ tutorId, from, to } = {}) => {
  */
 export const getRevenueReport = ({ from, to } = {}) => {
   let q = supabase
-    .from("payments")
+    .from("payment_balances")
     .select(`
       *,
       parent:parents(id, full_name),
@@ -1150,3 +1106,4 @@ export const getHomeworkReport = ({ tutorId, studentId, from, to } = {}) => {
 
   return run(() => q);
 };
+
