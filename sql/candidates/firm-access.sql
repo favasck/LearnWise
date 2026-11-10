@@ -177,7 +177,7 @@ create function public.firm_revoke(p_firm_id uuid,p_user_id uuid,p_reason text)r
 create or replace function learnwise_private.roster_add(f uuid,kind text,n text,email text,p uuid,t uuid)returns uuid language plpgsql security definer set search_path='' as $$declare result uuid;own_t uuid;begin
  if not(learnwise_private.can(f,'manage_roster')or learnwise_private.tutor_in(f))then raise exception 'Roster permission required'using errcode='42501';end if;
  if kind not in('student','parent')or length(trim(coalesce(n,'')))not between 1 and 160 then raise exception 'Student/parent name required';end if;
- if learnwise_private.tutor_in(f)and not learnwise_private.can(f,'manage_roster')then select id into own_t from public.tutors where firm_id=f and user_id=auth.uid()and status='Active';if own_t is null then raise exception 'Active tutor record required';end if;if t is not null and t<>own_t then raise exception 'Cannot assign another tutor'using errcode='42501';end if;t:=own_t;end if;
+ if learnwise_private.tutor_in(f)then select id into own_t from public.tutors where firm_id=f and user_id=auth.uid()and status='Active';if own_t is null then raise exception 'Active tutor record required';end if;if t is not null and t<>own_t and not learnwise_private.can(f,'manage_roster')then raise exception 'Cannot assign another tutor'using errcode='42501';end if;t:=coalesce(t,own_t);end if;
  if p is not null and not exists(select 1 from public.parents where id=p and firm_id=f and learnwise_private.row_access('parents',to_jsonb(parents),'select'))then raise exception 'Parent not accessible in this firm'using errcode='42501';end if;
  if t is not null and not exists(select 1 from public.tutors where id=t and firm_id=f and status='Active')then raise exception 'Tutor not in firm';end if;
  if kind='parent'then insert into public.parents(firm_id,full_name,email,created_by)values(f,trim(n),nullif(trim(email),''),auth.uid())returning id into result;
@@ -222,3 +222,4 @@ revoke all on function learnwise_private.validate_firm_row(),learnwise_private.a
 revoke all on function public.firm_create(text),public.firm_grant(uuid,uuid,text,text[],text),public.firm_revoke(uuid,uuid,text),public.roster_add(uuid,text,text,text,uuid,uuid),public.invite_create(uuid,text,uuid,text),public.invite_accept(text)from public,anon;
 grant execute on function public.firm_create(text),public.firm_grant(uuid,uuid,text,text[],text),public.firm_revoke(uuid,uuid,text),public.roster_add(uuid,text,text,text,uuid,uuid),public.invite_create(uuid,text,uuid,text),public.invite_accept(text)to authenticated;
 commit;
+notify pgrst,'reload schema';

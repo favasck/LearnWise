@@ -76,3 +76,4 @@ drop function public.payments(public.invoices);
 create function public.payments(public.invoices)returns setof public.payment_balances language sql stable security invoker set search_path='' as $$select x.* from public.payment_balances x where x.invoice_id=$1.id and x.firm_id is not distinct from $1.firm_id$$;
 revoke all on function public.payments(public.invoices)from public,anon;grant execute on function public.payments(public.invoices)to authenticated;
 commit;
+notify pgrst,'reload schema';

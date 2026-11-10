@@ -45,6 +45,9 @@ test('firm permissions and roster onboarding against the exported permissive pol
    [pa,sa]=await run(2,async()=>{const p=await rpc('roster_add',[a,'parent','Parent A','3@example.test',null,null]);return[p,await rpc('roster_add',[a,'student','Student A','4@example.test',p,null])];});
    [pb,sb]=await run(6,async()=>{const p=await rpc('roster_add',[b,'parent','Parent B','parent-b@example.test',null,null]);return[p,await rpc('roster_add',[b,'student','Student B','student-b@example.test',p,null])];});
    assert.equal((await db.query('select tutor_id from student_tutors where student_id=$1',[sa])).rows[0].tutor_id,ta);
+   await run(1,()=>rpc('firm_grant',[a,id(2),'tutor',['manage_roster'],'Additional roster power']));
+   await asUser(db,2,async()=>{const extra=await rpc('roster_add',[a,'student','Temporary self assignment',null,pa,null]);assert.equal((await db.query('select tutor_id from student_tutors where student_id=$1',[extra])).rows[0].tutor_id,ta);});
+   await run(1,()=>rpc('firm_grant',[a,id(2),'tutor',[],'Restore ordinary tutor powers']));
    await assert.rejects(run(2,()=>rpc('roster_add',[b,'student','Intrusion','x@example.test',pb,null])),{code:'42501'});
    await assert.rejects(run(2,()=>rpc('roster_add',[a,'student','Intrusion','x@example.test',pa,tb])),{code:'42501'});
   });
