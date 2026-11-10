@@ -25,6 +25,8 @@ test('real data service settles injected failures and public writes need no read
   });
   try {
     const db = await server.ssrLoadModule('/src/services/supabaseData.js');
+    const {setFirmScope}=await server.ssrLoadModule('/src/services/firmScope.js');
+    setFirmScope('00000000-0000-0000-0000-000000000099','test-user');
     await t.test('portal dashboard and lookup failures are visible rather than empty success', async () => {
       for (const action of [db.getAdminDashboardStats, () => db.getTutorDashboardStats('tutor'),
         () => db.getParentDashboardStats('parent'), () => db.getStudentDashboardStats('student'),
@@ -46,3 +48,4 @@ test('real data service settles injected failures and public writes need no read
     });
   } finally { await server.close(); delete globalThis.__learnwiseTestClient; }
 });
+

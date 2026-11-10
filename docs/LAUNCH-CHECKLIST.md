@@ -1,3 +1,5 @@
+> Current implementation: [Firm access and onboarding](FIRM-ACCESS.md). The supplied production policy export is now installed in the new fixture. Later decisions permit explicitly delegated, firm-scoped Admin void/correction powers and tutor-created student/parent records. Earlier fixed-role restrictions and requests for a policy export below are historical. Production remains unchanged; PR #2 stays draft.
+
 # Team testing — production changes prohibited
 
 LearnWise is not launching publicly now. Keep the existing site and signups open for team testing. Do not merge/deploy PR #2 or run its migrations on production project `jllisbpzphxhbqqdpvtz`.

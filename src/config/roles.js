@@ -22,7 +22,7 @@ export const ROLES = {
 // ── Display labels ────────────────────────────────────────────
 export const ROLE_LABEL = {
   super_admin: "Super Admin",
-  admin_tutor: "Admin Tutor",
+  admin_tutor: "Admin",
   tutor:       "Tutor",
   parent:      "Parent",
   student:     "Student",
@@ -35,7 +35,7 @@ export const STAFF_ROLES = [ROLES.SUPER_ADMIN, ROLES.ADMIN_TUTOR];
 export const ALL_ROLES = Object.values(ROLES);
 
 // ── Roles shown in the signup form ───────────────────────────
-export const SIGNUP_ROLES = [ROLES.TUTOR, ROLES.PARENT, ROLES.STUDENT];
+export const SIGNUP_ROLES = [ROLES.PARENT, ROLES.STUDENT];
 
 // ── Roles that require a linked profile record ────────────────
 // (admin_tutor is staff — no separate tutor record needed unless they
@@ -60,10 +60,13 @@ export const isParent      = (p) => r(p) === ROLES.PARENT;
 export const isStudent     = (p) => r(p) === ROLES.STUDENT;
 
 // Academic management — both staff roles
-export const canManageAcademic  = (p) => isStaff(p);
+const granted = (p, permission) => isSuperAdmin(p) || !!p?.permissions?.includes(permission);
+export const canManageAcademic  = (p) => granted(p, 'manage_academic');
 
 // Payment management — both staff roles (with audit logging for admin_tutor)
-export const canManagePayments  = (p) => isStaff(p);
+export const canManagePayments  = (p) => granted(p, 'record_payments') || granted(p, 'issue_invoices');
+export const canVoidInvoice = (p) => granted(p, 'void_invoices');
+export const canCorrectPayments = (p) => granted(p, 'correct_payments');
 
 // Dangerous actions — super_admin only
 export const canDelete          = (p) => isSuperAdmin(p);
@@ -73,7 +76,7 @@ export const canViewAuditLogs   = (p) => isSuperAdmin(p);
 export const canPermanentDelete = (p) => isSuperAdmin(p);
 
 // Tutor assignment — both staff roles
-export const canAssignTutors    = (p) => isStaff(p);
+export const canAssignTutors    = (p) => granted(p, 'manage_roster');
 
 
 // ============================================================
@@ -97,8 +100,6 @@ export const REASON_REQUIRED_ACTIONS = {
 
 // Returns true if this action requires a reason from admin_tutor
 export const requiresReason = (profile, action) => {
-  if (isSuperAdmin(profile)) return false; // super_admin never blocked
-  if (!isAdminTutor(profile)) return false; // non-staff don't reach this check
   return Object.values(REASON_REQUIRED_ACTIONS).includes(action);
 };
 
@@ -302,3 +303,4 @@ export const AUDIT_ACTION = {
   SETTINGS_CHANGE:       "settings_change",
   DELETE_RECORD:         "delete_record",
 };
+

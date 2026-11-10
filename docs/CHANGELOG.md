@@ -1,3 +1,7 @@
+## Firm permissions and tutor onboarding — draft only
+
+Added per-firm delegated permissions, explicit membership grants/revocation, student/parent signup sanitization, tutor-created roster records, verified single-use invitations, restrictive tenant guards, immutable audit events and append-only billing corrections. Connected firm selection and management tools to existing portals; effective payment balances reflect corrections. 115 local tests pass, including exported-policy isolation and protected-screen checks. Production unchanged. See FIRM-ACCESS.md.
+
 ## 2026-11-10 — blocked role-model rework
 
 Corrected five-role assumptions; narrowed profile-policy changes; retired client execution of legacy payment overloads; withdrew blanket privacy policies and dependent frontend adapter; corrected schema claims to date-of-birth only. 94 local tests pass. Full policy export/private-field review remains open. No production changes.

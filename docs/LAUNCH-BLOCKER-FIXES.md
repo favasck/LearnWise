@@ -1,3 +1,5 @@
+> Current implementation: [Firm access and onboarding](FIRM-ACCESS.md). The supplied production policy export is now installed in the new fixture. Later decisions permit explicitly delegated, firm-scoped Admin void/correction powers and tutor-created student/parent records. Earlier fixed-role restrictions and requests for a policy export below are historical. Production remains unchanged; PR #2 stays draft.
+
 # Branch rework following the 10 November production report
 
 **BLOCKED FOR MERGE/DEPLOYMENT.** Only `fix/launch-blockers` is changed. No production SQL, migrations, account changes, exploit tests, connection requests or deployment changes are authorized. Site and signups remain open for team testing. Earlier release instructions are superseded.

@@ -1,3 +1,5 @@
+> Current implementation: [Firm access and onboarding](FIRM-ACCESS.md). The supplied production policy export is now installed in the new fixture. Later decisions permit explicitly delegated, firm-scoped Admin void/correction powers and tutor-created student/parent records. Earlier fixed-role restrictions and requests for a policy export below are historical. Production remains unchanged; PR #2 stays draft.
+
 # Five-role candidate — not a production authorization export
 
 The owner-supplied 10 November report says production accepts only `super_admin`, `admin_tutor`, `tutor`, `parent`, `student`. The legacy `admin` role is rejected. No account is remapped by this branch.

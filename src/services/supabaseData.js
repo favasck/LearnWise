@@ -15,7 +15,9 @@ import { safeServiceAction, SERVICE_UNAVAILABLE } from './availability.js';
  * automatically filter based on the signed-in user's role.
  */
 
-import { supabase } from "../supabaseClient";
+import { supabase as rawSupabase } from "../supabaseClient";
+import { scopedClient,firmPayload } from './firmScope.js';
+const supabase=scopedClient(rawSupabase);
 
 // ─────────────────────────────────────────────
 // INTERNAL HELPERS
@@ -583,13 +585,12 @@ export const getInvoiceById = (invoiceId) =>
 
 /** Create an invoice (admin). */
 export const createInvoice = (invoiceData, requestId) =>
-  run(() => supabase.rpc('create_invoice', {p_request_id: requestId, p_invoice: invoiceData}));
+  run(() => supabase.rpc('create_invoice', {p_request_id: requestId, p_invoice: firmPayload(invoiceData)}));
 
 /** Update an invoice (change status, adjust totals). */
 export const updateInvoice = (invoiceId, updates) =>
-  run(() =>
-    supabase.from("invoices").update(updates).eq("id", invoiceId).select().single()
-  );
+  updates.status==='Issued'?run(()=>supabase.rpc('invoice_issue',{p_invoice_id:invoiceId})):
+  Promise.resolve({data:null,error:{message:'Use the audited invoice actions in Access & onboarding.'}});
 
 /** Mark invoice as paid (sets status + paid_qar = total_qar). */
 export const markInvoicePaid = () => Promise.resolve({data:null,error:{message:'Record a payment against the invoice to settle it.'}});
@@ -612,7 +613,7 @@ export const deleteInvoice = (invoiceId) =>
 /** Fetch payments. Admin gets all; parent gets their own via RLS. */
 export const getPayments = ({ parentId, invoiceId, tutorId } = {}) => {
   let q = supabase
-    .from("payments")
+    .from("payment_balances")
     .select(`
       *,
       parent:parents(id, full_name),
@@ -631,7 +632,7 @@ export const getPayments = ({ parentId, invoiceId, tutorId } = {}) => {
 
 /** Create a payment record and update the linked invoice's paid_qar. */
 export const createPayment = (paymentData, requestId) =>
-  run(() => supabase.rpc('record_payment', {p_request_id: requestId, p_payment: paymentData}));
+  run(() => supabase.rpc('record_payment', {p_request_id: requestId, p_payment: firmPayload(paymentData)}));
 
 /** Update a payment record. */
 export const updatePayment = () => Promise.resolve({data:null,error:{message:'Posted payments are immutable. Request an audited correction.'}});
@@ -782,7 +783,7 @@ export const getAdminDashboardStats = async () => {
     ),
     run(() =>
       supabase
-        .from("payments")
+        .from("payment_balances")
         .select("amount_qar")
         .gte("paid_at", startOfMonth())
     ),
@@ -1011,7 +1012,7 @@ export const getAttendanceReport = ({ tutorId, from, to } = {}) => {
  */
 export const getRevenueReport = ({ from, to } = {}) => {
   let q = supabase
-    .from("payments")
+    .from("payment_balances")
     .select(`
       *,
       parent:parents(id, full_name),
