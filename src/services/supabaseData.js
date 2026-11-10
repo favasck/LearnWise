@@ -284,16 +284,18 @@ export const linkStudentAccount = (studentId, userId) =>
 
 /** Fetch all student–tutor assignments (optionally filter by student or tutor). */
 export const getStudentTutors = ({ studentId, tutorId } = {}) => {
-  const query = supabase
-    .from("student_tutors")
-    .select(`
-      *,
-      student:students(id, full_name, grade, curriculum),
-      tutor:tutors(id, full_name, subjects, rate_qar)
-    `);
-  if (studentId) query.eq("student_id", studentId);
-  if (tutorId)   query.eq("tutor_id", tutorId);
-  return run(() => query.order("assigned_at", { ascending: false }));
+  return run(() => {
+    const query = supabase
+      .from("student_tutors")
+      .select(`
+        *,
+        student:students(id, full_name, grade, curriculum),
+        tutor:tutors(id, full_name, subjects, rate_qar)
+      `);
+    if (studentId) query.eq("student_id", studentId);
+    if (tutorId)   query.eq("tutor_id", tutorId);
+    return query.order("assigned_at", { ascending: false });
+  });
 };
 
 /** Assign a tutor to a student (admin). */
@@ -333,22 +335,24 @@ export const removeStudentTutor = (assignmentId) =>
  * Pass filters to narrow results.
  */
 export const getClasses = ({ studentId, tutorId, status, from, to } = {}) => {
-  let q = supabase
-    .from("classes")
-    .select(`
-      *,
-      student:students(id, full_name, grade),
-      tutor:tutors(id, full_name)
-    `)
-    .order("scheduled_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("classes")
+      .select(`
+        *,
+        student:students(id, full_name, grade),
+        tutor:tutors(id, full_name)
+      `)
+      .order("scheduled_at", { ascending: false });
 
-  if (studentId) q = q.eq("student_id", studentId);
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  if (status)    q = q.eq("status", status);
-  if (from)      q = q.gte("scheduled_at", from);
-  if (to)        q = q.lte("scheduled_at", to);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (status)    q = q.eq("status", status);
+    if (from)      q = q.gte("scheduled_at", from);
+    if (to)        q = q.lte("scheduled_at", to);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /** Fetch a single class with full related data. */
@@ -384,17 +388,19 @@ export const getTodaysClasses = (tutorId) => {
 
 /** Fetch upcoming scheduled classes (after now). */
 export const getUpcomingClasses = ({ tutorId, studentId, limit = 20 } = {}) => {
-  let q = supabase
-    .from("classes")
-    .select("*, student:students(id, full_name), tutor:tutors(id, full_name)")
-    .eq("status", "Scheduled")
-    .gt("scheduled_at", new Date().toISOString())
-    .order("scheduled_at")
-    .limit(limit);
+  return run(() => {
+    let q = supabase
+      .from("classes")
+      .select("*, student:students(id, full_name), tutor:tutors(id, full_name)")
+      .eq("status", "Scheduled")
+      .gt("scheduled_at", new Date().toISOString())
+      .order("scheduled_at")
+      .limit(limit);
 
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  if (studentId) q = q.eq("student_id", studentId);
-  return run(() => q);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (studentId) q = q.eq("student_id", studentId);
+    return q;
+  });
 };
 
 /** Create a new class (admin or tutor). */
@@ -428,21 +434,23 @@ export const deleteClass = (classId) =>
 
 /** Fetch notes. Pass tutorId, studentId, or classId to filter. */
 export const getClassNotes = ({ tutorId, studentId, classId } = {}) => {
-  let q = supabase
-    .from("class_notes")
-    .select(`
-      *,
-      class:classes(id, subject, scheduled_at),
-      student:students(id, full_name),
-      tutor:tutors(id, full_name)
-    `)
-    .order("created_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("class_notes")
+      .select(`
+        *,
+        class:classes(id, subject, scheduled_at),
+        student:students(id, full_name),
+        tutor:tutors(id, full_name)
+      `)
+      .order("created_at", { ascending: false });
 
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  if (studentId) q = q.eq("student_id", studentId);
-  if (classId)   q = q.eq("class_id", classId);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (classId)   q = q.eq("class_id", classId);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /** Fetch a single note. */
@@ -478,22 +486,24 @@ export const deleteClassNote = (noteId) =>
 
 /** Fetch homework. Filter by tutorId, studentId, status, or classId. */
 export const getHomework = ({ tutorId, studentId, classId, status } = {}) => {
-  let q = supabase
-    .from("homework")
-    .select(`
-      *,
-      student:students(id, full_name),
-      tutor:tutors(id, full_name),
-      class:classes(id, subject, scheduled_at)
-    `)
-    .order("due_at", { ascending: true });
+  return run(() => {
+    let q = supabase
+      .from("homework")
+      .select(`
+        *,
+        student:students(id, full_name),
+        tutor:tutors(id, full_name),
+        class:classes(id, subject, scheduled_at)
+      `)
+      .order("due_at", { ascending: true });
 
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  if (studentId) q = q.eq("student_id", studentId);
-  if (classId)   q = q.eq("class_id", classId);
-  if (status)    q = q.eq("status", status);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (classId)   q = q.eq("class_id", classId);
+    if (status)    q = q.eq("status", status);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /** Fetch a single homework item. */
@@ -508,16 +518,18 @@ export const getHomeworkById = (homeworkId) =>
 
 /** Fetch overdue homework (due_at < now, not yet submitted). */
 export const getOverdueHomework = ({ studentId, tutorId } = {}) => {
-  let q = supabase
-    .from("homework")
-    .select("*, student:students(id, full_name)")
-    .lt("due_at", new Date().toISOString())
-    .in("status", ["Assigned", "Incomplete"])
-    .order("due_at");
+  return run(() => {
+    let q = supabase
+      .from("homework")
+      .select("*, student:students(id, full_name)")
+      .lt("due_at", new Date().toISOString())
+      .in("status", ["Assigned", "Incomplete"])
+      .order("due_at");
 
-  if (studentId) q = q.eq("student_id", studentId);
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  return run(() => q);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    return q;
+  });
 };
 
 /** Create a homework assignment (tutor or admin). */
@@ -551,19 +563,21 @@ export const deleteHomework = (homeworkId) =>
 
 /** Fetch invoices. Admin gets all; parent gets their own via RLS. */
 export const getInvoices = ({ parentId, status } = {}) => {
-  let q = supabase
-    .from("invoices")
-    .select(`
-      *,
-      parent:parents(id, full_name, email),
-      student:students(id, full_name)
-    `)
-    .order("created_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("invoices")
+      .select(`
+        *,
+        parent:parents(id, full_name, email),
+        student:students(id, full_name)
+      `)
+      .order("created_at", { ascending: false });
 
-  if (parentId) q = q.eq("parent_id", parentId);
-  if (status)   q = q.eq("status", status);
+    if (parentId) q = q.eq("parent_id", parentId);
+    if (status)   q = q.eq("status", status);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /** Fetch a single invoice with all its payments. */
@@ -627,22 +641,24 @@ export const generateInvoiceNumber = async () => {
 
 /** Fetch payments. Admin gets all; parent gets their own via RLS. */
 export const getPayments = ({ parentId, invoiceId, tutorId } = {}) => {
-  let q = supabase
-    .from("payments")
-    .select(`
-      *,
-      parent:parents(id, full_name),
-      student:students(id, full_name),
-      tutor:tutors(id, full_name),
-      invoice:invoices(id, invoice_number, total_qar)
-    `)
-    .order("paid_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("payments")
+      .select(`
+        *,
+        parent:parents(id, full_name),
+        student:students(id, full_name),
+        tutor:tutors(id, full_name),
+        invoice:invoices(id, invoice_number, total_qar)
+      `)
+      .order("paid_at", { ascending: false });
 
-  if (parentId)   q = q.eq("parent_id", parentId);
-  if (invoiceId)  q = q.eq("invoice_id", invoiceId);
-  if (tutorId)    q = q.eq("tutor_id", tutorId);
+    if (parentId)   q = q.eq("parent_id", parentId);
+    if (invoiceId)  q = q.eq("invoice_id", invoiceId);
+    if (tutorId)    q = q.eq("tutor_id", tutorId);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /** Create a payment record and update the linked invoice's paid_qar. */
@@ -691,17 +707,19 @@ export const deletePayment = (paymentId) =>
 
 /** Fetch materials. RLS handles tutor/student/parent scoping. */
 export const getMaterials = ({ tutorId, studentId, classId, subject } = {}) => {
-  let q = supabase
-    .from("materials")
-    .select("*, tutor:tutors(id, full_name), student:students(id, full_name)")
-    .order("created_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("materials")
+      .select("*, tutor:tutors(id, full_name), student:students(id, full_name)")
+      .order("created_at", { ascending: false });
 
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  if (studentId) q = q.eq("student_id", studentId);
-  if (classId)   q = q.eq("class_id", classId);
-  if (subject)   q = q.eq("subject", subject);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (classId)   q = q.eq("class_id", classId);
+    if (subject)   q = q.eq("subject", subject);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /** Fetch a single material. */
@@ -737,13 +755,15 @@ export const deleteMaterial = (materialId) =>
 
 /** Fetch all assessment requests (admin only via RLS). */
 export const getAssessmentRequests = ({ status } = {}) => {
-  let q = supabase
-    .from("assessment_requests")
-    .select("*")
-    .order("submitted_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("assessment_requests")
+      .select("*")
+      .order("submitted_at", { ascending: false });
 
-  if (status) q = q.eq("status", status);
-  return run(() => q);
+    if (status) q = q.eq("status", status);
+    return q;
+  });
 };
 
 /** Fetch a single assessment request. */
@@ -1034,42 +1054,46 @@ export const getStudentDashboardStats = async (studentId) => {
  * Optionally filter by date range or tutorId.
  */
 export const getAttendanceReport = ({ tutorId, from, to } = {}) => {
-  let q = supabase
-    .from("classes")
-    .select(`
-      attendance,
-      student:students(id, full_name, grade),
-      tutor:tutors(id, full_name),
-      scheduled_at, subject
-    `)
-    .neq("attendance", "Pending");
+  return run(() => {
+    let q = supabase
+      .from("classes")
+      .select(`
+        attendance,
+        student:students(id, full_name, grade),
+        tutor:tutors(id, full_name),
+        scheduled_at, subject
+      `)
+      .neq("attendance", "Pending");
 
-  if (tutorId) q = q.eq("tutor_id", tutorId);
-  if (from)    q = q.gte("scheduled_at", from);
-  if (to)      q = q.lte("scheduled_at", to);
+    if (tutorId) q = q.eq("tutor_id", tutorId);
+    if (from)    q = q.gte("scheduled_at", from);
+    if (to)      q = q.lte("scheduled_at", to);
 
-  return run(() => q.order("scheduled_at", { ascending: false }));
+    return q.order("scheduled_at", { ascending: false });
+  });
 };
 
 /**
  * Revenue report: all payments in a date range, grouped with invoice info.
  */
 export const getRevenueReport = ({ from, to } = {}) => {
-  let q = supabase
-    .from("payments")
-    .select(`
-      *,
-      parent:parents(id, full_name),
-      student:students(id, full_name),
-      tutor:tutors(id, full_name),
-      invoice:invoices(id, invoice_number)
-    `)
-    .order("paid_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("payments")
+      .select(`
+        *,
+        parent:parents(id, full_name),
+        student:students(id, full_name),
+        tutor:tutors(id, full_name),
+        invoice:invoices(id, invoice_number)
+      `)
+      .order("paid_at", { ascending: false });
 
-  if (from) q = q.gte("paid_at", from);
-  if (to)   q = q.lte("paid_at", to);
+    if (from) q = q.gte("paid_at", from);
+    if (to)   q = q.lte("paid_at", to);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /**
@@ -1093,20 +1117,22 @@ export const getOutstandingPaymentsReport = () =>
  * Returns notes enriched with class and student info.
  */
 export const getProgressReport = ({ studentId, tutorId } = {}) => {
-  let q = supabase
-    .from("class_notes")
-    .select(`
-      *,
-      student:students(id, full_name, grade, curriculum),
-      tutor:tutors(id, full_name),
-      class:classes(id, subject, scheduled_at)
-    `)
-    .order("created_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("class_notes")
+      .select(`
+        *,
+        student:students(id, full_name, grade, curriculum),
+        tutor:tutors(id, full_name),
+        class:classes(id, subject, scheduled_at)
+      `)
+      .order("created_at", { ascending: false });
 
-  if (studentId) q = q.eq("student_id", studentId);
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /**
@@ -1114,39 +1140,43 @@ export const getProgressReport = ({ studentId, tutorId } = {}) => {
  * review rates per tutor. Returns raw rows for the caller to aggregate.
  */
 export const getTutorPerformanceReport = ({ from, to } = {}) => {
-  let q = supabase
-    .from("classes")
-    .select(`
-      status, attendance,
-      tutor:tutors(id, full_name),
-      scheduled_at
-    `)
-    .order("scheduled_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("classes")
+      .select(`
+        status, attendance,
+        tutor:tutors(id, full_name),
+        scheduled_at
+      `)
+      .order("scheduled_at", { ascending: false });
 
-  if (from) q = q.gte("scheduled_at", from);
-  if (to)   q = q.lte("scheduled_at", to);
+    if (from) q = q.gte("scheduled_at", from);
+    if (to)   q = q.lte("scheduled_at", to);
 
-  return run(() => q);
+    return q;
+  });
 };
 
 /**
  * Homework completion report: submission and review rates per student.
  */
 export const getHomeworkReport = ({ tutorId, studentId, from, to } = {}) => {
-  let q = supabase
-    .from("homework")
-    .select(`
-      status,
-      due_at,
-      student:students(id, full_name, grade),
-      tutor:tutors(id, full_name)
-    `)
-    .order("due_at", { ascending: false });
+  return run(() => {
+    let q = supabase
+      .from("homework")
+      .select(`
+        status,
+        due_at,
+        student:students(id, full_name, grade),
+        tutor:tutors(id, full_name)
+      `)
+      .order("due_at", { ascending: false });
 
-  if (tutorId)   q = q.eq("tutor_id", tutorId);
-  if (studentId) q = q.eq("student_id", studentId);
-  if (from)      q = q.gte("due_at", from);
-  if (to)        q = q.lte("due_at", to);
+    if (tutorId)   q = q.eq("tutor_id", tutorId);
+    if (studentId) q = q.eq("student_id", studentId);
+    if (from)      q = q.gte("due_at", from);
+    if (to)        q = q.lte("due_at", to);
 
-  return run(() => q);
+    return q;
+  });
 };

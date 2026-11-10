@@ -1,8 +1,9 @@
 import { safeServiceAction } from './services/availability.js';
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { supabase } from "./supabaseClient";
+import React, { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { supabase, recoveryState } from "./supabaseClient";
 import { ROLES, SIGNUP_ROLES } from "./config/roles";
 import { createAuthSession } from "./features/auth/authSession";
+import { createPasswordRecovery } from './features/auth/passwordRecovery';
 
 export const AuthContext = createContext(null);
 
@@ -16,6 +17,8 @@ export function AuthProvider({ children }) {
     user: null, profile: null, loading: !!supabase, authError: null,
   });
   const sessionController = useRef(null);
+  const recoveryUserId = useSyncExternalStore(recoveryState.subscribe, recoveryState.getSnapshot, recoveryState.getSnapshot);
+  const passwordRecovery = !!user && recoveryUserId === user.id;
 
   useEffect(() => {
     const controller = createAuthSession(supabase, setSession);
@@ -49,6 +52,7 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
+    recoveryState.clear();
     sessionController.current?.clear();
     return supabase ? safeServiceAction(() => supabase.auth.signOut()) : { error: null };
   };
@@ -71,6 +75,9 @@ export function AuthProvider({ children }) {
         signUp,
         signIn,
         signOut,
+        passwordRecovery,
+        requestPasswordReset: email => createPasswordRecovery(supabase).request(email, window.location.origin),
+        updatePassword: password => createPasswordRecovery(supabase).update(password, passwordRecovery && !!user),
         refreshProfile: () => sessionController.current?.refresh(),
         // Role shorthand booleans
         isStaff,

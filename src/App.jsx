@@ -6,18 +6,18 @@ import {
   TrendingUp, Mail, Phone, Home as HomeIcon, ArrowLeft, BookOpen, Award, Target, Shield,
   Link, RefreshCw, CheckSquare, FlaskConical, ScrollText,
 } from "lucide-react";
+import { tokens, Button, Field, Modal } from './ui';
+import { useNavigation, NavLink } from './features/navigation';
+import { PublicNav, PublicFooter, PublicHome, PublicAssessment, PublicContact } from './features/publicExperience';
+import PortalShell from './features/PortalShell';
+import { PublicAbout, PublicSubjects, PublicIGCSE, PublicOnline } from './features/LearningPages';
+import { AuthShell, SignIn, SignUp, ForgotPassword, ResetPassword } from './features/auth/AuthScreens';
 import { useAuth } from "./AuthContext";
 import { supabase } from "./supabaseClient";
 import * as db from "./services/supabaseData";
 import { ROLES, ROLE_LABEL as ROLE_LABEL_CFG, NAV_BY_ROLE, isSuperAdmin as checkSuperAdmin, isAdminTutor as checkAdminTutor, isStaff as checkStaff, canDelete as checkCanDelete, requiresReason, AUDIT_ACTION } from "./config/roles";
 import { logAction, auditCreateStudent, auditEditStudent, auditDeactivateStudent, auditCreateParent, auditEditParent, auditCreateTutor, auditEditTutor, auditAssignTutor, auditCreateClass, auditEditClass, auditCancelClass, auditCreateInvoice, auditEditInvoice, auditVoidInvoice, auditPaymentCorrection, auditPaymentReversal, auditChangeRole, auditChangeUserStatus, auditLinkUser, auditDeleteRecord } from "./services/auditLog";
 
-const tokens = {
-  paper:"#FAF8F3",ink:"#1F2A2E",slate:"#5B6B70",teal:"#2C5F63",tealDeep:"#1E4448",
-  coral:"#D97757",coralSoft:"#FBEAE2",gold:"#C9A24B",line:"#E7E1D6",cardBg:"#FFFFFF",
-  tealSoft:"#E4EEEC",successBg:"#E7F3E9",success:"#3F8255",warnBg:"#FBF2DF",warn:"#B8862E",
-  dangerBg:"#FBEAE6",danger:"#C4583B",
-};
 const SUBJECTS  = ["Mathematics","Physics","Chemistry","Biology","English","Computer Science","Economics","History","Geography"];
 const CURRICULA = ["IGCSE","Edexcel","Cambridge","School Curriculum","A-Level","IB"];
 const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin Tutor",tutor:"Tutor",parent:"Parent",student:"Student",admin:"Super Admin"};
@@ -86,12 +86,10 @@ const statusColors={
   Graduated:{bg:tokens.tealSoft,fg:tokens.tealDeep},"—":{bg:"#F0EEE7",fg:tokens.slate},
 };
 function Pill({value}){const c=statusColors[value]||statusColors["—"];return <span style={{background:c.bg,color:c.fg,padding:"3px 10px",borderRadius:999,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{value}</span>;}
-function Card({children,style,onClick}){return <div onClick={onClick} style={{background:tokens.cardBg,border:`1px solid ${tokens.line}`,borderRadius:16,padding:20,...style}}>{children}</div>;}
+function Card({children,style,onClick}){return <div onClick={onClick} role={onClick?"button":undefined} tabIndex={onClick?0:undefined} onKeyDown={onClick?event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();onClick();}}:undefined} style={{background:tokens.cardBg,border:`1px solid ${tokens.line}`,borderRadius:16,padding:20,...style}}>{children}</div>;}
 function StatCard({icon:Icon,label,value,accent}){return(<Card style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}><div style={{width:36,height:36,borderRadius:10,background:accent||tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon size={18} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:26,fontWeight:600,color:tokens.ink}}>{value}</div><div style={{fontSize:13,color:tokens.slate}}>{label}</div></Card>);}
 function SectionTitle({eyebrow,title,action}){return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:16,gap:12,flexWrap:"wrap"}}><div>{eyebrow&&<div style={{fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:tokens.coral,fontWeight:700,marginBottom:4}}>{eyebrow}</div>}<div style={{fontFamily:"Fraunces, serif",fontSize:22,fontWeight:600,color:tokens.ink}}>{title}</div></div>{action}</div>);}
-function Button({children,variant="primary",onClick,style,icon:Icon,type="button",disabled}){const base={border:"none",borderRadius:10,padding:"9px 16px",fontSize:13.5,fontWeight:600,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:6,fontFamily:"Inter, sans-serif",transition:"opacity .15s",opacity:disabled?0.5:1};const variants={primary:{background:tokens.teal,color:"#fff"},secondary:{background:tokens.tealSoft,color:tokens.tealDeep},ghost:{background:"transparent",color:tokens.slate,border:`1px solid ${tokens.line}`},danger:{background:tokens.dangerBg,color:tokens.danger}};return <button type={type} onClick={disabled?undefined:onClick} style={{...base,...variants[variant],...style}} onMouseEnter={(e)=>!disabled&&(e.currentTarget.style.opacity="0.85")} onMouseLeave={(e)=>!disabled&&(e.currentTarget.style.opacity="1")}>{Icon&&<Icon size={15}/>}{children}</button>;}
-function Table({columns,rows,onRowClick}){if(!rows.length)return null;return(<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5}}><thead><tr>{columns.map((c,i)=><th key={i} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em"}}>{c}</th>)}</tr></thead><tbody>{rows.map((r,i)=>(<tr key={i} onClick={()=>onRowClick&&onRowClick(r)} style={{cursor:onRowClick?"pointer":"default"}} onMouseEnter={(e)=>e.currentTarget.style.background="#FBFAF7"} onMouseLeave={(e)=>e.currentTarget.style.background="transparent"}>{r.cells.map((cell,j)=><td key={j} style={{padding:"12px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.ink}}>{cell}</td>)}</tr>))}</tbody></table></div>);}
-function Modal({title,onClose,children,wide}){return(<div style={{position:"fixed",inset:0,background:"rgba(31,42,46,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,padding:16}} onClick={onClose}><div onClick={(e)=>e.stopPropagation()} style={{background:tokens.cardBg,borderRadius:18,width:wide?680:480,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",padding:28,boxShadow:"0 20px 60px rgba(0,0,0,0.18)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{fontFamily:"Fraunces, serif",fontSize:19,fontWeight:600}}>{title}</div><button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",color:tokens.slate}}><X size={20}/></button></div>{children}</div></div>);}
+function Table({columns,rows,onRowClick}){if(!rows.length)return null;return(<div className="table-scroll" tabIndex={0} role="region" aria-label="Scrollable data table"><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5}}><thead><tr>{columns.map((c,i)=><th scope="col" key={i} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em"}}>{c}</th>)}</tr></thead><tbody>{rows.map((r,i)=>(<tr key={i} onClick={()=>onRowClick&&onRowClick(r)} style={{cursor:onRowClick?"pointer":"default"}} onMouseEnter={(e)=>e.currentTarget.style.background="#FBFAF7"} onMouseLeave={(e)=>e.currentTarget.style.background="transparent"}>{r.cells.map((cell,j)=><td key={j} style={{padding:"12px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.ink}}>{cell}</td>)}</tr>))}</tbody></table></div>);}
 function ConfirmModal({message,onConfirm,onCancel,loading,busy}){const isBusy=loading||busy;return(<Modal title="Confirm" onClose={onCancel}><div style={{fontSize:14,color:tokens.ink,marginBottom:20,lineHeight:1.6}}>{message}</div><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={onCancel}>Cancel</Button><Button variant="danger" onClick={onConfirm} disabled={isBusy}>{isBusy?"Deleting…":"Delete"}</Button></div></Modal>);}
 
 /* Reason modal — required for admin_tutor sensitive actions */
@@ -112,12 +110,11 @@ function ReasonModal({title,description,onConfirm,onCancel,busy}){
 /* Hook — get current user's profile for permission checks inside sections */
 function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin"].includes(role)};}
 
-function Field({label,children,required}){return(<div style={{marginBottom:14}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.slate,marginBottom:6}}>{label}{required&&<span style={{color:tokens.coral}}> *</span>}</div>{children}</div>);}
 const inputStyle={width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${tokens.line}`,fontSize:13.5,fontFamily:"Inter, sans-serif",boxSizing:"border-box",color:tokens.ink,background:"#FCFBF8"};
-function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);const bg=type==="success"?tokens.successBg:tokens.dangerBg;const fg=type==="success"?tokens.success:tokens.danger;const Icon=type==="success"?CheckCircle2:AlertCircle;return(<div style={{position:"fixed",bottom:24,right:24,zIndex:200,background:bg,color:fg,border:`1px solid ${fg}30`,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13.5,fontWeight:600,boxShadow:"0 8px 30px rgba(0,0,0,0.12)",minWidth:260}}><Icon size={17}/>{message}<button onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:"none",cursor:"pointer",color:fg}}><X size={15}/></button></div>);}
+function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);const bg=type==="success"?tokens.successBg:tokens.dangerBg;const fg=type==="success"?tokens.success:tokens.danger;const Icon=type==="success"?CheckCircle2:AlertCircle;return(<div role="status" style={{position:"fixed",bottom:24,right:24,zIndex:200,background:bg,color:fg,border:`1px solid ${fg}30`,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13.5,fontWeight:600,boxShadow:"0 8px 30px rgba(0,0,0,0.12)",minWidth:260}}><Icon size={17}/>{message}<button aria-label="Dismiss notification" onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:"none",cursor:"pointer",color:fg}}><X size={15}/></button></div>);}
 function LoadingState({label="Loading…"}){return <div style={{padding:"48px 0",textAlign:"center",color:tokens.slate,fontSize:13.5}}><RefreshCw size={20} style={{marginBottom:10,opacity:0.4}}/><div>{label}</div></div>;}
-function EmptyState({icon:Icon=FileText,title,message,action}){return(<div style={{padding:"48px 24px",textAlign:"center"}}><div style={{width:48,height:48,borderRadius:12,background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}><Icon size={22} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:17,fontWeight:600,color:tokens.ink,marginBottom:6}}>{title}</div>{message&&<div style={{fontSize:13,color:tokens.slate,marginBottom:action?16:0}}>{message}</div>}{action}</div>);}
-function ErrorBanner({message,onRetry}){return(<div style={{background:tokens.dangerBg,color:tokens.danger,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:16,fontSize:13.5}}><AlertCircle size={16}/><span style={{flex:1}}>{message}</span>{onRetry&&<Button variant="danger" onClick={onRetry} style={{padding:"5px 12px",fontSize:12}}>Retry</Button>}</div>);}
+function EmptyState({icon:Icon=FileText,title,message,body,action}){return(<div style={{padding:"48px 24px",textAlign:"center"}}><div style={{width:48,height:48,borderRadius:12,background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}><Icon size={22} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:17,fontWeight:600,color:tokens.ink,marginBottom:6}}>{title}</div>{(message||body)&&<div style={{fontSize:13,color:tokens.slate,marginBottom:action?16:0}}>{message||body}</div>}{action}</div>);}
+function ErrorBanner({message,onRetry}){return(<div role="alert" style={{background:tokens.dangerBg,color:tokens.danger,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:16,fontSize:13.5}}><AlertCircle size={16}/><span style={{flex:1}}>{message}</span>{onRetry&&<Button variant="danger" onClick={onRetry} style={{padding:"5px 12px",fontSize:12}}>Retry</Button>}</div>);}
 // Aliases used in newer portal sections
 const Spinner   = LoadingState;
 const Empty     = EmptyState;
@@ -155,645 +152,14 @@ NAV.admin = NAV.super_admin;
 /* ═══════════════════════════════════════════════════════════
    PUBLIC WEBSITE  —  LearnWise Academy
    8 pages served from the same single-page app.
-   Navigation state lives in authScreen (App root).
+   Navigation follows browser URLs through useNavigation (App root).
    No payments, no private data, no auth required.
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Shared public nav ── */
-function PublicNav({ current, onNav }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const links = [
-    { key: "home",       label: "Home" },
-    { key: "about",      label: "About" },
-    { key: "subjects",   label: "Subjects" },
-    { key: "igcse",      label: "IGCSE / Edexcel" },
-    { key: "online",     label: "Online Tuition" },
-    { key: "assessment", label: "Book Assessment" },
-    { key: "contact",    label: "Contact" },
-  ];
-  return (
-    <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "#fff", borderBottom: `1px solid ${tokens.line}`, fontFamily: "Inter, sans-serif" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-        {/* Logo */}
-        <div onClick={() => onNav("home")} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 9, background: tokens.teal, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <GraduationCap size={19} color="#fff" />
-          </div>
-          <div>
-            <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 16, color: tokens.ink, lineHeight: 1.1 }}>LearnWise</div>
-            <div style={{ fontSize: 10, color: tokens.coral, fontWeight: 700 }}>Academy</div>
-          </div>
-        </div>
-
-        {/* Desktop links */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {links.map(l => (
-            <div key={l.key} onClick={() => onNav(l.key)} style={{ padding: "6px 12px", borderRadius: 8, fontSize: 13.5, fontWeight: 500, cursor: "pointer", color: current === l.key ? tokens.teal : tokens.slate, background: current === l.key ? tokens.tealSoft : "transparent", transition: "all .15s" }}>
-              {l.label}
-            </div>
-          ))}
-          <div style={{ width: 1, height: 22, background: tokens.line, margin: "0 8px" }} />
-          <Button onClick={() => onNav("signin")} style={{ padding: "7px 18px", fontSize: 13.5 }}>Login</Button>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-/* ── Shared public footer ── */
-function PublicFooter({ onNav }) {
-  return (
-    <footer style={{ background: tokens.tealDeep, color: "#fff", fontFamily: "Inter, sans-serif", marginTop: 80 }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "52px 24px 32px", display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 40 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <GraduationCap size={19} color="#fff" />
-            </div>
-            <div>
-              <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 16 }}>LearnWise Academy</div>
-              <div style={{ fontSize: 10.5, color: tokens.coral, fontWeight: 600 }}>Smart Guidance. Better Learning.</div>
-            </div>
-          </div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.7, maxWidth: 300 }}>
-            Expert one-to-one tutoring for IGCSE, Edexcel, Cambridge and more. Based in Doha, Qatar. Online and in-person sessions available.
-          </div>
-        </div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Pages</div>
-          {[["home","Home"],["about","About"],["subjects","Subjects"],["igcse","IGCSE / Edexcel"],["online","Online Tuition"]].map(([key,label]) => (
-            <div key={key} onClick={() => onNav(key)} style={{ fontSize: 13.5, color: "rgba(255,255,255,0.75)", marginBottom: 8, cursor: "pointer" }}>{label}</div>
-          ))}
-        </div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Contact</div>
-          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.75)", marginBottom: 8 }}>Doha, Qatar</div>
-          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.75)", marginBottom: 8 }}>info@learnwiseacademy.qa</div>
-          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.75)" }}>+974 5500 0000</div>
-        </div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Get Started</div>
-          <div onClick={() => onNav("assessment")} style={{ display: "inline-block", background: tokens.coral, color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: "pointer", marginBottom: 10 }}>
-            Book Free Assessment
-          </div>
-          <div onClick={() => onNav("signin")} style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", cursor: "pointer" }}>Student / Parent Login →</div>
-        </div>
-      </div>
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", padding: "20px 24px", maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.4)" }}>© {new Date().getFullYear()} LearnWise Academy. All rights reserved.</div>
-        <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.4)" }}>Doha, Qatar</div>
-      </div>
-    </footer>
-  );
-}
-
-/* ── HOME ── */
-function PublicHome({ onNav }) {
-  const features = [
-    { icon: GraduationCap, title: "One-to-One Tutoring",    body: "Fully personalised sessions matched to your child's learning style, pace, and curriculum." },
-    { icon: Target,        title: "Exam-Focused Learning",  body: "Targeted preparation for IGCSE, Edexcel, Cambridge and A-Level exams with past paper practice." },
-    { icon: TrendingUp,    title: "Progress Tracking",      body: "Detailed tutor notes and learning reports so you always know how your child is developing." },
-    { icon: UserCircle,    title: "Parent Updates",         body: "Regular progress summaries shared directly with parents after every session." },
-    { icon: BookOpenCheck, title: "Homework Support",       body: "Structured homework assigned after each class to consolidate learning between sessions." },
-    { icon: Video,         title: "Online & In-Person",     body: "Flexible delivery — sessions available at home in Doha or via our secure online platform." },
-  ];
-  const subjects = ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Economics", "Computer Science", "History", "Geography"];
-  const testimonials = [
-    { quote: "Our daughter's IGCSE Maths grade went from a C to an A* in one term. The tutor really understood how she thinks.", name: "Mariam A.", role: "Parent, Doha" },
-    { quote: "I actually enjoy studying now. My tutor explains things in a way my school teacher never did.", name: "Yusuf K.", role: "IGCSE Student" },
-    { quote: "The regular progress reports are brilliant — I always know exactly where my son stands.", name: "James C.", role: "Parent, The Pearl" },
-  ];
-
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      {/* Hero */}
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep} 0%, #2C5F63 60%, #1a4a4e 100%)`, color: "#fff", padding: "80px 24px 96px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ display: "inline-block", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: 600, padding: "6px 16px", borderRadius: 999, marginBottom: 24, letterSpacing: "0.04em" }}>
-            IGCSE · Edexcel · Cambridge · A-Level
-          </div>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 52, fontWeight: 700, lineHeight: 1.15, marginBottom: 22 }}>
-            Smart Guidance.<br />Better Learning.
-          </div>
-          <div style={{ fontSize: 18, color: "rgba(255,255,255,0.8)", lineHeight: 1.7, marginBottom: 36, maxWidth: 560, margin: "0 auto 36px" }}>
-            Expert one-to-one tutoring in Doha, Qatar. Personalised sessions, exam-focused support, and real progress — for every student.
-          </div>
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-            <button onClick={() => onNav("assessment")} style={{ background: tokens.coral, color: "#fff", border: "none", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-              Book a Free Assessment
-            </button>
-            <button onClick={() => onNav("online")} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1.5px solid rgba(255,255,255,0.3)", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-              Learn More →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Subjects strip */}
-      <div style={{ background: tokens.tealSoft, padding: "18px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-          {subjects.map(s => (
-            <span key={s} style={{ background: "#fff", color: tokens.tealDeep, fontSize: 13, fontWeight: 600, padding: "6px 14px", borderRadius: 999, border: `1px solid ${tokens.line}` }}>{s}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Features grid */}
-      <div style={{ maxWidth: 1100, margin: "72px auto 0", padding: "0 24px" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: tokens.coral, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Why LearnWise</div>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 36, fontWeight: 600 }}>Everything your child needs to succeed</div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }}>
-          {features.map(feat => (
-            <div key={feat.title} style={{ background: tokens.cardBg, border: `1px solid ${tokens.line}`, borderRadius: 16, padding: 28 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-                <feat.icon size={21} color={tokens.tealDeep} />
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{feat.title}</div>
-              <div style={{ fontSize: 13.5, color: tokens.slate, lineHeight: 1.65 }}>{feat.body}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* How it works */}
-      <div style={{ background: tokens.paper, margin: "72px 0 0", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: tokens.coral, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Process</div>
-            <div style={{ fontFamily: "Fraunces, serif", fontSize: 36, fontWeight: 600 }}>How it works</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 24 }}>
-            {[
-              { step: "01", title: "Book Assessment",  body: "Fill in a short form. We'll contact you within 24 hours to arrange a free assessment session." },
-              { step: "02", title: "Meet Your Tutor",  body: "We match your child with the right tutor based on subject, curriculum, and learning style." },
-              { step: "03", title: "Start Learning",   body: "Regular one-to-one sessions — online or at your home in Doha. Flexible scheduling." },
-              { step: "04", title: "Track Progress",   body: "After every session you receive a detailed progress update and can track improvement over time." },
-            ].map(s => (
-              <div key={s.step} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "Fraunces, serif", fontSize: 40, fontWeight: 700, color: tokens.teal, marginBottom: 12 }}>{s.step}</div>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{s.title}</div>
-                <div style={{ fontSize: 13.5, color: tokens.slate, lineHeight: 1.65 }}>{s.body}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Testimonials */}
-      <div style={{ maxWidth: 1100, margin: "72px auto 0", padding: "0 24px" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 34, fontWeight: 600 }}>What parents & students say</div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }}>
-          {testimonials.map(t => (
-            <div key={t.name} style={{ background: tokens.tealSoft, borderRadius: 16, padding: 28 }}>
-              <div style={{ fontSize: 32, color: tokens.teal, marginBottom: 12, lineHeight: 1 }}>"</div>
-              <div style={{ fontSize: 14, color: tokens.ink, lineHeight: 1.7, fontStyle: "italic", marginBottom: 20 }}>{t.quote}</div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
-              <div style={{ fontSize: 12.5, color: tokens.slate }}>{t.role}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* CTA Banner */}
-      <div style={{ background: tokens.coral, margin: "72px 0 0", padding: "64px 24px", textAlign: "center" }}>
-        <div style={{ fontFamily: "Fraunces, serif", fontSize: 36, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Ready to get started?</div>
-        <div style={{ fontSize: 16, color: "rgba(255,255,255,0.85)", marginBottom: 28 }}>Book a free assessment — no commitment required.</div>
-        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={() => onNav("assessment")} style={{ background: "#fff", color: tokens.coral, border: "none", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-            Book Free Assessment
-          </button>
-          <button onClick={() => onNav("signin")} style={{ background: "transparent", color: "#fff", border: "2px solid rgba(255,255,255,0.5)", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-            Login to Portal
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── ABOUT ── */
-function PublicAbout({ onNav }) {
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep}, #2C5F63)`, color: "#fff", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 44, fontWeight: 700, marginBottom: 16 }}>About LearnWise Academy</div>
-          <div style={{ fontSize: 17, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>We believe every student deserves teaching that's built around them — not the other way around.</div>
-        </div>
-      </div>
-      <div style={{ maxWidth: 860, margin: "64px auto 0", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, marginBottom: 48 }}>
-          <div>
-            <div style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, marginBottom: 16 }}>Our Mission</div>
-            <div style={{ fontSize: 14.5, color: tokens.slate, lineHeight: 1.8 }}>
-              LearnWise Academy exists to give every student in Qatar access to high-quality, personalised tutoring. We match students with expert tutors who understand their curriculum, their learning style, and their goals — then build a programme around them.
-            </div>
-          </div>
-          <div>
-            <div style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, marginBottom: 16 }}>Our Approach</div>
-            <div style={{ fontSize: 14.5, color: tokens.slate, lineHeight: 1.8 }}>
-              We don't do generic revision. Every session is planned around the student — their upcoming exams, their weak areas, their questions. Progress notes after every class keep parents informed and tutors accountable.
-            </div>
-          </div>
-        </div>
-        <div style={{ background: tokens.tealSoft, borderRadius: 16, padding: 36, marginBottom: 48 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, textAlign: "center" }}>
-            {[["100+","Students tutored"],["IGCSE / Edexcel / Cambridge","Curricula covered"],["Online & In-Person","Delivery options"]].map(([val, label]) => (
-              <div key={label}>
-                <div style={{ fontFamily: "Fraunces, serif", fontSize: 28, fontWeight: 700, color: tokens.tealDeep, marginBottom: 6 }}>{val}</div>
-                <div style={{ fontSize: 13.5, color: tokens.slate }}>{label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ marginBottom: 48 }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, marginBottom: 20 }}>Our Tutors</div>
-          <div style={{ fontSize: 14.5, color: tokens.slate, lineHeight: 1.8 }}>
-            Every LearnWise tutor is carefully vetted for subject expertise, teaching ability, and communication skills. Our tutors have taught students across IGCSE, Edexcel, Cambridge IGCSE, and A-Level programmes. Many are experienced teachers from international schools in Qatar.
-          </div>
-        </div>
-        <div style={{ textAlign: "center", padding: "40px 0" }}>
-          <button onClick={() => onNav("assessment")} style={{ background: tokens.teal, color: "#fff", border: "none", borderRadius: 12, padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-            Book a Free Assessment
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── SUBJECTS ── */
-function PublicSubjects({ onNav }) {
-  const subjects = [
-    { name: "Mathematics",       desc: "Algebra, geometry, calculus, statistics and more. Exam technique and past paper practice included.", icon: "📐" },
-    { name: "Physics",           desc: "Forces, electricity, waves, and quantum concepts. Theory and practical application.", icon: "⚡" },
-    { name: "Chemistry",         desc: "Organic and inorganic chemistry, reactions, and lab-based concepts.", icon: "🧪" },
-    { name: "Biology",           desc: "Cell biology, genetics, ecology and human physiology for IGCSE and A-Level.", icon: "🧬" },
-    { name: "English",           desc: "Literature analysis, creative and argumentative writing, grammar and comprehension.", icon: "📖" },
-    { name: "Economics",         desc: "Micro and macroeconomics, international trade, and data response skills.", icon: "📊" },
-    { name: "Computer Science",  desc: "Programming, algorithms, data structures and theory for IGCSE and A-Level.", icon: "💻" },
-    { name: "History",           desc: "Source analysis, essay technique, and thematic understanding.", icon: "🏛️" },
-    { name: "Geography",         desc: "Human and physical geography, case studies, and fieldwork skills.", icon: "🌍" },
-  ];
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep}, #2C5F63)`, color: "#fff", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 44, fontWeight: 700, marginBottom: 16 }}>Subjects We Cover</div>
-          <div style={{ fontSize: 17, color: "rgba(255,255,255,0.8)" }}>Expert tutoring across all major IGCSE, Edexcel, and Cambridge subjects.</div>
-        </div>
-      </div>
-      <div style={{ maxWidth: 1100, margin: "64px auto 0", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
-          {subjects.map(s => (
-            <div key={s.name} style={{ background: tokens.cardBg, border: `1px solid ${tokens.line}`, borderRadius: 16, padding: 28 }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>{s.icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 8 }}>{s.name}</div>
-              <div style={{ fontSize: 13.5, color: tokens.slate, lineHeight: 1.65 }}>{s.desc}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ textAlign: "center", padding: "60px 0 0" }}>
-          <div style={{ fontSize: 14.5, color: tokens.slate, marginBottom: 20 }}>Don't see your subject? Get in touch — we may be able to help.</div>
-          <button onClick={() => onNav("assessment")} style={{ background: tokens.teal, color: "#fff", border: "none", borderRadius: 12, padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-            Book a Free Assessment
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── IGCSE / EDEXCEL SUPPORT ── */
-function PublicIGCSE({ onNav }) {
-  const curricula = [
-    { name: "Cambridge IGCSE",   desc: "Full support for Cambridge International examinations — all core and extended subjects.", tag: "Cambridge" },
-    { name: "Edexcel IGCSE",     desc: "Pearson Edexcel IGCSE and International GCSE programme support.", tag: "Edexcel" },
-    { name: "Cambridge A-Level", desc: "AS and A2 level preparation across sciences, humanities, and mathematics.", tag: "A-Level" },
-    { name: "IB Programme",      desc: "International Baccalaureate DP and MYP support for key subjects.", tag: "IB" },
-    { name: "School Curriculum", desc: "Local school curriculum support for students in Qatar's international schools.", tag: "Custom" },
-  ];
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep}, #2C5F63)`, color: "#fff", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 44, fontWeight: 700, marginBottom: 16 }}>IGCSE & Edexcel Support</div>
-          <div style={{ fontSize: 17, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>Specialist tutoring for Cambridge IGCSE, Edexcel, A-Levels and more — delivered by experienced tutors in Doha.</div>
-        </div>
-      </div>
-      <div style={{ maxWidth: 1000, margin: "64px auto 0", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 52 }}>
-          {curricula.map(c => (
-            <div key={c.name} style={{ background: tokens.cardBg, border: `1.5px solid ${tokens.line}`, borderRadius: 16, padding: 28, display: "flex", gap: 16 }}>
-              <div style={{ flexShrink: 0 }}>
-                <span style={{ background: tokens.tealSoft, color: tokens.tealDeep, fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999 }}>{c.tag}</span>
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{c.name}</div>
-                <div style={{ fontSize: 13.5, color: tokens.slate, lineHeight: 1.65 }}>{c.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ background: tokens.paper, borderRadius: 16, padding: 36, marginBottom: 40 }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, marginBottom: 16 }}>Our exam preparation approach</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {[
-              "Targeted past paper practice from the earliest opportunity",
-              "Mark scheme decoding — students learn exactly how marks are awarded",
-              "Topic-by-topic audit to identify and close gaps",
-              "Exam technique coaching: timing, mark allocation, answer structure",
-              "Mock exam conditions with full feedback reports",
-              "Regular parent updates so everyone can track progress",
-            ].map(point => (
-              <div key={point} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <CheckCircle2 size={16} color={tokens.success} style={{ flexShrink: 0, marginTop: 2 }} />
-                <div style={{ fontSize: 13.5, color: tokens.slate }}>{point}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <button onClick={() => onNav("assessment")} style={{ background: tokens.teal, color: "#fff", border: "none", borderRadius: 12, padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-            Book a Free Assessment
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── ONLINE TUITION ── */
-function PublicOnline({ onNav }) {
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep}, #2C5F63)`, color: "#fff", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 44, fontWeight: 700, marginBottom: 16 }}>Online Tuition</div>
-          <div style={{ fontSize: 17, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>The same quality, personal approach — delivered seamlessly over video call from anywhere in Qatar or around the world.</div>
-        </div>
-      </div>
-      <div style={{ maxWidth: 900, margin: "64px auto 0", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, marginBottom: 52 }}>
-          <div>
-            <div style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, marginBottom: 18 }}>How online sessions work</div>
-            {[
-              { icon: Video,         title: "Secure video call",        body: "Sessions take place over a private, secure meeting link. No setup required." },
-              { icon: FileText,      title: "Shared digital workspace",  body: "Tutors use shared whiteboards and documents so students can follow in real time." },
-              { icon: BookOpenCheck, title: "Homework via the portal",   body: "Assignments are set and submitted through the student portal between sessions." },
-              { icon: TrendingUp,    title: "Same progress tracking",    body: "Post-session notes and progress reports work exactly the same as in-person." },
-            ].map(item => (
-              <div key={item.title} style={{ display: "flex", gap: 14, marginBottom: 20 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <item.icon size={18} color={tokens.tealDeep} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{item.title}</div>
-                  <div style={{ fontSize: 13, color: tokens.slate, lineHeight: 1.6 }}>{item.body}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: tokens.tealSoft, borderRadius: 16, padding: 32 }}>
-            <div style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600, marginBottom: 20 }}>Why our students prefer online</div>
-            {[
-              "No travel time — start learning immediately",
-              "Flexible scheduling, including evenings and weekends",
-              "Available to families anywhere in Qatar and internationally",
-              "Sessions are recorded on request for review",
-              "Same tutor, same progress — no disruption",
-            ].map(point => (
-              <div key={point} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
-                <CheckCircle2 size={15} color={tokens.teal} style={{ flexShrink: 0, marginTop: 2 }} />
-                <div style={{ fontSize: 13.5, color: tokens.tealDeep }}>{point}</div>
-              </div>
-            ))}
-            <button onClick={() => onNav("assessment")} style={{ marginTop: 24, width: "100%", background: tokens.teal, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-              Book a Free Assessment
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── BOOK ASSESSMENT ── */
-function PublicAssessment() {
-  const blank = { parent_name: "", student_name: "", student_grade: "", curriculum: CURRICULA[0], subjects: [], phone: "", parent_email: "", message: "", preferred_mode: "Online", status: "New" };
-  const [form,    setForm]    = useState(blank);
-  const [saving,  setSaving]  = useState(false);
-  const [done,    setDone]    = useState(false);
-  const [err,     setErr]     = useState("");
-
-  const toggleSubject = s => {
-    setForm(f => ({
-      ...f,
-      subjects: f.subjects.includes(s) ? f.subjects.filter(x => x !== s) : [...f.subjects, s],
-    }));
-  };
-
-  const submit = async () => {
-    if (!form.parent_name.trim() || !form.student_name.trim() || !form.parent_email.trim()) {
-      setErr("Please fill in parent name, student name, and email."); return;
-    }
-    setSaving(true); setErr("");
-    const { error } = await db.submitAssessmentRequest({
-      parent_name:   form.parent_name.trim(),
-      student_name:  form.student_name.trim(),
-      student_grade: form.student_grade,
-      curriculum:    form.curriculum,
-      subjects:      form.subjects,
-      parent_phone:  form.phone,
-      parent_email:  form.parent_email.trim(),
-      message:       form.message,
-      preferred_mode: form.preferred_mode,
-      status:        "New",
-      submitted_at:  new Date().toISOString(),
-    });
-    setSaving(false);
-    if (error) { setErr(error.message); return; }
-    setDone(true);
-  };
-
-  if (done) return (
-    <div style={{ fontFamily: "Inter, sans-serif", minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ textAlign: "center", maxWidth: 480 }}>
-        <div style={{ width: 64, height: 64, borderRadius: "50%", background: tokens.successBg, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-          <CheckCircle2 size={30} color={tokens.success} />
-        </div>
-        <div style={{ fontFamily: "Fraunces, serif", fontSize: 28, fontWeight: 700, marginBottom: 12 }}>Request Received!</div>
-        <div style={{ fontSize: 15, color: tokens.slate, lineHeight: 1.7, marginBottom: 28 }}>
-          Thank you for reaching out. A member of our team will contact you within 24 hours to arrange your free assessment session.
-        </div>
-        <div style={{ fontSize: 13.5, color: tokens.slate }}>Questions? Email us at <strong>info@learnwiseacademy.qa</strong></div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep}, #2C5F63)`, color: "#fff", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 44, fontWeight: 700, marginBottom: 14 }}>Book a Free Assessment</div>
-          <div style={{ fontSize: 17, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>Tell us about your child and we'll be in touch within 24 hours to arrange a free, no-commitment assessment session.</div>
-        </div>
-      </div>
-      <div style={{ maxWidth: 680, margin: "56px auto 80px", padding: "0 24px" }}>
-        <div style={{ background: tokens.cardBg, border: `1px solid ${tokens.line}`, borderRadius: 20, padding: 40 }}>
-          {err && (
-            <div style={{ background: tokens.dangerBg, color: tokens.danger, borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13.5 }}>{err}</div>
-          )}
-
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, marginBottom: 24 }}>Parent / Guardian Details</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 6 }}>
-            <Field label="Parent / Guardian Name" required>
-              <input style={inputStyle} value={form.parent_name} onChange={e => setForm({ ...form, parent_name: e.target.value })} placeholder="Full name" />
-            </Field>
-            <Field label="Phone Number">
-              <input style={inputStyle} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+974 …" />
-            </Field>
-          </div>
-          <Field label="Email Address" required>
-            <input style={inputStyle} type="email" value={form.parent_email} onChange={e => setForm({ ...form, parent_email: e.target.value })} placeholder="your@email.com" />
-          </Field>
-
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 18, fontWeight: 600, margin: "28px 0 20px" }}>Student Details</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 6 }}>
-            <Field label="Student Name" required>
-              <input style={inputStyle} value={form.student_name} onChange={e => setForm({ ...form, student_name: e.target.value })} placeholder="Full name" />
-            </Field>
-            <Field label="Grade / Year">
-              <input style={inputStyle} value={form.student_grade} onChange={e => setForm({ ...form, student_grade: e.target.value })} placeholder="e.g. Year 10" />
-            </Field>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Field label="Curriculum">
-              <select style={inputStyle} value={form.curriculum} onChange={e => setForm({ ...form, curriculum: e.target.value })}>
-                {CURRICULA.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </Field>
-            <Field label="Preferred Mode">
-              <select style={inputStyle} value={form.preferred_mode} onChange={e => setForm({ ...form, preferred_mode: e.target.value })}>
-                <option>Online</option>
-                <option>In-Person</option>
-                <option>Either</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Subjects needed (select all that apply)">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-              {SUBJECTS.map(s => (
-                <div key={s} onClick={() => toggleSubject(s)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${form.subjects.includes(s) ? tokens.teal : tokens.line}`, background: form.subjects.includes(s) ? tokens.tealSoft : "#fff", color: form.subjects.includes(s) ? tokens.tealDeep : tokens.slate }}>
-                  {s}
-                </div>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="Additional message (optional)">
-            <textarea style={{ ...inputStyle, minHeight: 90 }} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Tell us about your child's goals, upcoming exams, or any specific challenges…" />
-          </Field>
-
-          <button onClick={submit} disabled={saving} style={{ width: "100%", background: saving ? tokens.slate : tokens.teal, color: "#fff", border: "none", borderRadius: 12, padding: "14px", fontSize: 15, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", marginTop: 8 }}>
-            {saving ? "Submitting…" : "Submit Assessment Request"}
-          </button>
-          <div style={{ fontSize: 12.5, color: tokens.slate, textAlign: "center", marginTop: 12 }}>
-            We'll respond within 24 hours. No commitment required.
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── CONTACT ── */
-function PublicContact() {
-  const [form,   setForm]   = useState({ name: "", email: "", phone: "", message: "" });
-  const [done,   setDone]   = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-
-  const submit = async () => {
-    if (!form.name || !form.email || !form.message) return;
-    setSaving(true); setErr("");
-    // Store as an assessment request with no student data (contact form)
-    const { error } = await db.submitAssessmentRequest({ parent_name: form.name, student_name: "Contact enquiry", parent_email: form.email, parent_phone: form.phone, message: form.message, status: "New", submitted_at: new Date().toISOString() });
-    setSaving(false);
-    if (error) { setErr(error.message); return; }
-    setDone(true);
-  };
-
-  return (
-    <div style={{ fontFamily: "Inter, sans-serif", color: tokens.ink }}>
-      <div style={{ background: `linear-gradient(135deg, ${tokens.tealDeep}, #2C5F63)`, color: "#fff", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 44, fontWeight: 700, marginBottom: 14 }}>Contact Us</div>
-          <div style={{ fontSize: 17, color: "rgba(255,255,255,0.8)" }}>We'd love to hear from you. Reach out and we'll respond within 24 hours.</div>
-        </div>
-      </div>
-      <div style={{ maxWidth: 900, margin: "64px auto 80px", padding: "0 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48 }}>
-        <div>
-          <div style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, marginBottom: 24 }}>Get in touch</div>
-          {[
-            { icon: MapPin,   label: "Location",     value: "Doha, Qatar" },
-            { icon: Mail,     label: "Email",         value: "info@learnwiseacademy.qa" },
-            { icon: Phone,    label: "Phone",         value: "+974 5500 0000" },
-            { icon: Clock,    label: "Office Hours",  value: "Mon–Sat, 9am–7pm" },
-          ].map(item => (
-            <div key={item.label} style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 20 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <item.icon size={18} color={tokens.tealDeep} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: tokens.slate, marginBottom: 2 }}>{item.label.toUpperCase()}</div>
-                <div style={{ fontSize: 14 }}>{item.value}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div>
-          {done
-            ? (
-              <div style={{ textAlign: "center", padding: "40px 0" }}>
-                <CheckCircle2 size={40} color={tokens.success} style={{ margin: "0 auto 16px" }} />
-                <div style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Message sent!</div>
-                <div style={{ fontSize: 14, color: tokens.slate }}>We'll get back to you within 24 hours.</div>
-              </div>
-            ) : (
-              <div style={{ background: tokens.cardBg, border: `1px solid ${tokens.line}`, borderRadius: 16, padding: 32 }}>
-                <ErrorNote message={err}/>
-                <Field label="Name" required><input style={inputStyle} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Your name" /></Field>
-                <Field label="Email" required><input style={inputStyle} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="your@email.com" /></Field>
-                <Field label="Phone"><input style={inputStyle} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+974 …" /></Field>
-                <Field label="Message" required><textarea style={{ ...inputStyle, minHeight: 100 }} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="How can we help?" /></Field>
-                <button onClick={submit} disabled={saving} style={{ width: "100%", background: tokens.teal, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                  {saving ? "Sending…" : "Send Message"}
-                </button>
-              </div>
-            )
-          }
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-/* ═══ AUTH SCREENS ═══ */
-function AuthShell({title,subtitle,children,footer}){return(<div style={{minHeight:"100vh",background:tokens.paper,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter, sans-serif",padding:20}}><div style={{width:420,maxWidth:"100%"}}><div style={{textAlign:"center",marginBottom:28}}><div style={{width:52,height:52,borderRadius:14,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}><GraduationCap size={26} color="#fff"/></div><div style={{fontFamily:"Fraunces, serif",fontSize:26,fontWeight:600,color:tokens.ink}}>LearnWise Academy</div><div style={{color:tokens.coral,fontSize:13,fontWeight:600,marginTop:4,letterSpacing:"0.02em"}}>Smart Guidance. Better Learning.</div></div><Card style={{padding:24}}><div style={{fontFamily:"Fraunces, serif",fontSize:18,fontWeight:600,marginBottom:2}}>{title}</div>{subtitle&&<div style={{fontSize:12.5,color:tokens.slate,marginBottom:16}}>{subtitle}</div>}{children}</Card>{footer}</div></div>);}
-function ErrorNote({message}){if(!message)return null;return <div style={{background:tokens.dangerBg,color:tokens.danger,fontSize:12.5,padding:"9px 12px",borderRadius:9,marginBottom:14}}>{message}</div>;}
-function SignIn({onGoSignUp,onGoStaff}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signIn({email,password});setLoading(false);if(error)setError(error.message);};return(<AuthShell title="Sign in" subtitle="Welcome back — sign in to your portal." footer={<div style={{textAlign:"center",marginTop:16}}><div style={{fontSize:12.5,color:tokens.slate}}>New here? <span onClick={onGoSignUp} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Create an account</span></div><div onClick={onGoStaff} style={{textAlign:"center",fontSize:11,color:tokens.line,marginTop:18,cursor:"pointer",userSelect:"none"}}>·</div></div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
-function SignUp({onGoSignIn}){const{signUp}=useAuth();const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[role,setRole]=useState("student");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const[done,setDone]=useState(false);const roles=[{key:"tutor",label:"Tutor",icon:Users},{key:"parent",label:"Parent",icon:UserCircle},{key:"student",label:"Student",icon:GraduationCap}];const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{error}=await signUp({email,password,fullName,role});setLoading(false);if(error)setError(error.message);else setDone(true);};if(done)return <AuthShell title="Check your inbox" subtitle=""><div style={{fontSize:13.5,color:tokens.ink,lineHeight:1.6}}>We've sent a confirmation link to <strong>{email}</strong>. Confirm your email, then sign in to reach your {ROLE_LABEL[role]} portal.</div><Button variant="secondary" style={{width:"100%",justifyContent:"center",marginTop:16}} onClick={onGoSignIn}>Back to sign in</Button></AuthShell>;return(<AuthShell title="Create an account" subtitle="Sign up as a tutor, parent, or student." footer={<div style={{textAlign:"center",fontSize:12.5,color:tokens.slate,marginTop:16}}>Already have an account? <span onClick={onGoSignIn} style={{color:tokens.teal,fontWeight:600,cursor:"pointer"}}>Sign in</span></div>}><form onSubmit={submit}><ErrorNote message={error}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>{roles.map((r)=><div key={r.key} onClick={()=>setRole(r.key)} style={{border:`1.5px solid ${role===r.key?tokens.teal:tokens.line}`,background:role===r.key?tokens.tealSoft:"#fff",borderRadius:12,padding:"10px 8px",cursor:"pointer",textAlign:"center"}}><r.icon size={17} color={role===r.key?tokens.tealDeep:tokens.slate} style={{marginBottom:4}}/><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink}}>{r.label}</div></div>)}</div><Field label="Full Name"><input style={inputStyle} required value={fullName} onChange={(e)=>setFullName(e.target.value)} placeholder="Your full name"/></Field><Field label="Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@example.com"/></Field><Field label="Password"><input style={inputStyle} type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="At least 6 characters"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Creating account…":"Create account"}</Button></form></AuthShell>);}
-function StaffLogin({onBack}){const{signIn}=useAuth();const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[error,setError]=useState("");const[loading,setLoading]=useState(false);const submit=async(e)=>{e.preventDefault();setError("");setLoading(true);const{data,error}=await signIn({email,password});setLoading(false);if(error){setError(error.message);return;}const{data:prof,error:profileError}=await db.getProfileById(data.user.id);if(profileError){setError(profileError.message);return;}if(!prof||!["super_admin","admin_tutor","admin"].includes(prof.role)){await supabase.auth.signOut();setError("This account doesn't have staff access.");}};return(<AuthShell title="Staff Access" subtitle="Restricted — staff only" footer={<div onClick={onBack} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:12.5,color:tokens.slate,marginTop:16,cursor:"pointer"}}><ArrowLeft size={13}/> Back to portal sign in</div>}><form onSubmit={submit}><ErrorNote message={error}/><Field label="Staff Email"><input style={inputStyle} type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="staff@learnwise.edu"/></Field><Field label="Password"><input style={inputStyle} type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••"/></Field><Button type="submit" style={{width:"100%",justifyContent:"center",marginTop:6}}>{loading?"Signing in…":"Sign in"}</Button></form></AuthShell>);}
+function ErrorNote({message}){if(!message)return null;return <div role="alert" style={{background:tokens.dangerBg,color:tokens.danger,fontSize:12.5,padding:"9px 12px",borderRadius:9,marginBottom:14}}>{message}</div>;}
 
 /* ═══ SHELL ═══ */
-function Shell({role,current,setCurrent,onLogout,children,who}){const nav=NAV[role]||NAV.student;const isAdminTutorRole=role==="admin_tutor";return(<div style={{display:"flex",minHeight:"100vh",background:tokens.paper,fontFamily:"Inter, sans-serif"}}><div style={{width:232,flexShrink:0,borderRight:`1px solid ${tokens.line}`,padding:"22px 14px",display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto"}}><div style={{display:"flex",alignItems:"center",gap:10,padding:"0 8px",marginBottom:26}}><div style={{width:34,height:34,borderRadius:9,background:tokens.teal,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><GraduationCap size={18} color="#fff"/></div><div><div style={{fontFamily:"Fraunces, serif",fontWeight:600,fontSize:14.5,color:tokens.ink,lineHeight:1.1}}>LearnWise</div><div style={{fontSize:10.5,color:tokens.coral,fontWeight:600}}>Academy</div></div></div><div style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>{nav.map((n)=><div key={n.key} onClick={()=>setCurrent(n.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",background:current===n.key?tokens.tealSoft:"transparent",color:current===n.key?tokens.tealDeep:tokens.slate,fontWeight:current===n.key?700:500,fontSize:13.5}}><n.icon size={16}/>{n.label}</div>)}</div><div style={{borderTop:`1px solid ${tokens.line}`,paddingTop:14,marginTop:10}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"0 8px",marginBottom:10}}><div style={{width:30,height:30,borderRadius:"50%",background:isAdminTutorRole?tokens.warnBg:tokens.coralSoft,display:"flex",alignItems:"center",justifyContent:"center",color:isAdminTutorRole?tokens.warn:tokens.coral,fontWeight:700,fontSize:12.5,flexShrink:0}}>{initials(who)}</div><div style={{minWidth:0}}><div style={{fontSize:12.5,fontWeight:600,color:tokens.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{who}</div><div style={{fontSize:11,color:tokens.slate}}>{ROLE_LABEL[role]||role}</div></div></div><div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:10,cursor:"pointer",color:tokens.slate,fontSize:13}}><LogOut size={15}/> Sign out</div></div></div><div style={{flex:1,padding:"26px 32px",minWidth:0}}>{children}</div></div>);}
 
 /* ═══ ADMIN DASHBOARD ═══ */
 function AdminDashboard(){
@@ -802,7 +168,7 @@ function AdminDashboard(){
   if(loading)return <LoadingState label="Loading dashboard…"/>;
   if(error)return <ErrorBanner message={error}/>;
   return(<div><SectionTitle eyebrow="Overview" title="Admin Dashboard"/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:26}}>
+    <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:26}}>
       <StatCard icon={GraduationCap} label="Active Students" value={stats?.totalStudents??"—"}/>
       <StatCard icon={Users} label="Active Tutors" value={stats?.totalTutors??"—"}/>
       <StatCard icon={UserCircle} label="Active Parents" value={stats?.totalParents??"—"}/>
@@ -812,7 +178,7 @@ function AdminDashboard(){
       <StatCard icon={AlertCircle} label="Outstanding (QAR)" value={fmt(stats?.outstandingQar)} accent={tokens.warnBg}/>
       <StatCard icon={CheckSquare} label="New Requests" value={stats?.newRequests??"—"} accent={stats?.newRequests>0?tokens.warnBg:undefined}/>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr",gap:18}}>
+    <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1.3fr 1fr",gap:18}}>
       <Card><div style={{fontWeight:700,marginBottom:12,fontSize:14.5}}>Today's Class Schedule</div>
         {todayClasses.length===0?<div style={{color:tokens.slate,fontSize:13}}>No classes scheduled for today.</div>
           :todayClasses.map((c)=>(<div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${tokens.line}`}}><div><div style={{fontWeight:600,fontSize:13.5}}>{c.student?.full_name} · {c.subject}</div><div style={{fontSize:12,color:tokens.slate}}>{fmtDateTime(c.scheduled_at)} with {c.tutor?.full_name}</div></div><Pill value={c.status}/></div>))}
@@ -899,7 +265,7 @@ function AdminUsers(){
   return(<div>
     {el}
     <SectionTitle eyebrow="Account Management" title="All Users"/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:18}}>
+    <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:18}}>
       <StatCard icon={Shield}        label="Super Admins"  value={cnt.super_admin||0}/>
       <StatCard icon={Users}         label="Tutors"   value={cnt.tutor  ||0}/>
       <StatCard icon={UserCircle}    label="Parents"  value={cnt.parent ||0}/>
@@ -1009,7 +375,7 @@ function AdminStudentDetail({student,onBack}){
         <div style={{flex:1,minWidth:200}}><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{student.full_name}</div><div style={{color:tokens.slate,fontSize:13}}>{student.grade} · {student.school}</div></div>
         <Pill value={student.status}/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginTop:20}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginTop:20}}>
         <Field label="Curriculum"><div style={{fontSize:13.5}}>{student.curriculum||"—"}</div></Field>
         <Field label="Subjects"><div style={{fontSize:13.5}}>{(student.subjects||[]).join(", ")||"—"}</div></Field>
         <Field label="Tutor(s)"><div style={{fontSize:13.5}}>{tutorNames}</div></Field>
@@ -1017,12 +383,12 @@ function AdminStudentDetail({student,onBack}){
       </div>
     </Card>
     {loading?<Spinner/>:(<>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:18}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:18}}>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Learning Goals</div><div style={{fontSize:13.5,marginBottom:12}}>{student.goals||"No goals recorded."}</div><div style={{display:"flex",gap:14}}><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.success,marginBottom:4}}>Strengths</div><div style={{fontSize:13,color:tokens.slate}}>{student.strengths||"—"}</div></div><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.coral,marginBottom:4}}>Weak Areas</div><div style={{fontSize:13,color:tokens.slate}}>{student.weak_areas||"—"}</div></div></div></Card>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Invoices</div>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map(inv=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><Pill value={inv.status}/></div>))}</Card>
       </div>
       <Card style={{marginBottom:18}}><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Class History</div>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map(c=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<Pill value={c.status}/>,<Pill value={c.attendance||"—"}/>]}))}/>}</Card>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><Pill value={h.status}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{n.topic||"—"}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
       </div>
@@ -1058,18 +424,18 @@ function AdminStudents(){
     )}</Card>
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Student":"Add Student"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <Field label="Full Name" required><input style={inputStyle} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" autoFocus/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Age"><input style={inputStyle} type="number" value={age} onChange={e=>setAge(e.target.value)}/></Field>
         <Field label="Grade / Year"><input style={inputStyle} value={grade} onChange={e=>setGrade(e.target.value)} placeholder="Year 10"/></Field>
       </div>
       <Field label="School"><input style={inputStyle} value={school} onChange={e=>setSchool(e.target.value)}/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Curriculum"><select style={inputStyle} value={curriculum} onChange={e=>setCurriculum(e.target.value)}>{CURRICULA.map(c=><option key={c}>{c}</option>)}</select></Field>
         <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive","Graduated"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
       <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
       <Field label="Parent"><select style={inputStyle} value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">— No parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Strengths"><input style={inputStyle} value={strengths} onChange={e=>setStrengths(e.target.value)}/></Field>
         <Field label="Weak Areas"><input style={inputStyle} value={weakAreas} onChange={e=>setWeakAreas(e.target.value)}/></Field>
       </div>
@@ -1094,7 +460,7 @@ function AdminParents(){
     <SectionTitle title="Parents" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Parent</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     {loading?<Spinner/>:rows.length===0?<Empty icon={UserCircle} title="No parents yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Parent</Button>}/>:(
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
         {rows.map(p=>{const ch=students.filter(s=>s.parent_id===p.id);return(
           <Card key={p.id}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontWeight:700,fontSize:15}}>{p.full_name}</div><Pill value={p.status}/></div>
@@ -1112,7 +478,7 @@ function AdminParents(){
     )}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Parent":"Add Parent"} onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <Field label="Full Name" required><input style={inputStyle} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" autoFocus/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Phone"><input style={inputStyle} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+974…"/></Field>
         <Field label="Email"><input style={inputStyle} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="email@example.com"/></Field>
       </div>
@@ -1139,7 +505,7 @@ function AdminTutors(){
     <SectionTitle title="Tutors" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Tutor</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
     {loading?<Spinner/>:rows.length===0?<Empty icon={Users} title="No tutors yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Tutor</Button>}/>:(
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
         {rows.map(t=>{
           const assigned=students.filter(s=>(s.student_tutors||[]).some(st=>st.tutor_id===t.id));
           return(<Card key={t.id}>
@@ -1158,13 +524,13 @@ function AdminTutors(){
     )}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Tutor":"Add Tutor"} onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <Field label="Full Name" required><input style={inputStyle} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" autoFocus/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Email"><input style={inputStyle} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></Field>
         <Field label="Phone"><input style={inputStyle} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+974…"/></Field>
       </div>
       <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
       <Field label="Curricula (comma-separated)"><input style={inputStyle} value={curriculum} onChange={e=>setCurriculum(e.target.value)} placeholder="IGCSE, Edexcel"/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Hourly Rate (QAR)"><input style={inputStyle} type="number" value={rateQar} onChange={e=>setRateQar(e.target.value)} placeholder="150"/></Field>
         <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive","On Leave"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
@@ -1204,7 +570,7 @@ function AdminClasses(){
         ]}))}
       /></Card>
     ):(
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
         {Object.entries(byDay).sort(([a],[b])=>a.localeCompare(b)).map(([day,dc])=>(
           <Card key={day}><div style={{fontWeight:700,fontSize:13.5,marginBottom:10}}>{fmtDate(day+"T00:00:00")}</div>
             {dc.map(c=>(<div key={c.id} style={{padding:"8px 10px",borderRadius:9,background:tokens.tealSoft,marginBottom:7}}>
@@ -1216,7 +582,7 @@ function AdminClasses(){
       </div>
     )}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Class":"Create Class"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="Subject"><select style={inputStyle} value={subject} onChange={e=>setSubject(e.target.value)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
@@ -1282,7 +648,7 @@ function AdminHomework(){
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Homework":"Add Homework"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <Field label="Title" required><input style={inputStyle} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Homework title" autoFocus/></Field>
       <Field label="Description"><textarea style={{...inputStyle,minHeight:68}} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Instructions…"/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="Due Date"><input style={inputStyle} type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)}/></Field>
@@ -1323,7 +689,7 @@ function AdminClassNotes(){
       /></Card>
     )}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Note":"Add Class Note"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Student" required><select style={inputStyle} value={noteStudentId} onChange={e=>setNoteStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Tutor" required><select style={inputStyle} value={noteTutorId} onChange={e=>setNoteTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="Topic" required><input style={inputStyle} value={noteTopic} onChange={e=>setNoteTopic(e.target.value)} placeholder="e.g. Quadratic Equations"/></Field>
@@ -1373,7 +739,7 @@ function AdminMaterials(){
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Material":"Add Material"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <Field label="Title" required><input style={inputStyle} value={matTitle} onChange={e=>setMatTitle(e.target.value)} placeholder="e.g. IGCSE Algebra Formula Sheet" autoFocus/></Field>
       <Field label="Description"><textarea style={{...inputStyle,minHeight:52}} value={matDesc} onChange={e=>setMatDesc(e.target.value)}/></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Subject"><select style={inputStyle} value={matSubject} onChange={e=>setMatSubject(e.target.value)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
         <Field label="Tutor" required><select style={inputStyle} value={matTutorId} onChange={e=>setMatTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="For Student (optional)"><select style={inputStyle} value={matStudentId} onChange={e=>setMatStudentId(e.target.value)}><option value="">— All students —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
@@ -1400,7 +766,7 @@ function AdminPayments(){
   const issueInv=async inv=>{const{error}=await db.updateInvoice(inv.id,{status:"Issued",issued_at:new Date().toISOString()});if(error)fire(error.message,"error");else{fire("Invoice issued");load();}};
   return(<div>{el}
     <SectionTitle title="Payments & Invoices" action={<div style={{display:"flex",gap:8}}><Button variant="secondary" icon={Plus} onClick={()=>setShowInv(true)}>New Invoice</Button><Button icon={Plus} onClick={()=>setShowPay(true)}>Record Payment</Button></div>}/>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:18}}>
+    <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:18}}>
       <StatCard icon={Wallet} label="Total Collected (QAR)" value={fmt(totalCollected)} accent={tokens.successBg}/>
       <StatCard icon={AlertCircle} label="Outstanding (QAR)" value={fmt(totalOutstanding)} accent={tokens.warnBg}/>
       <StatCard icon={FileText} label="Total Invoices" value={invoices.length}/>
@@ -1427,7 +793,7 @@ function AdminPayments(){
     {showPay&&(<Modal title="Record Payment" onClose={()=>setShowPay(false)}>
       <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>setPayParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
       <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>!payParentId||i.parent_id===payParentId).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Amount (QAR)" required><input style={inputStyle} type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="500"/></Field>
         <Field label="Method"><select style={inputStyle} value={payMethod} onChange={e=>setPayMethod(e.target.value)}>{["Cash","Bank Transfer","Card","Online","Cheque"].map(m=><option key={m}>{m}</option>)}</select></Field>
       </div>
@@ -1436,7 +802,7 @@ function AdminPayments(){
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={savePay} disabled={busy}>{busy?"Saving…":"Record Payment"}</Button>
     </Modal>)}
     {showInv&&(<Modal title="Create Invoice" wide onClose={()=>setShowInv(false)}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>setInvParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
         <Field label="Student (optional)"><select style={inputStyle} value={invStudentId} onChange={e=>setInvStudentId(e.target.value)}><option value="">— None —</option>{students.filter(s=>!invParentId||s.parent_id===invParentId).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Period Start"><input style={inputStyle} type="date" value={invPeriodStart} onChange={e=>setInvPeriodStart(e.target.value)}/></Field>
@@ -1462,7 +828,7 @@ function AdminAssessments(){
     <div onClick={()=>setDetail(null)} style={{display:"flex",alignItems:"center",gap:6,color:tokens.slate,fontSize:13,cursor:"pointer",marginBottom:14}}><ArrowLeft size={14}/> Back to Requests</div>
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}><div><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{detail.student_name||"—"}</div><div style={{fontSize:13,color:tokens.slate}}>Submitted {fmtDate(detail.submitted_at)}</div></div><Pill value={detail.status}/></div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:16}}>
+      <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:16}}>
         <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>PARENT CONTACT</div><div style={{fontSize:13.5,fontWeight:600}}>{detail.parent_name}</div>{detail.parent_email&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,marginTop:4}}><Mail size={13}/>{detail.parent_email}</div>}{detail.parent_phone&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,marginTop:4}}><Phone size={13}/>{detail.parent_phone}</div>}</div>
         <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>STUDENT INFO</div>{detail.student_grade&&<div style={{fontSize:13.5}}>{detail.student_grade}</div>}{detail.school&&<div style={{fontSize:13.5}}>{detail.school}</div>}{detail.curriculum&&<div style={{fontSize:13.5}}>{detail.curriculum}</div>}</div>
       </div>
@@ -1576,7 +942,7 @@ function AdminReports() {
       const total = agg.reduce((s, r) => s + r.paid, 0);
       return (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
             <StatCard icon={Wallet}      label="Total Collected (QAR)" value={fmt(total)} accent={tokens.successBg} />
             <StatCard icon={FileText}    label="Payment Records"        value={data.length} />
             <StatCard icon={GraduationCap} label="Students"             value={agg.length} />
@@ -1596,7 +962,7 @@ function AdminReports() {
       const total = data.reduce((s, r) => s + Number(r.balance_qar || 0), 0);
       return (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
             <StatCard icon={AlertCircle} label="Outstanding (QAR)" value={fmt(total)} accent={tokens.warnBg} />
             <StatCard icon={FileText}    label="Unpaid Invoices"    value={data.length} />
             <StatCard icon={UserCircle}  label="Parents with balance" value={[...new Set(data.map(r => r.parent_id))].length} />
@@ -1611,7 +977,7 @@ function AdminReports() {
       const agg = aggregateAttendance(data);
       return (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 18 }}>
             <StatCard icon={CheckCircle2} label="Present"   value={data.filter(r => r.attendance === "Present").length}   accent={tokens.successBg} />
             <StatCard icon={AlertCircle}  label="Absent"    value={data.filter(r => r.attendance === "Absent").length}    accent={tokens.dangerBg}  />
             <StatCard icon={X}            label="Cancelled" value={data.filter(r => r.attendance === "Cancelled").length} accent={tokens.warnBg}    />
@@ -1627,7 +993,7 @@ function AdminReports() {
       const agg = aggregatePerformance(data);
       return (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
             <StatCard icon={CheckCircle2} label="Completed Classes" value={data.filter(r => r.status === "Completed").length} accent={tokens.successBg} />
             <StatCard icon={X}            label="Cancelled Classes" value={data.filter(r => r.status === "Cancelled").length} accent={tokens.warnBg} />
             <StatCard icon={Users}        label="Active Tutors"     value={agg.length} />
@@ -1678,7 +1044,7 @@ function AdminReports() {
           ? <Button variant="secondary" icon={Download} onClick={handlePrint}>Print / Save PDF</Button>
           : null
       } />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: active ? 24 : 0 }}>
+      <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: active ? 24 : 0 }}>
         {reports.map(r => (
           <Card key={r.key} style={{ display: "flex", flexDirection: "column", gap: 10, cursor: "pointer", border: `1.5px solid ${active === r.key ? tokens.teal : tokens.line}`, background: active === r.key ? tokens.tealSoft : tokens.cardBg }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: active === r.key ? tokens.teal : tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -2222,7 +1588,7 @@ function AdminQATest(){
 
       {/* Summary cards */}
       {ran && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
+        <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
           <StatCard icon={CheckCircle2} label="Tests Passed"   value={passed}   accent={tokens.successBg}/>
           <StatCard icon={AlertCircle}  label="Tests Failed"   value={failed}   accent={failed>0?tokens.dangerBg:"#F0EEE7"}/>
           <StatCard icon={RefreshCw}    label="Not Tested Yet" value={untested} accent="#F0EEE7"/>
@@ -2406,14 +1772,14 @@ function TutorDashboard({ tutorId, tutorName }) {
   return (
     <div>
       <SectionTitle eyebrow="Welcome back" title={tutorName || "Tutor"} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
+      <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
         <StatCard icon={CalendarDays}  label="Today's Classes"    value={stats?.todayClasses     ?? "—"} />
         <StatCard icon={Clock}         label="Upcoming Classes"   value={stats?.upcomingClasses  ?? "—"} />
         <StatCard icon={GraduationCap} label="Assigned Students"  value={stats?.assignedStudents ?? "—"} />
         <StatCard icon={BookOpenCheck} label="Homework to Review" value={stats?.homeworkToReview ?? "—"} accent={tokens.coralSoft} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 18, marginBottom: 18 }}>
+      <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 18, marginBottom: 18 }}>
         <Card>
           <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14.5 }}>Today's Classes</div>
           {todayCls.length === 0
@@ -2485,13 +1851,13 @@ function TutorMyStudents({ tutorId }) {
               <div style={{ fontSize: 13, color: tokens.slate }}>{s.grade} · {s.school} · {s.curriculum}</div>
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginTop: 18 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginTop: 18 }}>
             <Field label="Subjects"><div style={{ fontSize: 13.5 }}>{(s.subjects || []).join(", ") || "—"}</div></Field>
             <Field label="Parent"><div style={{ fontSize: 13.5 }}>{s.parent?.full_name || "—"}</div></Field>
             <Field label="Status"><Pill value={s.status} /></Field>
           </div>
           {(s.goals || s.strengths || s.weak_areas) && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${tokens.line}` }}>
+            <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${tokens.line}` }}>
               {s.goals      && <div><div style={{ fontSize: 12, fontWeight: 700, color: tokens.slate, marginBottom: 4 }}>GOALS</div><div style={{ fontSize: 13 }}>{s.goals}</div></div>}
               {s.strengths  && <div><div style={{ fontSize: 12, fontWeight: 700, color: tokens.success, marginBottom: 4 }}>STRENGTHS</div><div style={{ fontSize: 13 }}>{s.strengths}</div></div>}
               {s.weak_areas && <div><div style={{ fontSize: 12, fontWeight: 700, color: tokens.coral, marginBottom: 4 }}>FOCUS AREAS</div><div style={{ fontSize: 13 }}>{s.weak_areas}</div></div>}
@@ -2509,7 +1875,7 @@ function TutorMyStudents({ tutorId }) {
       {loading ? <Spinner /> : students.length === 0
         ? <Empty icon={GraduationCap} title="No students assigned yet" body="Your students will appear here once the admin assigns them to you." />
         : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
             {students.map(s => (
               <Card key={s.id} style={{ cursor: "pointer" }} onClick={() => setSelected(s)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -2669,7 +2035,7 @@ function TutorClassNotes({ tutorId }) {
                 <Button variant="ghost" icon={Edit2} style={{ padding: "5px 8px" }} onClick={() => openEdit(n)} />
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
+            <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
               {n.strengths  && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.success }}>Strengths:</strong> {n.strengths}</div>}
               {n.areas_to_improve && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Improve:</strong> {n.areas_to_improve}</div>}
               {n.recommendation && <div style={{ fontSize: 12.5, gridColumn: "1/-1" }}><strong>Recommendation:</strong> {n.recommendation}</div>}
@@ -2688,7 +2054,7 @@ function TutorClassNotes({ tutorId }) {
       }
       {(showAdd || editRow) && (
         <Modal title={editRow ? "Edit Note" : "Add Class Note"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Student" required>
               <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
                 <option value="">— Select student —</option>
@@ -2850,7 +2216,7 @@ function TutorHomework({ tutorId }) {
         <Modal title={editRow ? "Edit Homework" : "Assign Homework"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
           <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Homework title" /></Field>
           <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 68 }} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} placeholder="Instructions for the student…" /></Field>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Student" required>
               <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
                 <option value="">— Select student —</option>
@@ -2942,7 +2308,7 @@ function TutorMaterials({ tutorId }) {
       {loading ? <Spinner /> : materials.length === 0
         ? <Empty icon={BookOpen} title="No materials yet" body="Add resources, worksheets, or links for your students." action={<Button icon={Plus} onClick={() => setShowAdd(true)}>Add Material</Button>} />
         : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
             {materials.map(m => (
               <Card key={m.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -2974,7 +2340,7 @@ function TutorMaterials({ tutorId }) {
         <Modal title={editRow ? "Edit Material" : "Add Material"} onClose={() => { setShowAdd(false); setEditRow(null); }}>
           <Field label="Title" required><input style={inputStyle} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="e.g. IGCSE Algebra Formula Sheet" /></Field>
           <Field label="Description"><textarea style={{ ...inputStyle, minHeight: 52 }} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} /></Field>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Subject">
               <select style={inputStyle} value={f.subject} onChange={e => setF({ ...f, subject: e.target.value })}>
                 {SUBJECTS.map(s => <option key={s}>{s}</option>)}
@@ -3057,7 +2423,7 @@ function ParentDashboard({ parentId, parentName }) {
       {students.length === 0
         ? <Empty icon={GraduationCap} title="No children linked yet" body="Contact the admin to link your child's profile to your account." />
         : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16, marginBottom: 24 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16, marginBottom: 24 }}>
             {students.map(s => (
               <Card key={s.id}>
                 <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
@@ -3114,7 +2480,7 @@ function ParentChild({ parentId }) {
               </div>
               <Pill value={s.status} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+            <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
               <Field label="Subjects">
                 <div style={{ fontSize: 13.5 }}>{(s.subjects || []).join(", ") || "—"}</div>
               </Field>
@@ -3128,7 +2494,7 @@ function ParentChild({ parentId }) {
               </Field>
             </div>
             {(s.goals || s.strengths || s.weak_areas) && (
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${tokens.line}`, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+              <div className="responsive-grid" style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${tokens.line}`, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 {s.goals      && <div><div style={{ fontSize: 12, fontWeight: 700, color: tokens.slate, marginBottom: 4 }}>GOALS</div><div style={{ fontSize: 13 }}>{s.goals}</div></div>}
                 {s.strengths  && <div><div style={{ fontSize: 12, fontWeight: 700, color: tokens.success, marginBottom: 4 }}>STRENGTHS</div><div style={{ fontSize: 13 }}>{s.strengths}</div></div>}
                 {s.weak_areas && <div><div style={{ fontSize: 12, fontWeight: 700, color: tokens.coral, marginBottom: 4 }}>FOCUS AREAS</div><div style={{ fontSize: 13 }}>{s.weak_areas}</div></div>}
@@ -3314,7 +2680,7 @@ function ParentProgress({ parentId }) {
                 "{n.summary}"
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {n.strengths   && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.success }}>Strengths:</strong> {n.strengths}</div>}
               {n.areas_to_improve && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Focus:</strong> {n.areas_to_improve}</div>}
               {n.recommendation && <div style={{ fontSize: 12.5, gridColumn: "1/-1" }}><strong>Recommendation:</strong> {n.recommendation}</div>}
@@ -3357,7 +2723,7 @@ function ParentPayments({ parentId }) {
       <SectionTitle title="Payments" />
       {err && <ErrBanner message={err} onRetry={load} />}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+      <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
         <StatCard icon={FileText}    label="Total Billed (QAR)"      value={fmt(totalBilled)} />
         <StatCard icon={CheckCircle2} label="Total Paid (QAR)"       value={fmt(totalPaid)}        accent={tokens.successBg} />
         <StatCard icon={AlertCircle} label="Outstanding (QAR)"       value={fmt(totalOutstanding)} accent={totalOutstanding > 0 ? tokens.warnBg : tokens.successBg} />
@@ -3455,13 +2821,13 @@ function StudentDashboard({ studentId, studentName }) {
   return (
     <div>
       <SectionTitle eyebrow="Hi there 👋" title={studentName || "Student"} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+      <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
         <StatCard icon={CalendarDays}  label="Upcoming Classes" value={(stats?.upcomingClasses || []).length} />
         <StatCard icon={BookOpenCheck} label="Homework Due"     value={(stats?.pendingHomework || []).length} accent={tokens.coralSoft} />
         <StatCard icon={FileText}      label="Recent Notes"     value={(stats?.recentNotes || []).length} accent={tokens.tealSoft} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 18 }}>
+      <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 18 }}>
         <Card>
           <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14.5 }}>Next Classes</div>
           {upcoming.length === 0
@@ -3656,7 +3022,7 @@ function StudentMaterials({ studentId }) {
         : Object.entries(bySubject).map(([subject, mats]) => (
           <div key={subject} style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: tokens.slate, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>{subject}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+            <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
               {mats.map(m => (
                 <Card key={m.id}>
                   <div style={{ width: 36, height: 36, borderRadius: 10, background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
@@ -3720,7 +3086,7 @@ function StudentProgress({ studentId }) {
           {student && (student.goals || student.strengths || student.weak_areas) && (
             <Card style={{ marginBottom: 18 }}>
               <div style={{ fontFamily: "Fraunces, serif", fontSize: 16, fontWeight: 600, marginBottom: 14 }}>My Learning Profile</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
                 {student.goals && (
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: tokens.slate, marginBottom: 6 }}>GOAL</div>
@@ -3744,7 +3110,7 @@ function StudentProgress({ studentId }) {
           )}
 
           {/* Stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
             <StatCard icon={CheckCircle2}  label="Classes Completed" value={classes.length} accent={tokens.successBg} />
             <StatCard icon={FileText}      label="Progress Notes"    value={notes.length} />
             <StatCard icon={Award}         label="Subjects"          value={(student?.subjects || []).length} accent={tokens.tealSoft} />
@@ -3774,7 +3140,7 @@ function StudentProgress({ studentId }) {
                         "{n.summary}"
                       </div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       {n.strengths   && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.success }}>Strengths:</strong> {n.strengths}</div>}
                       {n.areas_to_improve && <div style={{ fontSize: 12.5 }}><strong style={{ color: tokens.coral }}>Focus:</strong> {n.areas_to_improve}</div>}
                       {n.recommendation && <div style={{ fontSize: 12.5, gridColumn: "1/-1" }}><strong>Next steps:</strong> {n.recommendation}</div>}
@@ -3805,7 +3171,7 @@ function SuspendedScreen({onSignOut}){
   );
 }
 
-function NotLinkedScreen({role,name,onSignOut}){
+function NotLinkedScreen({role,name,onSignOut,onRetry}){
   return(
     <div style={{minHeight:"100vh",background:tokens.paper,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter, sans-serif",padding:20}}>
       <div style={{textAlign:"center",maxWidth:440}}>
@@ -3813,9 +3179,9 @@ function NotLinkedScreen({role,name,onSignOut}){
         <div style={{fontFamily:"Fraunces, serif",fontSize:22,fontWeight:600,color:tokens.ink,marginBottom:8}}>Welcome, {name}</div>
         <div style={{fontSize:13.5,color:tokens.slate,lineHeight:1.7,marginBottom:20}}>
           Your account is active, but it has not yet been linked to a profile.<br/>
-          Please contact the admin to get your <strong>{role}</strong> portal set up.
+          Our team needs to connect your account to your <strong>{role}</strong> profile. <a href="mailto:info@learnwiseacademy.qa">Contact LearnWise</a> for help, or check again if the team has already linked it.
         </div>
-        <Button variant="ghost" onClick={onSignOut} icon={LogOut}>Sign out</Button>
+        <div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}><Button onClick={onRetry} icon={RefreshCw}>Check again</Button><Button variant="ghost" onClick={onSignOut} icon={LogOut}>Sign out</Button></div>
       </div>
     </div>
   );
@@ -3839,9 +3205,10 @@ function UnknownRoleScreen({name,onSignOut}){
 /* ═══ APP ROOT ═══ */
 
 export default function App(){
-  const{user,profile,loading,authError,refreshProfile,signOut}=useAuth();
-  const[authScreen,setAuthScreen] =useState("home"); // default to public home
-  const[current,setCurrent]       =useState("dashboard");
+  const{user,profile,loading,authError,refreshProfile,signOut,passwordRecovery}=useAuth();
+  const { route, setScreen:setAuthScreen, setSection:setCurrent, navigate } = useNavigation();
+  const authScreen = route.screen;
+  const current = (NAV[profile?.role] || []).some(item => item.key === route.section) ? route.section : 'dashboard';
 
   // Real linked profile records — fetched once after auth resolves
   const[linkedState,setLinkedState] =useState(null);
@@ -3854,7 +3221,7 @@ export default function App(){
   const[linkRetry,setLinkRetry]=useState(0);
 
   const who=profile?.full_name||profile?.email||"";
-  const handleSignOut=()=>{ setCurrent("dashboard"); setLinkedState(null); setAuthScreen("home"); signOut(); };
+  const handleSignOut=()=>{ setLinkedState(null); setAuthScreen("home"); signOut(); };
 
   // After we know the role, look up the corresponding linked record
   useEffect(()=>{
@@ -3871,8 +3238,18 @@ export default function App(){
     return ()=>{cancelled=true;};
   },[ownerKey,needsLink,user?.id,profile?.role,linkRetry]);
 
+  useEffect(() => {
+    if (user && profile && !route.portal && !passwordRecovery && !['reset','forgot','authlinkerror'].includes(authScreen)) navigate('/portal/dashboard',true);
+    else if (route.portal && NAV[profile?.role] && !NAV[profile.role].some(item => item.key === route.section)) navigate('/portal/dashboard',true);
+  }, [user,profile,route.portal,route.section,passwordRecovery,authScreen,navigate]);
+
+  // Recovery does not require a linked learning profile and must precede portal loading.
+  if (authScreen === 'reset' || passwordRecovery) return <ResetPassword ready={!!passwordRecovery && !!user} loading={loading} onRequest={()=>setAuthScreen('forgot')} onFinish={async()=>{ await signOut(); setAuthScreen('signin'); }}/>
+  if (authScreen === 'forgot') return <ForgotPassword onSignIn={()=>setAuthScreen('signin')}/>;
+  if (authScreen === 'authlinkerror') return <AuthShell title="Let’s get you a fresh link." subtitle="This email link has expired, has already been used, or could not be verified."><div style={{display:'flex',gap:12,flexWrap:'wrap'}}><NavLink to="/forgot-password" onNavigate={()=>setAuthScreen('forgot')} className="button button--primary">Request a password reset</NavLink><NavLink to="/login" onNavigate={()=>setAuthScreen('signin')} className="button button--ghost">Back to sign in</NavLink></div></AuthShell>;
+
   /* ── Loading states ── */
-  const publicDuringOutage = !profile && ["home","about","subjects","igcse","online","assessment","contact"].includes(authScreen);
+  const publicDuringOutage = !profile && ["home","about","subjects","igcse","online","assessment","contact","notfound"].includes(authScreen);
   if(!publicDuringOutage && (loading||profileLoading)){
     return(<div style={{minHeight:"100vh",background:tokens.paper,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter, sans-serif",color:tokens.slate,fontSize:13}}>Loading LearnWise Academy…</div>);
   }
@@ -3885,24 +3262,25 @@ export default function App(){
   }
 
   /* ── Public pages (shown when not logged in) ── */
-  const PUBLIC_SCREENS = ["home","about","subjects","igcse","online","assessment","contact"];
   if(publicDuringOutage||!user||!profile){
-    const goToPortal = () => setAuthScreen("signin");
-    if(authScreen==="staff")  return <StaffLogin  onBack={()=>setAuthScreen("signin")}/>;
+    if(authScreen==="staff")  return <SignIn staff onBack={()=>setAuthScreen("signin")} onForgot={()=>setAuthScreen("forgot")}/>;
     if(authScreen==="signup") return <SignUp       onGoSignIn={()=>setAuthScreen("signin")}/>;
-    if(authScreen==="signin") return <SignIn       onGoSignUp={()=>setAuthScreen("signup")} onGoStaff={()=>setAuthScreen("staff")}/>;
+    if(authScreen==="signin") return <SignIn       onGoSignUp={()=>setAuthScreen("signup")} onGoStaff={()=>setAuthScreen("staff")} onForgot={()=>setAuthScreen("forgot")}/>;
     // Public website pages
     return (
       <div>
+        <a className="skip-link" href="#main-content">Skip to content</a>
         <PublicNav current={authScreen} onNav={setAuthScreen}/>
+        <main className="public-main" id="main-content" tabIndex={-1}>
         {authScreen==="about"      && <PublicAbout      onNav={setAuthScreen}/>}
-        {authScreen==="subjects"   && <PublicSubjects   onNav={setAuthScreen}/>}
+        {authScreen==="subjects"   && <PublicSubjects key={route.search} initialSubject={new URLSearchParams(route.search).get("subject") || ""} onNav={setAuthScreen}/>}
         {authScreen==="igcse"      && <PublicIGCSE      onNav={setAuthScreen}/>}
         {authScreen==="online"     && <PublicOnline     onNav={setAuthScreen}/>}
-        {authScreen==="assessment" && <PublicAssessment/>}
+        {authScreen==="assessment" && <PublicAssessment key={route.search} initialSubject={new URLSearchParams(route.search).get("subject") || ""}/>}
         {authScreen==="contact"    && <PublicContact/>}
-        {(!authScreen||authScreen==="home"||!PUBLIC_SCREENS.includes(authScreen)) && <PublicHome onNav={setAuthScreen}/>}
-        <PublicFooter onNav={setAuthScreen}/>
+        {(authScreen==="home") && <PublicHome onNav={setAuthScreen}/>}
+        {authScreen==="notfound" && <section className="home-section"><div className="eyebrow">Page not found</div><h1>Let’s get you back on track.</h1><p>The page you’re looking for isn’t here.</p><NavLink to="/" onNavigate={()=>setAuthScreen("home")} className="button button--primary">Back to home</NavLink></section>}
+        </main><PublicFooter onNav={setAuthScreen}/>
       </div>
     );
   }
@@ -3916,7 +3294,7 @@ export default function App(){
   if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
   /* ── Non-staff with no linked profile record ── */
-  if(!["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut}/>;
+  if(!["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
@@ -3988,8 +3366,8 @@ export default function App(){
     student:     renderStudent,
   };
   return(
-    <Shell role={role} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
+    <PortalShell nav={NAV[role] || NAV.student} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
       {renderers[role]()}
-    </Shell>
+    </PortalShell>
   );
 }

@@ -1,5 +1,21 @@
 # Test results
 
+## UI release completion — 2026-11-10
+
+- `npm test`: 106 tests pass, including subject URL persistence, expired-link recovery, refresh/expiry/account-switch recovery state and missing-client portal queries.
+- `npm run build`: PASS using the tracked build entry point and existing Vite configuration. `npm run test:render`: seven public pages plus sign-in pass with no runtime errors.
+- Live Supabase rollback-only probes: anonymous assessment insert, signup triggers and authenticated profile/linked-profile reads for student, parent and tutor all PASS. Synthetic rows/accounts were rolled back. No live email, password update or schema migration performed.
+- Existing production bundle targets the active LearnWise project. New live UI/source and direct URLs must be confirmed against the release's GitHub deployment status and `node scripts/check-render.mjs https://learn-wise-umber.vercel.app/ --verify-routes`.
+- Visual screenshots remain unavailable due to browser access failure/approval timeout. Live SMTP delivery, project password policy and complete user-authenticated journeys remain unverified. Existing backend permission/RPC drift is separate from this UI release.
+
+## UI experience foundation — 2026-11-10
+
+- `npm test`: PASS, 102 tests, 0 failed. Includes ten new recovery/UI checks, existing database/auth tests, public and portal URL persistence, assessment validation/Back/retry, contact recovery and dialog focus restoration in JSDOM.
+- Production build: PASS through the Vite API with the existing React plugin and `configFile:false` to avoid the sandbox's blocked parent-directory scan. Output: 1555 modules; JS 382.38 kB / gzip 98.79 kB; CSS 16.64 kB / gzip 4.11 kB.
+- `npm run test:render`: PASS, seven public pages and sign-in from the built artifact, no runtime errors, all network requests disabled.
+- Local preview HTTP check: 200 with the current built application module. Browser screenshot/responsive QA could not run: browser host unavailable; native browser access approval timed out.
+- Live Supabase forms, email delivery and password update: NOT RUN. No credentials, live submissions, account changes or production deployment performed. See [UI-EXPERIENCE.md](UI-EXPERIENCE.md) for release requirements.
+
 Batch 1, 2026-11-03, baseline 154984c plus local candidate changes; Node 24.18.0 on Windows.
 
 | Check | Actual result |
