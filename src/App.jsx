@@ -97,7 +97,7 @@ function Card({children,style,onClick}){return <div onClick={onClick} role={onCl
 function StatCard({icon:Icon,label,value,accent}){return(<Card style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}><div style={{width:36,height:36,borderRadius:10,background:accent||tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon size={18} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:26,fontWeight:600,color:tokens.ink}}>{value}</div><div style={{fontSize:13,color:tokens.slate}}>{label}</div></Card>);}
 function SectionTitle({eyebrow,title,action}){return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:16,gap:12,flexWrap:"wrap"}}><div>{eyebrow&&<div style={{fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:tokens.coral,fontWeight:700,marginBottom:4}}>{eyebrow}</div>}<div style={{fontFamily:"Fraunces, serif",fontSize:22,fontWeight:600,color:tokens.ink}}>{title}</div></div>{action}</div>);}
 function Table({columns,rows,onRowClick}){if(!rows.length)return null;return(<div className="table-scroll" tabIndex={0} role="region" aria-label="Scrollable data table"><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5}}><thead><tr>{columns.map((c,i)=><th scope="col" key={i} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em"}}>{c}</th>)}</tr></thead><tbody>{rows.map((r,i)=>(<tr key={i} onClick={()=>onRowClick&&onRowClick(r)} style={{cursor:onRowClick?"pointer":"default"}} onMouseEnter={(e)=>e.currentTarget.style.background="#FBFAF7"} onMouseLeave={(e)=>e.currentTarget.style.background="transparent"}>{r.cells.map((cell,j)=><td key={j} style={{padding:"12px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.ink}}>{cell}</td>)}</tr>))}</tbody></table></div>);}
-function ConfirmModal({message,onConfirm,onCancel,loading,busy}){const isBusy=loading||busy;return(<Modal title="Confirm" onClose={onCancel}><div style={{fontSize:14,color:tokens.ink,marginBottom:20,lineHeight:1.6}}>{message}</div><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={onCancel}>Cancel</Button><Button variant="danger" onClick={onConfirm} disabled={isBusy}>{isBusy?"Deleting…":"Delete"}</Button></div></Modal>);}
+function ConfirmModal({message,onConfirm,onCancel,loading,busy,confirmLabel="Delete",busyLabel="Deleting…"}){const isBusy=loading||busy;return(<Modal title="Confirm" onClose={onCancel}><div style={{fontSize:14,color:tokens.ink,marginBottom:20,lineHeight:1.6}}>{message}</div><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={onCancel}>Cancel</Button><Button variant="danger" onClick={onConfirm} disabled={isBusy}>{isBusy?busyLabel:confirmLabel}</Button></div></Modal>);}
 
 /* Reason modal — required for admin_tutor sensitive actions */
 function ReasonModal({title,description,onConfirm,onCancel,busy}){
@@ -444,7 +444,7 @@ function AdminStudents(){
         <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive","Graduated"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
       <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
-      <Field label="Parent"><select style={inputStyle} value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">— No parent —</option>{parents.filter(person=>!person.deleted_at).map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+      <Field label="Parent"><select style={inputStyle} value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">Create Parent of student automatically</option>{parents.filter(person=>!person.deleted_at).map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Strengths"><input style={inputStyle} value={strengths} onChange={e=>setStrengths(e.target.value)}/></Field>
         <Field label="Weak Areas"><input style={inputStyle} value={weakAreas} onChange={e=>setWeakAreas(e.target.value)}/></Field>
@@ -457,46 +457,53 @@ function AdminStudents(){
 }
 
 /* ═══ ADMIN PARENTS ═══ */
-function AdminParents(){
+export function AdminParents({service=db}={}){
   const[selectedIds,setSelectedIds]=useState([]);
+  const[moveConfirm,setMoveConfirm]=useState(false);
   const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[phone,setPhone]=useState("");const[address,setAddress]=useState("");const[notes,setNotes]=useState("");const[status,setStatus]=useState("Active");
   const resetForm=()=>{setSelectedIds([]);setFullName("");setEmail("");setPhone("");setAddress("");setNotes("");setStatus("Active");};
-  const load=useCallback(async()=>{setLoading(true);setErr("");const[pr,sr]=await Promise.all([db.getParents(),db.getStudents()]);if(pr.error||sr.error)setErr((pr.error||sr.error).message);else{setRows(pr.data||[]);setStudents(sr.data||[]); }setLoading(false);},[]);
+  const load=useCallback(async()=>{setLoading(true);setErr("");const[pr,sr]=await Promise.all([service.getParents(),service.getStudents()]);if(pr.error||sr.error)setErr((pr.error||sr.error).message);else{setRows(pr.data||[]);setStudents(sr.data||[]); }setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=p=>{setSelectedIds(students.filter(s=>s.parent_id===p.id&&!s.deleted_at).map(s=>s.id));setFullName(/^Parent of /i.test(p.full_name||"")?"":p.full_name);setEmail(p.email||"");setPhone(p.phone||"");setAddress(p.address||"");setNotes(p.notes||"");setStatus(p.status);setEditRow(p);};
+  const openEdit=p=>{setSelectedIds(students.filter(s=>s.parent_id===p.id&&!s.deleted_at).map(s=>s.id));setFullName(p.is_placeholder||/^Parent of /i.test(p.full_name||"")?"":p.full_name);setEmail(p.email||"");setPhone(p.phone||"");setAddress(p.address||"");setNotes(p.notes||"");setStatus(p.status);setEditRow(p);};
   const selectedStudents=students.filter(s=>selectedIds.includes(s.id)&&!s.deleted_at);
   const relationship=selectedStudents.length?`Parent of ${selectedStudents.map(s=>s.full_name).join(", ")}`:"";
-  const save=async()=>{
+  const save=async(confirmed=false)=>{
+    if(!confirmed&&selectedStudents.some(s=>s.parent_id&&s.parent_id!==editRow?.id)){setMoveConfirm(true);return;}
+    setMoveConfirm(false);
     const name=fullName.trim()||relationship;
     if(!name){fire("Select a student or enter the parent's name","error");return;}
     setBusy(true);
     try{
-      const result=editRow?await db.updateParent(editRow.id,{full_name:name,email,phone,address,notes,status}):await db.createParent({full_name:name,email,phone,address,notes,status});
+      const result=editRow?await service.updateParent(editRow.id,{full_name:name,email,phone,address,notes,status,is_placeholder:!fullName.trim()}):await service.createParent({full_name:name,email,phone,address,notes,status,is_placeholder:!fullName.trim()});
       if(result.error)throw result.error;
       const saved=result.data;
       setEditRow(saved); // Retain the parent so retrying a failed link cannot create a duplicate.
       const changes=students.filter(s=>!s.deleted_at&&((selectedIds.includes(s.id)&&s.parent_id!==saved.id)||(s.parent_id===saved.id&&!selectedIds.includes(s.id))));
       for(const student of changes){
         const parent_id=selectedIds.includes(student.id)?saved.id:null;
-        const {error}=await db.updateStudent(student.id,{parent_id});
+        const {data,error}=await service.updateStudent(student.id,{parent_id});
         if(error)throw new Error(`Parent saved, but linking ${student.full_name} failed: ${error.message}. Please retry.`);
-        setStudents(current=>current.map(s=>s.id===student.id?{...s,parent_id}:s));
+        setStudents(current=>current.map(s=>s.id===student.id?{...s,parent_id:data.parent_id}:s));
       }
       fire(editRow?"Parent updated":"Parent added");setAddOpen(false);setEditRow(null);resetForm();load();
     }catch(error){fire(error.message||"Unable to save parent","error");}
     finally{setBusy(false);}
   };
-  const del=async()=>{setBusy(true);const{error}=await db.softDeleteRecord('parents',delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Parent deleted");setDelRow(null);load();};
+  const del=async()=>{setBusy(true);const{error}=await service.softDeleteRecord('parents',delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Parent deleted");setDelRow(null);load();};
+  const hasChildren=p=>students.some(s=>s.parent_id===p.id&&!s.deleted_at);
+  const visibleParents=rows.filter(p=>hasChildren(p)||p.deleted_at);
+  const unlinkedParents=rows.filter(p=>!p.is_placeholder&&!p.deleted_at&&!hasChildren(p));
   return(<div>{el}
     <SectionTitle title="Parents" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Parent</Button>}/>
+    <p style={{color:tokens.slate,fontSize:13}}>Every student has a parent entry automatically. Add the actual name later, or edit one entry and select siblings to share the same parent.</p>
     {err&&<ErrBanner message={err} onRetry={load}/>}
-    {loading?<Spinner/>:rows.length===0?<Empty icon={UserCircle} title="No parents yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Parent</Button>}/>:(
+    {loading?<Spinner/>:visibleParents.length===0?<Empty icon={UserCircle} title="No parents yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Add Parent</Button>}/>:(
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
-        {rows.map(p=>{const ch=students.filter(s=>s.parent_id===p.id&&!s.deleted_at);return(
+        {visibleParents.map(p=>{const ch=students.filter(s=>s.parent_id===p.id&&!s.deleted_at);return(
           <Card key={p.id}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontWeight:700,fontSize:15}}>{ch.length?`Parent of ${ch.map(c=>c.full_name).join(", ")}`:p.full_name}</div><RecordState record={p}/></div>
-            {ch.length>0&&!/^Parent of /i.test(p.full_name||"")&&<div style={{fontSize:13,color:tokens.slate,marginTop:4}}>{p.full_name}</div>}
+            {ch.length>0&&!p.is_placeholder&&!/^Parent of /i.test(p.full_name||"")&&<div style={{fontSize:13,color:tokens.slate,marginTop:4}}>{p.full_name}</div>}
             {p.phone&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:10,fontSize:12.5,color:tokens.slate}}><Phone size={13}/>{p.phone}</div>}
             {p.email&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:5,fontSize:12.5,color:tokens.slate}}><Mail size={13}/>{p.email}</div>}
             {p.address&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:5,fontSize:12.5,color:tokens.slate}}><HomeIcon size={13}/>{p.address}</div>}
@@ -509,10 +516,11 @@ function AdminParents(){
         );})}
       </div>
     )}
+    {unlinkedParents.length>0&&<details style={{marginTop:20}}><summary style={{fontWeight:700,cursor:"pointer"}}>Unlinked parent contacts ({unlinkedParents.length})</summary><p style={{fontSize:13,color:tokens.slate}}>These contacts are saved but have no student linked. Edit a contact to select their children.</p>{unlinkedParents.map(p=><Card key={p.id} style={{marginTop:12}}><strong>{p.full_name}</strong><div style={{fontSize:13,color:tokens.slate,margin:"6px 0"}}>{[p.phone,p.email,p.address].filter(Boolean).join(" · ")}</div><Button variant="ghost" icon={Edit2} onClick={()=>openEdit(p)}>Edit</Button></Card>)}</details>}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Parent":"Add Parent"} onClose={()=>{setAddOpen(false);setEditRow(null);}}>
-      <Field label="Students from existing list">
+      <Field label="Students sharing this parent" hint="Selecting a student moves their parent link to this entry. Select siblings together.">
         <div style={{maxHeight:220,overflowY:"auto",border:`1px solid ${tokens.line}`,borderRadius:8,padding:10}}>
-          {students.filter(s=>!s.deleted_at).map(s=>{const assignedElsewhere=!!s.parent_id&&s.parent_id!==editRow?.id;return <label key={s.id} style={{display:"flex",gap:8,padding:"6px 0",fontSize:13,opacity:assignedElsewhere?0.55:1}}><input type="checkbox" checked={selectedIds.includes(s.id)} disabled={busy||assignedElsewhere} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/><span>{s.full_name}<small style={{display:"block",color:tokens.slate}}>{[s.grade,s.school].filter(Boolean).join(" · ")}</small>{assignedElsewhere&&<small style={{display:"block"}}>Already linked to {s.parent?.full_name||"another parent"}</small>}</span></label>;})}
+          {students.filter(s=>!s.deleted_at).map(s=>{const assignedElsewhere=!!s.parent_id&&s.parent_id!==editRow?.id;return <label key={s.id} style={{display:"flex",gap:8,padding:"6px 0",fontSize:13,opacity:assignedElsewhere?0.55:1}}><input type="checkbox" checked={selectedIds.includes(s.id)} disabled={busy} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,s.id]:ids.filter(id=>id!==s.id))}/><span>{s.full_name}<small style={{display:"block",color:tokens.slate}}>{[s.grade,s.school].filter(Boolean).join(" · ")}</small>{assignedElsewhere&&<small style={{display:"block"}}>Move from {s.parent?.full_name||"another parent"}</small>}</span></label>;})}
           {!students.some(s=>!s.deleted_at)&&<div style={{fontSize:13}}>No existing students available.</div>}
         </div>
       </Field>
@@ -525,8 +533,9 @@ function AdminParents(){
       <Field label="Address"><input style={inputStyle} value={address} onChange={e=>setAddress(e.target.value)} placeholder="Area, City"/></Field>
       <Field label="Notes"><textarea style={{...inputStyle,minHeight:52}} value={notes} onChange={e=>setNotes(e.target.value)}/></Field>
       <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive"].map(s=><option key={s}>{s}</option>)}</select></Field>
-      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy||!!err}>{busy?"Saving…":editRow?"Save Changes":"Add Parent"}</Button>
+      <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={()=>save()} disabled={busy||!!err}>{busy?"Saving…":editRow?"Save Changes":"Add Parent"}</Button>
     </Modal>)}
+    {moveConfirm&&<ConfirmModal confirmLabel="Move Students" busyLabel="Saving…" message="Move the selected students to this parent? Their previous parent links will be replaced. Existing invoices and payments stay with the original parent." onConfirm={()=>save(true)} onCancel={()=>setMoveConfirm(false)} busy={busy}/>}
     {delRow&&<ConfirmModal message={`Delete "${delRow.full_name}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
