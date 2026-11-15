@@ -15,6 +15,7 @@ import RecordHistory from './features/RecordHistory';
 import SessionCalendar from './features/SessionCalendar';
 import QAReleaseChecklist from './features/QAReleaseChecklist';
 import BookingRequests from './features/BookingRequests';
+const MasterCalendar = React.lazy(() => import('./features/MasterCalendar'));
 import BookingNotice from './features/BookingNotice';
 import { PublicAbout, PublicSubjects, PublicIGCSE, PublicOnline } from './features/LearningPages';
 import { AuthShell, SignIn, SignUp, ForgotPassword, ResetPassword } from './features/auth/AuthScreens';
@@ -157,6 +158,7 @@ const NAV={
 NAV.admin = NAV.super_admin;
 for (const role of ['super_admin','admin_tutor','tutor','parent','student']) {
   NAV[role].push({key:'bookings',label:role==='parent'||role==='student'?'Book a Class':'Availability & Bookings',icon:CalendarDays});
+  NAV[role].push({key:'calendar',label:'Master Calendar',icon:CalendarDays});
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3357,7 +3359,7 @@ export default function App(){
   if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
   /* ── Non-staff with no linked profile record ── */
-  if(current !== 'profile' && !["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
+  if(current !== 'profile' && current !== 'calendar' && !["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
@@ -3431,7 +3433,7 @@ export default function App(){
   return(
     <PortalShell nav={portalNav} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
       {current!=='bookings'&&<BookingNotice key={`booking-notice-${user.id}`} role={role} onOpen={()=>setCurrent('bookings')}/>}
-      {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
+      {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'calendar' ? <React.Suspense fallback={<p role="status">Loading master calendar…</p>}><MasterCalendar key={user.id} role={role} userId={user.id} onNavigate={navigate}/></React.Suspense> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
     </PortalShell>
   );
 }

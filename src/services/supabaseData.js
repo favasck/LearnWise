@@ -64,6 +64,10 @@ export const reviewBookingRequest = (request,action,changes={},note='') => run((
 export const getStudentExams = () => run(() => supabase.from('student_exams').select('*,student:students(id,full_name)').is('deleted_at',null).order('scheduled_at'));
 export const saveStudentExam = (values,id=null) => run(() => id?supabase.from('student_exams').update(values).eq('id',id).select().single():supabase.from('student_exams').insert(values).select().single());
 export const removeStudentExam = id => run(() => supabase.from('student_exams').update({deleted_at:new Date().toISOString()}).eq('id',id));
+export const getMasterCalendarEntries = () => run(() => supabase.from('calendar_entries').select('*').order('starts_on'));
+export const saveMasterCalendarEntry = (values,entry=null) => run(() => entry?.origin==='calendar'
+  ? supabase.from('calendar_entries').update(values).eq('id',entry.id).eq('version',entry.version).select().single()
+  : supabase.from('calendar_entries').insert({...values,...(entry?.catalog_key?{catalog_key:entry.catalog_key}:{})}).select().single());
 
 /** Returns today's date as a local ISO string "YYYY-MM-DD". */
 function today() {
