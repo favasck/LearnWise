@@ -19,7 +19,7 @@ export default function PortalShell({ nav, roleLabel, current, setCurrent, onLog
     <NavLink to="/portal/dashboard" onNavigate={() => { if (mobile) close(); setCurrent('dashboard'); }} className="brand"><span className="brand__mark"><GraduationCap size={22}/></span><span><span className="brand__name">LearnWise</span><span className="brand__sub">Academy</span></span></NavLink>
     {mobile && <Button variant="ghost" aria-label="Close portal navigation" onClick={close} style={{marginBottom:16}}><X size={18}/>Close menu</Button>}
     <nav className="portal-nav" aria-label="Portal navigation">{nav.map(({key,label,icon:Icon}) => <NavLink key={key} to={`/portal/${key}`} onNavigate={() => { if (mobile) close(); setCurrent(key); }} aria-current={current === key ? 'page' : undefined}><Icon size={18} aria-hidden="true"/>{label}</NavLink>)}</nav>
-    <div className="portal-account"><strong>{who}</strong><small>{roleLabel}</small><Button variant="ghost" icon={LogOut} onClick={() => { if (mobile) close(); onLogout(); }}>Sign out</Button></div>
+    <div className="portal-account"><NavLink to="/portal/profile" onNavigate={() => { if (mobile) close(); setCurrent('profile'); }} aria-label="Open your profile settings"><strong>{who}</strong></NavLink><small>{roleLabel}</small><Button variant="ghost" icon={LogOut} onClick={() => { if (mobile) close(); onLogout(); }}>Sign out</Button></div>
   </>;
   return <div className="portal-shell">
     <a className="skip-link" href="#portal-content">Skip to content</a>

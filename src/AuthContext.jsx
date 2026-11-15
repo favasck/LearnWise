@@ -30,6 +30,22 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!supabase || !user?.id) return;
+    const check = () => { if (document.visibilityState !== 'hidden') void sessionController.current?.check(); };
+    window.addEventListener('focus',check);
+    document.addEventListener('visibilitychange',check);
+    const timer = window.setInterval(check,15000);
+    const channel = supabase.channel?.(`account-profile-${user.id}`)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles',filter:`id=eq.${user.id}`},check).subscribe();
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus',check);
+      document.removeEventListener('visibilitychange',check);
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const signUp = async ({ email, password, fullName, role }) => {
     if (!supabase) return unavailableAuth();
     // Sanitise role before passing to Supabase auth metadata

@@ -1,5 +1,9 @@
 # Development batches
 
+## Scoped roles and profiles - 2026-11-15
+
+Added profile settings for every user, automatic role refresh, Super Admin role changes, explicit Admin Tutor teams, retained deletion and change history, invoice/payment editing, and Qatar-time tutor calendars.
+
 ## UI experience release completion — 2026-11-10
 
 Completed the public About, Subjects, Curriculum and Online Tuition redesign; added subject-preserving assessment links, refreshable/expiring password recovery and expired-link handling. Filtered portal queries now recover from missing backend configuration. Standard build works in Windows sandbox and CI. Local suite: 106 tests pass; live rollback-only assessment/signup/profile probes pass. Deployment is authorized through the existing GitHub/Vercel integration. Separate draft permissions work is excluded; visual browser access and SMTP delivery remain unverified. Details: [UI-EXPERIENCE.md](UI-EXPERIENCE.md).

@@ -13,7 +13,7 @@ test('real data service settles injected failures and public writes need no read
       : Promise.resolve({ data: null, error: null }).then(resolve,reject);
     return (...args) => { calls.push([key,...args]); return chain; };
   } });
-  globalThis.__learnwiseTestClient = { from(table) { calls.push(['from',table]); return chain; } };
+  globalThis.__learnwiseTestClient = { auth:{getUser:async()=>({data:{user:{id:'verified-user'}},error:null})}, from(table) { calls.push(['from',table]); return chain; } };
   const server = await createServer({
     plugins: [{ name: 'injected-client', enforce: 'pre',
       resolveId(source) { if (source.endsWith('supabaseClient')) return '\0injected-client'; },
@@ -25,6 +25,12 @@ test('real data service settles injected failures and public writes need no read
   });
   try {
     const db = await server.ssrLoadModule('/src/services/supabaseData.js');
+    await t.test('self profile updates use verified identity and discard privilege fields', async () => {
+      failing = false; calls.length = 0;
+      await db.saveMyProfile({full_name:' Hiba Zubair ',phone:' 55408331 ',id:'other-user',role:'super_admin',status:'Active'});
+      assert.deepEqual(calls,[['from','profiles'],['update',{full_name:'Hiba Zubair',phone:'55408331'}],['eq','id','verified-user'],['select','id,full_name,email,phone,role,status'],['single']]);
+      failing = true; calls.length = 0;
+    });
     await t.test('portal dashboard and lookup failures are visible rather than empty success', async () => {
       for (const action of [db.getAdminDashboardStats, () => db.getTutorDashboardStats('tutor'),
         () => db.getParentDashboardStats('parent'), () => db.getStudentDashboardStats('student'),

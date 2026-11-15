@@ -78,6 +78,22 @@ test('logout invalidates an in-flight privileged profile response', async () => 
   assert.deepEqual(f.latest(), { user: null, profile: null, loading: false, authError: null });
 });
 
+test('background role checks switch permissions without flickering unchanged profiles', async () => {
+  const f=fixture(); f.emit(session('a')); f.flush();
+  f.requests[0].resolve({data:{id:'a',role:'tutor',status:'Active'}}); await tick();
+  const count=f.states.length;
+  const unchanged=f.controller.check();
+  f.requests[1].resolve({data:{id:'a',role:'tutor',status:'Active'}});await unchanged;
+  assert.equal(f.states.length,count);
+  const changed=f.controller.check();
+  f.requests[2].resolve({data:{id:'a',role:'admin_tutor',status:'Active'}});await changed;
+  assert.equal(f.latest().profile.role,'admin_tutor');assert.equal(f.latest().loading,false);
+  const failed=f.controller.check();f.requests[3].resolve({error:{message:'offline'}});await failed;
+  assert.equal(f.latest().profile,null);
+  const retry=f.controller.check();f.requests[4].resolve({data:{id:'a',role:'admin_tutor',status:'Active'}});await retry;
+  assert.equal(f.latest().profile.role,'admin_tutor');f.controller.stop();
+});
+
 test('account switch rejects old profile and does not retain old permissions', async () => {
   const f = fixture();
   f.emit(session('a')); f.flush();

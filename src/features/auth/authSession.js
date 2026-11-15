@@ -6,15 +6,17 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
   let revision = 0;
   let currentUser = null;
   let subscription;
+  let lastProfile = null;
 
   const emit = state => { if (active) onChange(state); };
   const fail = (user, ticket) => {
     if (active && ticket === revision) {
+      lastProfile = null;
       emit({ user, profile: null, loading: false, authError: SERVICE_UNAVAILABLE });
     }
   };
 
-  async function load(user, ticket) {
+  async function load(user, ticket, quiet = false) {
     if (!active || ticket !== revision) return null;
     try {
       const { data, error } = await boundedOperation(() => client.from('profiles').select('*').eq('id', user.id).maybeSingle(), timeoutMs);
@@ -23,7 +25,8 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
         fail(user, ticket);
         return null;
       }
-      emit({ user, profile: data, loading: false, authError: null });
+      if (!quiet || JSON.stringify(lastProfile) !== JSON.stringify(data)) emit({ user, profile: data, loading: false, authError: null });
+      lastProfile = data;
       return data;
     } catch {
       fail(user, ticket);
@@ -35,6 +38,7 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
     if (!active) return;
     const ticket = ++revision;
     currentUser = session?.user || null;
+    lastProfile = null;
     const user = currentUser;
     emit({ user, profile: null, loading: !!user, authError: null });
     if (user) defer(() => { void load(user, ticket); });
@@ -64,8 +68,13 @@ export function createAuthSession(client, onChange, defer = fn => setTimeout(fn,
       if (!active) return Promise.resolve(null);
       if (!client) { receive(null); return Promise.resolve(null); }
       const ticket = ++revision;
+      lastProfile = null;
       emit({ user: currentUser, profile: null, loading: true, authError: null });
       return currentUser ? load(currentUser, ticket) : restore(ticket);
+    },
+    check() {
+      if (!active || !client || !currentUser) return Promise.resolve(null);
+      return load(currentUser, ++revision, true);
     },
     clear() { receive(null); },
     stop() {

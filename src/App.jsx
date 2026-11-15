@@ -10,6 +10,9 @@ import { tokens, Button, Field, Modal } from './ui';
 import { useNavigation, NavLink } from './features/navigation';
 import { PublicNav, PublicFooter, PublicHome, PublicAssessment, PublicContact } from './features/publicExperience';
 import PortalShell from './features/PortalShell';
+import ProfileSettings from './features/ProfileSettings';
+import RecordHistory from './features/RecordHistory';
+import SessionCalendar from './features/SessionCalendar';
 import { PublicAbout, PublicSubjects, PublicIGCSE, PublicOnline } from './features/LearningPages';
 import { AuthShell, SignIn, SignUp, ForgotPassword, ResetPassword } from './features/auth/AuthScreens';
 import { useAuth } from "./AuthContext";
@@ -86,6 +89,7 @@ const statusColors={
   Graduated:{bg:tokens.tealSoft,fg:tokens.tealDeep},"—":{bg:"#F0EEE7",fg:tokens.slate},
 };
 function Pill({value}){const c=statusColors[value]||statusColors["—"];return <span style={{background:c.bg,color:c.fg,padding:"3px 10px",borderRadius:999,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>{value}</span>;}
+function RecordState({record}){return <span style={{display:'inline-flex',gap:6,flexWrap:'wrap'}}>{record.deleted_at ? <Pill value="Deleted"/> : <>{record.status&&<Pill value={record.status}/>} {record.edited_at&&<Pill value="Edited"/>}</>}</span>;}
 function Card({children,style,onClick}){return <div onClick={onClick} role={onClick?"button":undefined} tabIndex={onClick?0:undefined} onKeyDown={onClick?event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();onClick();}}:undefined} style={{background:tokens.cardBg,border:`1px solid ${tokens.line}`,borderRadius:16,padding:20,...style}}>{children}</div>;}
 function StatCard({icon:Icon,label,value,accent}){return(<Card style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}><div style={{width:36,height:36,borderRadius:10,background:accent||tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon size={18} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:26,fontWeight:600,color:tokens.ink}}>{value}</div><div style={{fontSize:13,color:tokens.slate}}>{label}</div></Card>);}
 function SectionTitle({eyebrow,title,action}){return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:16,gap:12,flexWrap:"wrap"}}><div>{eyebrow&&<div style={{fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:tokens.coral,fontWeight:700,marginBottom:4}}>{eyebrow}</div>}<div style={{fontFamily:"Fraunces, serif",fontSize:22,fontWeight:600,color:tokens.ink}}>{title}</div></div>{action}</div>);}
@@ -108,7 +112,7 @@ function ReasonModal({title,description,onConfirm,onCancel,busy}){
 }
 
 /* Hook — get current user's profile for permission checks inside sections */
-function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin"].includes(role)};}
+function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin_tutor","admin"].includes(role)};}
 
 const inputStyle={width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${tokens.line}`,fontSize:13.5,fontFamily:"Inter, sans-serif",boxSizing:"border-box",color:tokens.ink,background:"#FCFBF8"};
 function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);const bg=type==="success"?tokens.successBg:tokens.dangerBg;const fg=type==="success"?tokens.success:tokens.danger;const Icon=type==="success"?CheckCircle2:AlertCircle;return(<div role="status" style={{position:"fixed",bottom:24,right:24,zIndex:200,background:bg,color:fg,border:`1px solid ${fg}30`,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13.5,fontWeight:600,boxShadow:"0 8px 30px rgba(0,0,0,0.12)",minWidth:260}}><Icon size={17}/>{message}<button aria-label="Dismiss notification" onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:"none",cursor:"pointer",color:fg}}><X size={15}/></button></div>);}
@@ -181,11 +185,11 @@ function AdminDashboard(){
     <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1.3fr 1fr",gap:18}}>
       <Card><div style={{fontWeight:700,marginBottom:12,fontSize:14.5}}>Today's Class Schedule</div>
         {todayClasses.length===0?<div style={{color:tokens.slate,fontSize:13}}>No classes scheduled for today.</div>
-          :todayClasses.map((c)=>(<div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${tokens.line}`}}><div><div style={{fontWeight:600,fontSize:13.5}}>{c.student?.full_name} · {c.subject}</div><div style={{fontSize:12,color:tokens.slate}}>{fmtDateTime(c.scheduled_at)} with {c.tutor?.full_name}</div></div><Pill value={c.status}/></div>))}
+          :todayClasses.map((c)=>(<div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${tokens.line}`}}><div><div style={{fontWeight:600,fontSize:13.5}}>{c.student?.full_name} · {c.subject}</div><div style={{fontSize:12,color:tokens.slate}}>{fmtDateTime(c.scheduled_at)} with {c.tutor?.full_name}</div></div><RecordState record={c}/></div>))}
       </Card>
       <Card><div style={{fontWeight:700,marginBottom:12,fontSize:14.5}}>Outstanding Invoices</div>
         {outstanding.length===0?<div style={{color:tokens.slate,fontSize:13}}>No outstanding balances.</div>
-          :outstanding.map((inv)=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div><div style={{fontWeight:600,fontSize:13}}>{inv.parent?.full_name}</div><div style={{fontSize:12,color:tokens.slate}}>Balance {fmt(inv.balance_qar)}</div></div><Pill value={inv.status}/></div>))}
+          :outstanding.map((inv)=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div><div style={{fontWeight:600,fontSize:13}}>{inv.parent?.full_name}</div><div style={{fontSize:12,color:tokens.slate}}>Balance {fmt(inv.balance_qar)}</div></div><RecordState record={inv}/></div>))}
       </Card>
     </div>
     {recentActivity.length>0&&(<div style={{marginTop:18}}><Card><div style={{fontWeight:700,marginBottom:12,fontSize:14.5}}>Recent Completed Classes</div>{recentActivity.map((c)=>(<div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{c.tutor?.full_name} completed <strong>{c.topic||c.subject}</strong> with {c.student?.full_name}</div><div style={{color:tokens.slate,whiteSpace:"nowrap",marginLeft:12}}>{fmtDate(c.scheduled_at)}</div></div>))}</Card></div>)}
@@ -373,7 +377,7 @@ function AdminStudentDetail({student,onBack}){
       <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{width:56,height:56,borderRadius:"50%",background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Fraunces, serif",fontSize:20,fontWeight:700,color:tokens.tealDeep}}>{initials(student.full_name)}</div>
         <div style={{flex:1,minWidth:200}}><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{student.full_name}</div><div style={{color:tokens.slate,fontSize:13}}>{student.grade} · {student.school}</div></div>
-        <Pill value={student.status}/>
+        <RecordState record={student}/>
       </div>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginTop:20}}>
         <Field label="Curriculum"><div style={{fontSize:13.5}}>{student.curriculum||"—"}</div></Field>
@@ -385,12 +389,12 @@ function AdminStudentDetail({student,onBack}){
     {loading?<Spinner/>:(<>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:18}}>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Learning Goals</div><div style={{fontSize:13.5,marginBottom:12}}>{student.goals||"No goals recorded."}</div><div style={{display:"flex",gap:14}}><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.success,marginBottom:4}}>Strengths</div><div style={{fontSize:13,color:tokens.slate}}>{student.strengths||"—"}</div></div><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.coral,marginBottom:4}}>Weak Areas</div><div style={{fontSize:13,color:tokens.slate}}>{student.weak_areas||"—"}</div></div></div></Card>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Invoices</div>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map(inv=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><Pill value={inv.status}/></div>))}</Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Invoices</div>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map(inv=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><RecordState record={inv}/></div>))}</Card>
       </div>
-      <Card style={{marginBottom:18}}><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Class History</div>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map(c=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<Pill value={c.status}/>,<Pill value={c.attendance||"—"}/>]}))}/>}</Card>
+      <Card style={{marginBottom:18}}><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Class History</div>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map(c=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<RecordState record={c}/>,<Pill value={c.attendance||"—"}/>]}))}/>}</Card>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><Pill value={h.status}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{n.topic||"—"}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><RecordState record={h}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
+        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{<span>{n.topic||"—"} <RecordState record={n}/></span>}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
       </div>
       <Card style={{marginTop:18}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:700,fontSize:14}}>Assigned Tutors</div><Button icon={Plus} variant="secondary" style={{padding:"5px 12px",fontSize:12}} onClick={()=>setShowAssign(true)}>Assign Tutor</Button></div>{assignments.length===0?<div style={{fontSize:13,color:tokens.slate}}>No tutors assigned yet.</div>:assignments.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13.5,fontWeight:600}}>{a.tutor?.full_name||"—"}</div><Button variant="danger" icon={Trash2} style={{padding:"4px 8px",fontSize:12}} onClick={()=>doRemove(a.id)}>Remove</Button></div>))}</Card>
     </>)}
@@ -406,7 +410,7 @@ function AdminStudents(){
   useEffect(()=>{load();},[load]);
   const openEdit=s=>{setFullName(s.full_name);setAge(s.age||"");setGrade(s.grade||"");setSchool(s.school||"");setCurriculum(s.curriculum||CURRICULA[0]);setSubjects((s.subjects||[]).join(", "));setParentId(s.parent_id||"");setGoals(s.goals||"");setStrengths(s.strengths||"");setWeakAreas(s.weak_areas||"");setStatus(s.status);setEditRow(s);};
   const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:fullName.trim(),age:Number(age)||null,grade,school,curriculum,subjects:subjects.split(",").map(s=>s.trim()).filter(Boolean),parent_id:parentId||null,goals,strengths,weak_areas:weakAreas,status};const{error}=editRow?await db.updateStudent(editRow.id,payload):await db.createStudent(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Student updated":"Student added");setAddOpen(false);setEditRow(null);resetForm();load();};
-  const del=async()=>{setBusy(true);const{error}=await supabase.from("students").delete().eq("id",delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Student deleted");setDelRow(null);load();};
+  const del=async()=>{setBusy(true);const{error}=await db.softDeleteRecord('students',delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Student deleted");setDelRow(null);load();};
   if(detail)return <AdminStudentDetail student={detail} onBack={()=>setDetail(null)}/>;
   const filtered=rows.filter(s=>s.full_name.toLowerCase().includes(search.toLowerCase()));
   return(<div>{el}
@@ -414,10 +418,10 @@ function AdminStudents(){
     {err&&<ErrBanner message={err} onRetry={load}/>}
     <Card style={{marginBottom:16,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}><Search size={16} color={tokens.slate}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search students…" style={{border:"none",outline:"none",fontSize:13.5,flex:1,background:"transparent"}}/></Card>
     <Card>{loading?<Spinner/>:filtered.length===0?<Empty icon={GraduationCap} title="No students yet" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Student</Button>}/>:(
-      <Table columns={["Name","Grade","Curriculum","Subjects","Parent","Status",""]} rows={filtered.map(s=>({cells:[s.full_name,s.grade||"—",s.curriculum||"—",(s.subjects||[]).join(", ")||"—",s.parent?.full_name||"—",<Pill value={s.status}/>,
+      <Table columns={["Name","Grade","Curriculum","Subjects","Parent","Status",""]} rows={filtered.map(s=>({cells:[s.full_name,s.grade||"—",s.curriculum||"—",(s.subjects||[]).join(", ")||"—",s.parent?.full_name||"—",<RecordState record={s}/>,
         <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
-          <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(s)}/>
-          <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(s)}/>
+          <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} disabled={!!s.deleted_at} onClick={()=>openEdit(s)}/>
+          <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} disabled={!!s.deleted_at} onClick={()=>setDelRow(s)}/>
           <Button variant="secondary" icon={ChevronRight} style={{padding:"5px 8px"}} onClick={()=>setDetail(s)}/>
         </div>
       ]}))}/>
@@ -434,7 +438,7 @@ function AdminStudents(){
         <Field label="Status"><select style={inputStyle} value={status} onChange={e=>setStatus(e.target.value)}>{["Active","Inactive","Graduated"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
       <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
-      <Field label="Parent"><select style={inputStyle} value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">— No parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+      <Field label="Parent"><select style={inputStyle} value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">— No parent —</option>{parents.filter(person=>!person.deleted_at).map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Strengths"><input style={inputStyle} value={strengths} onChange={e=>setStrengths(e.target.value)}/></Field>
         <Field label="Weak Areas"><input style={inputStyle} value={weakAreas} onChange={e=>setWeakAreas(e.target.value)}/></Field>
@@ -442,7 +446,7 @@ function AdminStudents(){
       <Field label="Goals"><textarea style={{...inputStyle,minHeight:52}} value={goals} onChange={e=>setGoals(e.target.value)}/></Field>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Student"}</Button>
     </Modal>)}
-    {delRow&&<ConfirmModal message={`Delete "${delRow.full_name}"? This cannot be undone.`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
+    {delRow&&<ConfirmModal message={`Delete "${delRow.full_name}"? The record will remain visible as Deleted.`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
 
@@ -455,7 +459,7 @@ function AdminParents(){
   useEffect(()=>{load();},[load]);
   const openEdit=p=>{setFullName(p.full_name);setEmail(p.email||"");setPhone(p.phone||"");setAddress(p.address||"");setNotes(p.notes||"");setStatus(p.status);setEditRow(p);};
   const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const{error}=editRow?await db.updateParent(editRow.id,{full_name:fullName.trim(),email,phone,address,notes,status}):await db.createParent({full_name:fullName.trim(),email,phone,address,notes,status});setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Parent updated":"Parent added");setAddOpen(false);setEditRow(null);resetForm();load();};
-  const del=async()=>{setBusy(true);const{error}=await supabase.from("parents").delete().eq("id",delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Parent deleted");setDelRow(null);load();};
+  const del=async()=>{setBusy(true);const{error}=await db.softDeleteRecord('parents',delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Parent deleted");setDelRow(null);load();};
   return(<div>{el}
     <SectionTitle title="Parents" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Parent</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
@@ -463,14 +467,14 @@ function AdminParents(){
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
         {rows.map(p=>{const ch=students.filter(s=>s.parent_id===p.id);return(
           <Card key={p.id}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontWeight:700,fontSize:15}}>{p.full_name}</div><Pill value={p.status}/></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{fontWeight:700,fontSize:15}}>{p.full_name}</div><RecordState record={p}/></div>
             {p.phone&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:10,fontSize:12.5,color:tokens.slate}}><Phone size={13}/>{p.phone}</div>}
             {p.email&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:5,fontSize:12.5,color:tokens.slate}}><Mail size={13}/>{p.email}</div>}
             {p.address&&<div style={{display:"flex",gap:6,alignItems:"center",marginTop:5,fontSize:12.5,color:tokens.slate}}><HomeIcon size={13}/>{p.address}</div>}
             {ch.length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${tokens.line}`,fontSize:12.5}}><strong>Children:</strong> {ch.map(c=>c.full_name).join(", ")}</div>}
             <div style={{display:"flex",gap:8,marginTop:14}}>
-              <Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} onClick={()=>openEdit(p)}>Edit</Button>
-              <Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} onClick={()=>setDelRow(p)}/>
+              <Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} disabled={!!p.deleted_at} onClick={()=>openEdit(p)}>Edit</Button>
+              <Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} disabled={!!p.deleted_at} onClick={()=>setDelRow(p)}/>
             </div>
           </Card>
         );})}
@@ -493,14 +497,17 @@ function AdminParents(){
 
 /* ═══ ADMIN TUTORS ═══ */
 function AdminTutors(){
+  const {isSuperAdmin}=useCurrentRole();
+  const[managers,setManagers]=useState([]);const[managerId,setManagerId]=useState("");
+  useEffect(()=>{let active=true;if(isSuperAdmin)db.getProfiles().then(({data,error})=>{if(active){if(error)setErr(error.message);else setManagers((data||[]).filter(p=>p.role==="admin_tutor"&&p.status==="Active"));}});return()=>{active=false;};},[isSuperAdmin]);
   const[rows,setRows]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[addOpen,setAddOpen]=useState(false);const[editRow,setEditRow]=useState(null);const[delRow,setDelRow]=useState(null);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const[fullName,setFullName]=useState("");const[email,setEmail]=useState("");const[phone,setPhone]=useState("");const[subjects,setSubjects]=useState("");const[curriculum,setCurriculum]=useState("");const[rateQar,setRateQar]=useState("");const[notes,setNotes]=useState("");const[status,setStatus]=useState("Active");
-  const resetForm=()=>{setFullName("");setEmail("");setPhone("");setSubjects("");setCurriculum("");setRateQar("");setNotes("");setStatus("Active");};
+  const resetForm=()=>{setManagerId("");setFullName("");setEmail("");setPhone("");setSubjects("");setCurriculum("");setRateQar("");setNotes("");setStatus("Active");};
   const load=useCallback(async()=>{setLoading(true);setErr("");const[tr,sr]=await Promise.all([db.getTutors(),db.getStudents()]);if(tr.error)setErr(tr.error.message);else setRows(tr.data||[]);setStudents(sr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const openEdit=t=>{setFullName(t.full_name);setEmail(t.email||"");setPhone(t.phone||"");setSubjects((t.subjects||[]).join(", "));setCurriculum((t.curriculum||[]).join(", "));setRateQar(t.rate_qar||"");setNotes(t.notes||"");setStatus(t.status);setEditRow(t);};
-  const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:fullName.trim(),email,phone,subjects:subjects.split(",").map(s=>s.trim()).filter(Boolean),curriculum:curriculum.split(",").map(s=>s.trim()).filter(Boolean),rate_qar:Number(rateQar)||0,notes,status};const{error}=editRow?await db.updateTutor(editRow.id,payload):await db.createTutor(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Tutor updated":"Tutor added");setAddOpen(false);setEditRow(null);resetForm();load();};
-  const del=async()=>{setBusy(true);const{error}=await supabase.from("tutors").delete().eq("id",delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Tutor deleted");setDelRow(null);load();};
+  const openEdit=t=>{setManagerId(t.managed_by_user_id||"");setFullName(t.full_name);setEmail(t.email||"");setPhone(t.phone||"");setSubjects((t.subjects||[]).join(", "));setCurriculum((t.curriculum||[]).join(", "));setRateQar(t.rate_qar||"");setNotes(t.notes||"");setStatus(t.status);setEditRow(t);};
+  const save=async()=>{if(!fullName.trim()){fire("Name is required","error");return;}setBusy(true);const payload={full_name:fullName.trim(),email,phone,subjects:subjects.split(",").map(s=>s.trim()).filter(Boolean),curriculum:curriculum.split(",").map(s=>s.trim()).filter(Boolean),rate_qar:Number(rateQar)||0,notes,status,...(isSuperAdmin?{managed_by_user_id:managerId||null}:{})};const{error}=editRow?await db.updateTutor(editRow.id,payload):await db.createTutor(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editRow?"Tutor updated":"Tutor added");setAddOpen(false);setEditRow(null);resetForm();load();};
+  const del=async()=>{setBusy(true);const{error}=await db.softDeleteRecord('tutors',delRow.id);setBusy(false);if(error){fire(error.message,"error");setDelRow(null);return;}fire("Tutor deleted");setDelRow(null);load();};
   return(<div>{el}
     <SectionTitle title="Tutors" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Tutor</Button>}/>
     {err&&<ErrBanner message={err} onRetry={load}/>}
@@ -509,14 +516,14 @@ function AdminTutors(){
         {rows.map(t=>{
           const assigned=students.filter(s=>(s.student_tutors||[]).some(st=>st.tutor_id===t.id));
           return(<Card key={t.id}>
-            <div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontWeight:700,fontSize:15}}>{t.full_name}</div><Pill value={t.status}/></div>
+            <div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontWeight:700,fontSize:15}}>{t.full_name}</div><RecordState record={t}/></div>
             <div style={{fontSize:12.5,color:tokens.slate,marginTop:4}}>{(t.subjects||[]).join(", ")||"—"}</div>
             <div style={{fontSize:12,color:tokens.slate}}>{(t.curriculum||[]).join(", ")||"—"}</div>
             <div style={{display:"flex",gap:16,marginTop:12,fontSize:12.5}}><div><strong>{fmt(t.rate_qar)}</strong>/hr</div><div><strong>{assigned.length}</strong> students</div></div>
             {t.notes&&<div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${tokens.line}`,fontSize:12.5,color:tokens.slate}}>{t.notes}</div>}
             <div style={{display:"flex",gap:8,marginTop:14}}>
-              <Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} onClick={()=>openEdit(t)}>Edit</Button>
-              <Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} onClick={()=>setDelRow(t)}/>
+              <Button variant="ghost" icon={Edit2} style={{flex:1,justifyContent:"center",padding:"7px"}} disabled={!!t.deleted_at} onClick={()=>openEdit(t)}>Edit</Button>
+              <Button variant="danger" icon={Trash2} style={{padding:"7px 10px"}} disabled={!!t.deleted_at} onClick={()=>setDelRow(t)}/>
             </div>
           </Card>);
         })}
@@ -528,6 +535,7 @@ function AdminTutors(){
         <Field label="Email"><input style={inputStyle} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></Field>
         <Field label="Phone"><input style={inputStyle} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+974…"/></Field>
       </div>
+      {isSuperAdmin&&<Field label="Admin Tutor team"><select style={inputStyle} value={managerId} onChange={e=>setManagerId(e.target.value)}><option value="">No Admin Tutor assigned</option>{managers.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>}
       <Field label="Subjects (comma-separated)"><input style={inputStyle} value={subjects} onChange={e=>setSubjects(e.target.value)} placeholder="Mathematics, Physics"/></Field>
       <Field label="Curricula (comma-separated)"><input style={inputStyle} value={curriculum} onChange={e=>setCurriculum(e.target.value)} placeholder="IGCSE, Edexcel"/></Field>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -561,11 +569,11 @@ function AdminClasses(){
       <Card><Table columns={["Date/Time","Student","Tutor","Subject","Topic","Mode","Status","Attendance",""]}
         rows={rows.map(c=>({cells:[fmtDateTime(c.scheduled_at),c.student?.full_name||"—",c.tutor?.full_name||"—",c.subject,c.topic||"—",
           c.mode==="Online"?<span style={{display:"flex",alignItems:"center",gap:4}}><Video size={13}/> Online</span>:<span style={{display:"flex",alignItems:"center",gap:4}}><MapPin size={13}/> Offline</span>,
-          <Pill value={c.status}/>,<Pill value={c.attendance||"Pending"}/>,
+          <RecordState record={c}/>,<Pill value={c.attendance||"Pending"}/>,
           <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
-            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(c)}/>
+            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} disabled={!!c.deleted_at} onClick={()=>openEdit(c)}/>
             {c.status!=="Cancelled"&&<Button variant="ghost" icon={X} style={{padding:"5px 8px"}} onClick={()=>cancel(c)} title="Cancel"/>}
-            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(c)}/>
+            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} disabled={!!c.deleted_at} onClick={()=>setDelRow(c)}/>
           </div>
         ]}))}
       /></Card>
@@ -583,8 +591,8 @@ function AdminClasses(){
     )}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Class":"Create Class"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
-        <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.filter(person=>!person.deleted_at).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.filter(person=>!person.deleted_at).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="Subject"><select style={inputStyle} value={subject} onChange={e=>setSubject(e.target.value)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
         <Field label="Topic"><input style={inputStyle} value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Quadratic Equations"/></Field>
         <Field label="Date"><input style={inputStyle} type="date" value={date} onChange={e=>setDate(e.target.value)}/></Field>
@@ -597,7 +605,7 @@ function AdminClasses(){
       <Field label={mode==="Online"?"Meeting Link":"Location"}><input style={inputStyle} value={mode==="Online"?meetingLink:location} onChange={e=>mode==="Online"?setMeetingLink(e.target.value):setLocation(e.target.value)} placeholder={mode==="Online"?"meet.google.com/…":"Student home, …"}/></Field>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Schedule Class"}</Button>
     </Modal>)}
-    {delRow&&<ConfirmModal message="Delete this class? Cannot be undone." onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
+    {delRow&&<ConfirmModal message="Delete this class? Its history will be retained." onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
   </div>);
 }
 
@@ -612,7 +620,7 @@ function AdminAttendance(){
     {err&&<ErrBanner message={err} onRetry={load}/>}
     {loading?<Spinner/>:rows.length===0?<Empty icon={ClipboardCheck} title="No classes found"/>:(
       <Card><Table columns={["Date","Student","Tutor","Subject","Status","Attendance"]}
-        rows={rows.map(c=>({cells:[fmtDate(c.scheduled_at),c.student?.full_name||"—",c.tutor?.full_name||"—",c.subject,<Pill value={c.status}/>,
+        rows={rows.map(c=>({cells:[fmtDate(c.scheduled_at),c.student?.full_name||"—",c.tutor?.full_name||"—",c.subject,<RecordState record={c}/>,
           <select value={c.attendance||"Pending"} onChange={e=>setAtt(c.id,e.target.value)} style={{...inputStyle,padding:"5px 8px",width:140}}>
             {["Pending","Present","Absent","Cancelled"].map(o=><option key={o}>{o}</option>)}
           </select>
@@ -637,10 +645,10 @@ function AdminHomework(){
     {err&&<ErrBanner message={err} onRetry={load}/>}
     {loading?<Spinner/>:rows.length===0?<Empty icon={BookOpenCheck} title="No homework yet" action={<Button icon={Plus} onClick={()=>setAddOpen(true)}>Assign Homework</Button>}/>:(
       <Card><Table columns={["Title","Student","Tutor","Due Date","Status",""]}
-        rows={rows.map(h=>({cells:[h.title,h.student?.full_name||"—",h.tutor?.full_name||"—",fmtDate(h.due_at),<Pill value={h.status}/>,
+        rows={rows.map(h=>({cells:[h.title,h.student?.full_name||"—",h.tutor?.full_name||"—",fmtDate(h.due_at),<RecordState record={h}/>,
           <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
-            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(h)}/>
-            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(h)}/>
+            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} disabled={!!h.deleted_at} onClick={()=>openEdit(h)}/>
+            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} disabled={!!h.deleted_at} onClick={()=>setDelRow(h)}/>
           </div>
         ]}))}
       /></Card>
@@ -649,8 +657,8 @@ function AdminHomework(){
       <Field label="Title" required><input style={inputStyle} value={title} onChange={e=>setTitle(e.target.value)} placeholder="Homework title" autoFocus/></Field>
       <Field label="Description"><textarea style={{...inputStyle,minHeight:68}} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Instructions…"/></Field>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
-        <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="Student" required><select style={inputStyle} value={studentId} onChange={e=>setStudentId(e.target.value)}><option value="">— Select student —</option>{students.filter(person=>!person.deleted_at).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={tutorId} onChange={e=>setTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.filter(person=>!person.deleted_at).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="Due Date"><input style={inputStyle} type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)}/></Field>
         <Field label="Status"><select style={inputStyle} value={hwStatus} onChange={e=>setHwStatus(e.target.value)}>{["Assigned","Submitted","Reviewed","Incomplete"].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
@@ -678,20 +686,20 @@ function AdminClassNotes(){
     {loading?<Spinner/>:rows.length===0?<Empty icon={FileText} title="No notes yet" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Note</Button>}/>:(
       <Card><Table columns={["Student","Tutor","Topic","Understanding","Shared With",""]}
         rows={rows.map(n=>({cells:[
-          n.student?.full_name||"—",n.tutor?.full_name||"—",n.topic||"—",
+          n.student?.full_name||"—",n.tutor?.full_name||"—",<span>{n.topic||"—"} <RecordState record={n}/></span>,
           <span style={{fontSize:12.5,fontWeight:700,color:understandingColor[n.understanding]||tokens.slate}}>{n.understanding||"—"}</span>,
           <span style={{fontSize:12}}>{n.is_shared_with_parent?"Parent ":""}{n.is_shared_with_student?"Student":""}</span>,
           <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
-            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(n)}/>
-            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(n)}/>
+            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} disabled={!!n.deleted_at} onClick={()=>openEdit(n)}/>
+            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} disabled={!!n.deleted_at} onClick={()=>setDelRow(n)}/>
           </div>
         ]}))}
       /></Card>
     )}
     {(addOpen||editRow)&&(<Modal title={editRow?"Edit Note":"Add Class Note"} wide onClose={()=>{setAddOpen(false);setEditRow(null);}}>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Student" required><select style={inputStyle} value={noteStudentId} onChange={e=>setNoteStudentId(e.target.value)}><option value="">— Select student —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
-        <Field label="Tutor" required><select style={inputStyle} value={noteTutorId} onChange={e=>setNoteTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="Student" required><select style={inputStyle} value={noteStudentId} onChange={e=>setNoteStudentId(e.target.value)}><option value="">— Select student —</option>{students.filter(person=>!person.deleted_at).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={noteTutorId} onChange={e=>setNoteTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.filter(person=>!person.deleted_at).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
         <Field label="Topic" required><input style={inputStyle} value={noteTopic} onChange={e=>setNoteTopic(e.target.value)} placeholder="e.g. Quadratic Equations"/></Field>
         <Field label="Understanding"><select style={inputStyle} value={noteUnderstanding} onChange={e=>setNoteUnderstanding(e.target.value)}>{["Excellent","Good","Fair","Needs Support"].map(o=><option key={o}>{o}</option>)}</select></Field>
       </div>
@@ -726,12 +734,12 @@ function AdminMaterials(){
     {loading?<Spinner/>:rows.length===0?<Empty icon={BookOpen} title="No materials yet" action={<Button icon={Plus} onClick={()=>{resetForm();setAddOpen(true);}}>Add Material</Button>}/>:(
       <Card><Table columns={["Title","Subject","Tutor","For Student","Public",""]}
         rows={rows.map(m=>({cells:[
-          m.title,m.subject||"—",m.tutor?.full_name||"—",m.student?.full_name||"All",
+          <span>{m.title} <RecordState record={m}/></span>,m.subject||"—",m.tutor?.full_name||"—",m.student?.full_name||"All",
           m.is_public?<Pill value="Active"/>:<span style={{fontSize:12,color:tokens.slate}}>No</span>,
           <div style={{display:"flex",gap:5}} onClick={e=>e.stopPropagation()}>
             {m.file_url&&<a href={m.file_url} target="_blank" rel="noreferrer"><Button variant="secondary" icon={Download} style={{padding:"5px 8px"}}/></a>}
-            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} onClick={()=>openEdit(m)}/>
-            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} onClick={()=>setDelRow(m)}/>
+            <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} disabled={!!m.deleted_at} onClick={()=>openEdit(m)}/>
+            <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} disabled={!!m.deleted_at} onClick={()=>setDelRow(m)}/>
           </div>
         ]}))}
       /></Card>
@@ -741,11 +749,11 @@ function AdminMaterials(){
       <Field label="Description"><textarea style={{...inputStyle,minHeight:52}} value={matDesc} onChange={e=>setMatDesc(e.target.value)}/></Field>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Subject"><select style={inputStyle} value={matSubject} onChange={e=>setMatSubject(e.target.value)}>{SUBJECTS.map(s=><option key={s}>{s}</option>)}</select></Field>
-        <Field label="Tutor" required><select style={inputStyle} value={matTutorId} onChange={e=>setMatTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
-        <Field label="For Student (optional)"><select style={inputStyle} value={matStudentId} onChange={e=>setMatStudentId(e.target.value)}><option value="">— All students —</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+        <Field label="Tutor" required><select style={inputStyle} value={matTutorId} onChange={e=>setMatTutorId(e.target.value)}><option value="">— Select tutor —</option>{tutors.filter(person=>!person.deleted_at).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
+        <Field label="For Student (optional)"><select style={inputStyle} value={matStudentId} onChange={e=>setMatStudentId(e.target.value)}><option value="">— All students —</option>{students.filter(person=>!person.deleted_at).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
       </div>
       <Field label="File URL or Link"><input style={inputStyle} value={matUrl} onChange={e=>setMatUrl(e.target.value)} placeholder="https://…"/></Field>
-      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",marginBottom:16}}><input type="checkbox" checked={matPublic} onChange={e=>setMatPublic(e.target.checked)}/> Visible to all students (public)</label>
+      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",marginBottom:16}}><input type="checkbox" checked={matPublic} onChange={e=>setMatPublic(e.target.checked)}/> Available to this tutor’s linked students</label>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={save} disabled={busy}>{busy?"Saving…":editRow?"Save Changes":"Add Material"}</Button>
     </Modal>)}
     {delRow&&<ConfirmModal message={`Delete "${delRow.title}"?`} onConfirm={del} onCancel={()=>setDelRow(null)} busy={busy}/>}
@@ -754,15 +762,19 @@ function AdminMaterials(){
 
 /* ═══ ADMIN PAYMENTS ═══ */
 function AdminPayments(){
+  const[editInv,setEditInv]=useState(null);const[editPay,setEditPay]=useState(null);const[history,setHistory]=useState(null);const[remove,setRemove]=useState(null);
   const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useState("invoices");const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const[payParentId,setPayParentId]=useState("");const[payInvId,setPayInvId]=useState("");const[payAmount,setPayAmount]=useState("");const[payMethod,setPayMethod]=useState("Cash");const[payRef,setPayRef]=useState("");const[payNotes,setPayNotes]=useState("");
   const[invParentId,setInvParentId]=useState("");const[invStudentId,setInvStudentId]=useState("");const[invTotal,setInvTotal]=useState("");const[invDiscount,setInvDiscount]=useState("0");const[invPeriodStart,setInvPeriodStart]=useState("");const[invPeriodEnd,setInvPeriodEnd]=useState("");const[invNotes,setInvNotes]=useState("");const[invStatus,setInvStatus]=useState("Draft");
   const load=useCallback(async()=>{setLoading(true);setErr("");const[pr,ir,par,sr]=await Promise.all([db.getPayments(),db.getInvoices(),db.getParents(),db.getStudents()]);if(pr.error)setErr(pr.error.message);else setPayments(pr.data||[]);setInvoices(ir.data||[]);setParents(par.data||[]);setStudents(sr.data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
-  const totalCollected=payments.reduce((s,p)=>s+Number(p.amount_qar||0),0);
-  const totalOutstanding=invoices.filter(i=>["Issued","Partially Paid","Overdue"].includes(i.status)).reduce((s,i)=>s+Number(i.balance_qar||0),0);
-  const savePay=async()=>{if(!payParentId||!payAmount){fire("Parent and amount are required","error");return;}setBusy(true);const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;const{error}=await db.createPayment({parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes});setBusy(false);if(error){fire(error.message,"error");return;}fire("Payment recorded");setShowPay(false);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
-  const saveInv=async()=>{if(!invParentId||!invTotal){fire("Parent and total are required","error");return;}setBusy(true);const invNum=await db.generateInvoiceNumber();const{error}=await db.createInvoice({parent_id:invParentId,student_id:invStudentId||null,invoice_number:invNum,total_qar:Number(invTotal),subtotal_qar:Number(invTotal),discount_qar:Number(invDiscount)||0,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus});setBusy(false);if(error){fire(error.message,"error");return;}fire("Invoice created");setShowInv(false);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();};
+  const totalCollected=payments.filter(p=>!p.deleted_at&&(!p.status||p.status==='Recorded')).reduce((s,p)=>s+Number(p.amount_qar||0),0);
+  const totalOutstanding=invoices.filter(i=>!i.deleted_at&&["Issued","Partially Paid","Overdue"].includes(i.status)).reduce((s,i)=>s+Number(i.balance_qar||0),0);
+  const savePay=async()=>{if(!payParentId||Number(payAmount)<=0){fire("Parent and a positive amount are required","error");return;}setBusy(true);const linkedInv=payInvId?invoices.find(i=>i.id===payInvId):null;const payload={parent_id:payParentId,invoice_id:payInvId||null,student_id:linkedInv?.student_id||editPay?.student_id||null,tutor_id:editPay?.tutor_id||null,amount_qar:Number(payAmount),method:payMethod,reference:payRef,notes:payNotes};const{error}=editPay?await db.updatePayment(editPay.id,payload):await db.createPayment(payload);setBusy(false);if(error){fire(error.message,"error");return;}fire(editPay?"Payment edited":"Payment recorded");setShowPay(false);setEditPay(null);setPayParentId("");setPayInvId("");setPayAmount("");setPayMethod("Cash");setPayRef("");setPayNotes("");load();};
+  const saveInv=async()=>{if(!invParentId||Number(invTotal)<=0){fire("Parent and a positive total are required","error");return;}setBusy(true);try{const invNum=editInv?.invoice_number||await db.generateInvoiceNumber();const payload={parent_id:invParentId,student_id:invStudentId||null,invoice_number:invNum,total_qar:Number(invTotal),subtotal_qar:Number(invTotal),discount_qar:Number(invDiscount)||0,period_start:invPeriodStart||null,period_end:invPeriodEnd||null,notes:invNotes,status:invStatus};const{error}=editInv?await db.updateInvoice(editInv.id,payload):await db.createInvoice(payload);if(error){fire(error.message,"error");return;}fire(editInv?"Invoice edited":"Invoice created");setShowInv(false);setEditInv(null);setInvParentId("");setInvStudentId("");setInvTotal("");setInvDiscount("0");setInvPeriodStart("");setInvPeriodEnd("");setInvNotes("");setInvStatus("Draft");load();}catch{fire('Unable to save invoice. Please retry.','error');}finally{setBusy(false);}};
+  const openInvoice=inv=>{setEditInv(inv);setInvParentId(inv.parent_id);setInvStudentId(inv.student_id||'');setInvTotal(String(inv.total_qar));setInvDiscount(String(inv.discount_qar||0));setInvPeriodStart(inv.period_start||'');setInvPeriodEnd(inv.period_end||'');setInvNotes(inv.notes||'');setInvStatus(inv.status);setShowInv(true);};
+  const openPayment=p=>{setEditPay(p);setPayParentId(p.parent_id);setPayInvId(p.invoice_id||'');setPayAmount(String(p.amount_qar));setPayMethod(p.method||'Cash');setPayRef(p.reference||'');setPayNotes(p.notes||'');setShowPay(true);};
+  const removeRecord=async()=>{setBusy(true);const{error}=await db.softDeleteRecord(remove.table,remove.id);setBusy(false);if(error){fire(error.message,'error');return;}setRemove(null);fire('Record marked Deleted; history retained');load();};
   const issueInv=async inv=>{const{error}=await db.updateInvoice(inv.id,{status:"Issued",issued_at:new Date().toISOString()});if(error)fire(error.message,"error");else{fire("Invoice issued");load();}};
   return(<div>{el}
     <SectionTitle title="Payments & Invoices" action={<div style={{display:"flex",gap:8}}><Button variant="secondary" icon={Plus} onClick={()=>setShowInv(true)}>New Invoice</Button><Button icon={Plus} onClick={()=>setShowPay(true)}>Record Payment</Button></div>}/>
@@ -778,20 +790,22 @@ function AdminPayments(){
     {loading?<Spinner/>:tab==="invoices"?(
       <Card>{invoices.length===0?<Empty icon={FileText} title="No invoices yet" action={<Button icon={Plus} onClick={()=>setShowInv(true)}>New Invoice</Button>}/>:
         <Table columns={["Invoice #","Parent","Student","Total (QAR)","Paid (QAR)","Balance (QAR)","Status",""]}
-          rows={invoices.map(inv=>({cells:[inv.invoice_number,inv.parent?.full_name||"—",inv.student?.full_name||"—",fmt(inv.total_qar),fmt(inv.paid_qar),fmt(inv.balance_qar),<Pill value={inv.status}/>,
-            inv.status==="Draft"?<Button variant="secondary" style={{padding:"5px 10px",fontSize:12}} onClick={()=>issueInv(inv)}>Issue</Button>:null
+          rows={invoices.map(inv=>({cells:[inv.invoice_number,inv.parent?.full_name||"—",inv.student?.full_name||"—",fmt(inv.total_qar),fmt(inv.paid_qar),fmt(inv.balance_qar),<RecordState record={inv}/>,
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{!inv.deleted_at&&<>{inv.status==="Draft"&&<Button variant="secondary" onClick={()=>issueInv(inv)}>Issue</Button>}<Button variant="ghost" onClick={()=>openInvoice(inv)}>Edit</Button><Button variant="danger" onClick={()=>setRemove({table:'invoices',id:inv.id})}>Delete</Button></>}<Button variant="ghost" onClick={()=>setHistory({table:'invoices',id:inv.id})}>History</Button></div>
           ]}))}
         />
       }</Card>
     ):(
       <Card>{payments.length===0?<Empty icon={Wallet} title="No payments yet" action={<Button icon={Plus} onClick={()=>setShowPay(true)}>Record Payment</Button>}/>:
-        <Table columns={["Date","Parent","Student","Amount (QAR)","Method","Reference"]}
-          rows={payments.map(p=>({cells:[fmtDate(p.paid_at),p.parent?.full_name||"—",p.student?.full_name||"—",fmt(p.amount_qar),p.method||"—",p.reference||"—"]}))}
+        <Table columns={["Date","Parent","Student","Amount (QAR)","Method","Reference","State",""]}
+          rows={payments.map(p=>({cells:[fmtDate(p.paid_at),p.parent?.full_name||"—",p.student?.full_name||"—",fmt(p.amount_qar),p.method||"—",p.reference||"—",<RecordState record={p}/>,<div style={{display:'flex',gap:6}}>{!p.deleted_at&&<><Button variant="ghost" onClick={()=>openPayment(p)}>Edit</Button><Button variant="danger" onClick={()=>setRemove({table:'payments',id:p.id})}>Delete</Button></>}<Button variant="ghost" onClick={()=>setHistory({table:'payments',id:p.id})}>History</Button></div>]}))}
         />
       }</Card>
     )}
-    {showPay&&(<Modal title="Record Payment" onClose={()=>setShowPay(false)}>
-      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>setPayParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+    {history&&<RecordHistory table={history.table} id={history.id} onClose={()=>setHistory(null)}/>}
+    {remove&&<ConfirmModal message="Mark this record as Deleted? The record and its change history will remain visible." onConfirm={removeRecord} onCancel={()=>setRemove(null)} busy={busy}/>}
+    {showPay&&(<Modal title={editPay?'Edit Payment':'Record Payment'} onClose={()=>{setShowPay(false);setEditPay(null);}}>
+      <Field label="Parent" required><select style={inputStyle} value={payParentId} onChange={e=>setPayParentId(e.target.value)}><option value="">— Select parent —</option>{parents.filter(person=>!person.deleted_at).map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
       <Field label="Link to Invoice (optional)"><select style={inputStyle} value={payInvId} onChange={e=>setPayInvId(e.target.value)}><option value="">— None —</option>{invoices.filter(i=>!payParentId||i.parent_id===payParentId).map(i=><option key={i.id} value={i.id}>{i.invoice_number} · {fmt(i.balance_qar)} outstanding</option>)}</select></Field>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Amount (QAR)" required><input style={inputStyle} type="number" value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="500"/></Field>
@@ -801,15 +815,15 @@ function AdminPayments(){
       <Field label="Notes"><textarea style={{...inputStyle,minHeight:50}} value={payNotes} onChange={e=>setPayNotes(e.target.value)}/></Field>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={savePay} disabled={busy}>{busy?"Saving…":"Record Payment"}</Button>
     </Modal>)}
-    {showInv&&(<Modal title="Create Invoice" wide onClose={()=>setShowInv(false)}>
+    {showInv&&(<Modal title={editInv?'Edit Invoice':'Create Invoice'} wide onClose={()=>{setShowInv(false);setEditInv(null);}}>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>setInvParentId(e.target.value)}><option value="">— Select parent —</option>{parents.map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+        <Field label="Parent" required><select style={inputStyle} value={invParentId} onChange={e=>setInvParentId(e.target.value)}><option value="">— Select parent —</option>{parents.filter(person=>!person.deleted_at).map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
         <Field label="Student (optional)"><select style={inputStyle} value={invStudentId} onChange={e=>setInvStudentId(e.target.value)}><option value="">— None —</option>{students.filter(s=>!invParentId||s.parent_id===invParentId).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
         <Field label="Period Start"><input style={inputStyle} type="date" value={invPeriodStart} onChange={e=>setInvPeriodStart(e.target.value)}/></Field>
         <Field label="Period End"><input style={inputStyle} type="date" value={invPeriodEnd} onChange={e=>setInvPeriodEnd(e.target.value)}/></Field>
         <Field label="Total (QAR)" required><input style={inputStyle} type="number" value={invTotal} onChange={e=>setInvTotal(e.target.value)} placeholder="1500"/></Field>
         <Field label="Discount (QAR)"><input style={inputStyle} type="number" value={invDiscount} onChange={e=>setInvDiscount(e.target.value)}/></Field>
-        <Field label="Status"><select style={inputStyle} value={invStatus} onChange={e=>setInvStatus(e.target.value)}>{["Draft","Issued"].map(s=><option key={s}>{s}</option>)}</select></Field>
+        <Field label="Status"><select style={inputStyle} value={invStatus} onChange={e=>setInvStatus(e.target.value)}>{[...new Set([invStatus,"Draft","Issued"])].map(s=><option key={s}>{s}</option>)}</select></Field>
       </div>
       <Field label="Notes"><textarea style={{...inputStyle,minHeight:50}} value={invNotes} onChange={e=>setInvNotes(e.target.value)}/></Field>
       <Button style={{width:"100%",justifyContent:"center",marginTop:6}} onClick={saveInv} disabled={busy}>{busy?"Saving…":"Create Invoice"}</Button>
@@ -827,7 +841,7 @@ function AdminAssessments(){
   if(detail)return(<div>{el}
     <div onClick={()=>setDetail(null)} style={{display:"flex",alignItems:"center",gap:6,color:tokens.slate,fontSize:13,cursor:"pointer",marginBottom:14}}><ArrowLeft size={14}/> Back to Requests</div>
     <Card>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}><div><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{detail.student_name||"—"}</div><div style={{fontSize:13,color:tokens.slate}}>Submitted {fmtDate(detail.submitted_at)}</div></div><Pill value={detail.status}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}><div><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{detail.student_name||"—"}</div><div style={{fontSize:13,color:tokens.slate}}>Submitted {fmtDate(detail.submitted_at)}</div></div><RecordState record={detail}/></div>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:16}}>
         <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>PARENT CONTACT</div><div style={{fontSize:13.5,fontWeight:600}}>{detail.parent_name}</div>{detail.parent_email&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,marginTop:4}}><Mail size={13}/>{detail.parent_email}</div>}{detail.parent_phone&&<div style={{fontSize:13,color:tokens.slate,display:"flex",gap:5,marginTop:4}}><Phone size={13}/>{detail.parent_phone}</div>}</div>
         <div><div style={{fontSize:12,fontWeight:700,color:tokens.slate,marginBottom:8}}>STUDENT INFO</div>{detail.student_grade&&<div style={{fontSize:13.5}}>{detail.student_grade}</div>}{detail.school&&<div style={{fontSize:13.5}}>{detail.school}</div>}{detail.curriculum&&<div style={{fontSize:13.5}}>{detail.curriculum}</div>}</div>
@@ -845,7 +859,7 @@ function AdminAssessments(){
     </Card>
     {loading?<Spinner/>:visible.length===0?<Empty icon={CheckSquare} title="No requests" body={filter==="all"?"No assessment requests yet.":"No requests with this status."}/>:(
       <Card><Table columns={["Date","Student","Parent","Grade","Subjects","Status",""]}
-        rows={visible.map(r=>({cells:[fmtDate(r.submitted_at),r.student_name||"—",r.parent_name||"—",r.student_grade||"—",(r.subjects||[]).join(", ")||"—",<Pill value={r.status}/>,
+        rows={visible.map(r=>({cells:[fmtDate(r.submitted_at),r.student_name||"—",r.parent_name||"—",r.student_grade||"—",(r.subjects||[]).join(", ")||"—",<RecordState record={r}/>,
           <Button variant="secondary" icon={ChevronRight} style={{padding:"5px 10px"}} onClick={()=>setDetail(r)}>View</Button>
         ]}))}
       /></Card>
@@ -968,7 +982,7 @@ function AdminReports() {
             <StatCard icon={UserCircle}  label="Parents with balance" value={[...new Set(data.map(r => r.parent_id))].length} />
           </div>
           <Table columns={["Invoice #", "Parent", "Student", "Total (QAR)", "Paid (QAR)", "Balance (QAR)", "Status", "Due Date"]}
-            rows={data.map(r => ({ cells: [r.invoice_number || "—", r.parent?.full_name || "—", r.student?.full_name || "—", fmt(r.total_qar), fmt(r.paid_qar), <span style={{ fontWeight: 700, color: tokens.danger }}>{fmt(r.balance_qar)}</span>, <Pill value={r.status} />, fmtDate(r.due_at)] }))} />
+            rows={data.map(r => ({ cells: [r.invoice_number || "—", r.parent?.full_name || "—", r.student?.full_name || "—", fmt(r.total_qar), fmt(r.paid_qar), <span style={{ fontWeight: 700, color: tokens.danger }}>{fmt(r.balance_qar)}</span>, <RecordState record={r}/>, fmtDate(r.due_at)] }))} />
         </>
       );
     }
@@ -1793,7 +1807,7 @@ function TutorDashboard({ tutorId, tutorName }) {
                     ? <a href={c.meeting_link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: tokens.teal }}>Join meeting →</a>
                     : c.location ? <div style={{ fontSize: 11.5, color: tokens.slate }}>{c.location}</div> : null}
                 </div>
-                <Pill value={c.status} />
+                <RecordState record={c}/>
               </div>
             ))
           }
@@ -1808,7 +1822,7 @@ function TutorDashboard({ tutorId, tutorName }) {
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{h.student?.full_name}</div>
                   <div style={{ fontSize: 12, color: tokens.slate }}>{h.title}</div>
                 </div>
-                <Pill value={h.status} />
+                <RecordState record={h}/>
               </div>
             ))
           }
@@ -1854,7 +1868,7 @@ function TutorMyStudents({ tutorId }) {
           <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginTop: 18 }}>
             <Field label="Subjects"><div style={{ fontSize: 13.5 }}>{(s.subjects || []).join(", ") || "—"}</div></Field>
             <Field label="Parent"><div style={{ fontSize: 13.5 }}>{s.parent?.full_name || "—"}</div></Field>
-            <Field label="Status"><Pill value={s.status} /></Field>
+            <Field label="Status"><RecordState record={s}/></Field>
           </div>
           {(s.goals || s.strengths || s.weak_areas) && (
             <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${tokens.line}` }}>
@@ -1876,14 +1890,14 @@ function TutorMyStudents({ tutorId }) {
         ? <Empty icon={GraduationCap} title="No students assigned yet" body="Your students will appear here once the admin assigns them to you." />
         : (
           <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
-            {students.map(s => (
+            {students.filter(person=>!person.deleted_at).map(s => (
               <Card key={s.id} style={{ cursor: "pointer" }} onClick={() => setSelected(s)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{s.full_name}</div>
                     <div style={{ fontSize: 12.5, color: tokens.slate, marginTop: 3 }}>{s.grade} · {s.curriculum}</div>
                   </div>
-                  <Pill value={s.status} />
+                  <RecordState record={s}/>
                 </div>
                 <div style={{ marginTop: 10, fontSize: 12.5 }}><strong>Subjects:</strong> {(s.subjects || []).join(", ") || "—"}</div>
                 {s.strengths  && <div style={{ marginTop: 6, fontSize: 12.5, color: tokens.success }}><strong>Strengths:</strong> {s.strengths}</div>}
@@ -1900,6 +1914,7 @@ function TutorMyStudents({ tutorId }) {
 
 /* ── TutorMyClasses ── */
 function TutorMyClasses({ tutorId }) {
+  const [view,setView]=useState('calendar');
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [err,      setErr]      = useState("");
@@ -1926,7 +1941,7 @@ function TutorMyClasses({ tutorId }) {
   return (
     <div>
       {el}
-      <SectionTitle title="My Classes" />
+      <SectionTitle title="My Classes" action={<div style={{display:'flex',gap:8}}><Button variant={view==='calendar'?'primary':'ghost'} onClick={()=>setView('calendar')}>Calendar</Button><Button variant={view==='list'?'primary':'ghost'} onClick={()=>setView('list')}>List</Button></div>} />
       {err && <ErrBanner message={err} onRetry={load} />}
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["all", "Scheduled", "Completed", "Cancelled"].map(f => (
@@ -1937,7 +1952,7 @@ function TutorMyClasses({ tutorId }) {
       </Card>
       {loading ? <Spinner /> : visible.length === 0
         ? <Empty icon={CalendarDays} title="No classes found" />
-        : (
+        : view === 'calendar' ? <SessionCalendar sessions={visible}/> : (
           <Card>
             <Table
               columns={["Date / Time", "Student", "Subject", "Topic", "Mode", "Status", "Attendance"]}
@@ -1950,7 +1965,7 @@ function TutorMyClasses({ tutorId }) {
                   c.mode === "Online"
                     ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Video size={13} /> Online</span>
                     : <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> Offline</span>,
-                  <Pill value={c.status} />,
+                  <RecordState record={c}/>,
                   <select value={c.attendance || "Pending"} onChange={e => setAtt(c.id, e.target.value)} style={{ ...inputStyle, padding: "4px 8px", width: 130 }}>
                     {["Pending", "Present", "Absent", "Cancelled"].map(o => <option key={o}>{o}</option>)}
                   </select>,
@@ -2058,7 +2073,7 @@ function TutorClassNotes({ tutorId }) {
             <Field label="Student" required>
               <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
                 <option value="">— Select student —</option>
-                {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                {students.filter(person=>!person.deleted_at).map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>
             </Field>
             <Field label="Linked Class (optional)">
@@ -2198,7 +2213,7 @@ function TutorHomework({ tutorId }) {
                   </div>,
                   h.student?.full_name || "—",
                   fmtDate(h.due_at),
-                  <Pill value={h.status} />,
+                  <RecordState record={h}/>,
                   <div style={{ display: "flex", gap: 5 }} onClick={e => e.stopPropagation()}>
                     {h.status === "Submitted" && (
                       <Button variant="secondary" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => reviewHw(h.id, "Reviewed by tutor")}>Review</Button>
@@ -2220,7 +2235,7 @@ function TutorHomework({ tutorId }) {
             <Field label="Student" required>
               <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
                 <option value="">— Select student —</option>
-                {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                {students.filter(person=>!person.deleted_at).map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>
             </Field>
             <Field label="Due Date"><input style={inputStyle} type="date" value={f.due_at} onChange={e => setF({ ...f, due_at: e.target.value })} /></Field>
@@ -2349,7 +2364,7 @@ function TutorMaterials({ tutorId }) {
             <Field label="For Student (optional)">
               <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
                 <option value="">— All students —</option>
-                {students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                {students.filter(person=>!person.deleted_at).map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>
             </Field>
           </div>
@@ -2424,7 +2439,7 @@ function ParentDashboard({ parentId, parentName }) {
         ? <Empty icon={GraduationCap} title="No children linked yet" body="Contact the admin to link your child's profile to your account." />
         : (
           <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16, marginBottom: 24 }}>
-            {students.map(s => (
+            {students.filter(person=>!person.deleted_at).map(s => (
               <Card key={s.id}>
                 <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
                   <div style={{ width: 44, height: 44, borderRadius: "50%", background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 700, color: tokens.tealDeep, flexShrink: 0 }}>
@@ -2468,7 +2483,7 @@ function ParentChild({ parentId }) {
       {err && <ErrBanner message={err} onRetry={reload} />}
       {loading ? <Spinner /> : students.length === 0
         ? <Empty icon={GraduationCap} title="No children linked" body="Contact the admin to link your child's profile." />
-        : students.map(s => (
+        : students.filter(person=>!person.deleted_at).map(s => (
           <Card key={s.id} style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
               <div style={{ width: 52, height: 52, borderRadius: "50%", background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 700, color: tokens.tealDeep }}>
@@ -2478,7 +2493,7 @@ function ParentChild({ parentId }) {
                 <div style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600 }}>{s.full_name}</div>
                 <div style={{ fontSize: 13, color: tokens.slate }}>{s.grade} · {s.school} · {s.curriculum}</div>
               </div>
-              <Pill value={s.status} />
+              <RecordState record={s}/>
             </div>
             <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
               <Field label="Subjects">
@@ -2519,7 +2534,7 @@ function ParentClasses({ parentId }) {
     if (!parentId || stuLoading) return;
     (async () => {
       setLoading(true); setErr("");
-      const studentIds = students.map(s => s.id);
+      const studentIds = students.filter(person=>!person.deleted_at).map(s => s.id);
       if (studentIds.length === 0) { setClasses([]); setLoading(false); return; }
       // Fetch classes for all linked children in parallel
       const results = await Promise.all(studentIds.map(sid => db.getClasses({ studentId: sid })));
@@ -2559,7 +2574,7 @@ function ParentClasses({ parentId }) {
                   c.mode === "Online"
                     ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Video size={13} /> Online</span>
                     : <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> Offline</span>,
-                  <Pill value={c.status} />,
+                  <RecordState record={c}/>,
                   <Pill value={c.attendance || "Pending"} />,
                 ],
               }))}
@@ -2583,7 +2598,7 @@ function ParentHomework({ parentId }) {
     if (!parentId || stuLoading) return;
     (async () => {
       setLoading(true); setErr("");
-      const studentIds = students.map(s => s.id);
+      const studentIds = students.filter(person=>!person.deleted_at).map(s => s.id);
       if (studentIds.length === 0) { setHw([]); setLoading(false); return; }
       const results = await Promise.all(studentIds.map(sid => db.getHomework({ studentId: sid })));
       const all = results.flatMap(r => r.data || []);
@@ -2621,7 +2636,7 @@ function ParentHomework({ parentId }) {
                   h.student?.full_name || "—",
                   h.tutor?.full_name || "—",
                   fmtDate(h.due_at),
-                  <Pill value={h.status} />,
+                  <RecordState record={h}/>,
                 ],
               }))}
             />
@@ -2643,7 +2658,7 @@ function ParentProgress({ parentId }) {
     if (!parentId || stuLoading) return;
     (async () => {
       setLoading(true); setErr("");
-      const studentIds = students.map(s => s.id);
+      const studentIds = students.filter(person=>!person.deleted_at).map(s => s.id);
       if (studentIds.length === 0) { setNotes([]); setLoading(false); return; }
       const results = await Promise.all(studentIds.map(sid => db.getClassNotes({ studentId: sid })));
       const all = results.flatMap(r => r.data || [])
@@ -2751,7 +2766,7 @@ function ParentPayments({ parentId }) {
                       fmt(inv.total_qar),
                       fmt(inv.paid_qar),
                       <span style={{ fontWeight: 600, color: Number(inv.balance_qar) > 0 ? tokens.danger : tokens.success }}>{fmt(inv.balance_qar)}</span>,
-                      <Pill value={inv.status} />,
+                      <RecordState record={inv}/>,
                     ],
                   }))}
                 />
@@ -2841,7 +2856,7 @@ function StudentDashboard({ studentId, studentName }) {
                     ? <a href={c.meeting_link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: tokens.teal }}>Join meeting →</a>
                     : null}
                 </div>
-                <Pill value={c.status} />
+                <RecordState record={c}/>
               </div>
             ))
           }
@@ -2854,7 +2869,7 @@ function StudentDashboard({ studentId, studentName }) {
               <div key={h.id} style={{ padding: "9px 0", borderBottom: `1px solid ${tokens.line}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{h.title}</div>
-                  <Pill value={h.status} />
+                  <RecordState record={h}/>
                 </div>
                 <div style={{ fontSize: 12, color: tokens.slate }}>Due {fmtDate(h.due_at)}</div>
               </div>
@@ -2910,7 +2925,7 @@ function StudentClasses({ studentId }) {
                   c.mode === "Online"
                     ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Video size={13} /> Online</span>
                     : <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> Offline</span>,
-                  <Pill value={c.status} />,
+                  <RecordState record={c}/>,
                   <Pill value={c.attendance || "Pending"} />,
                 ],
               }))}
@@ -2972,7 +2987,7 @@ function StudentHomework({ studentId }) {
                     )}
                   </div>
                   <div style={{ marginLeft: 16, flexShrink: 0 }}>
-                    <Pill value={h.status} />
+                    <RecordState record={h}/>
                   </div>
                 </div>
               </Card>
@@ -3208,12 +3223,13 @@ export default function App(){
   const{user,profile,loading,authError,refreshProfile,signOut,passwordRecovery}=useAuth();
   const { route, setScreen:setAuthScreen, setSection:setCurrent, navigate } = useNavigation();
   const authScreen = route.screen;
-  const current = (NAV[profile?.role] || []).some(item => item.key === route.section) ? route.section : 'dashboard';
+  const portalNav = [...(NAV[profile?.role] || []), {key:'profile',label:'Profile Settings',icon:UserCircle}];
+  const current = portalNav.some(item => item.key === route.section) ? route.section : 'dashboard';
 
   // Real linked profile records — fetched once after auth resolves
   const[linkedState,setLinkedState] =useState(null);
   const ownerKey = user && profile ? `${user.id}:${profile.role}` : null;
-  const needsLink = !!profile && ["tutor","parent","student"].includes(profile.role);
+  const needsLink = !!profile && current !== 'profile' && ["tutor","parent","student"].includes(profile.role);
   const linkedIsCurrent = !!ownerKey && linkedState?.ownerKey === ownerKey;
   const linkedProfile = linkedIsCurrent ? linkedState.data : null;
   const profileLoading = needsLink && (!linkedIsCurrent || linkedState.loading);
@@ -3240,7 +3256,7 @@ export default function App(){
 
   useEffect(() => {
     if (user && profile && !route.portal && !passwordRecovery && !['reset','forgot','authlinkerror'].includes(authScreen)) navigate('/portal/dashboard',true);
-    else if (route.portal && NAV[profile?.role] && !NAV[profile.role].some(item => item.key === route.section)) navigate('/portal/dashboard',true);
+    else if (route.portal && NAV[profile?.role] && route.section !== 'profile' && !NAV[profile.role].some(item => item.key === route.section)) navigate('/portal/dashboard',true);
   }, [user,profile,route.portal,route.section,passwordRecovery,authScreen,navigate]);
 
   // Recovery does not require a linked learning profile and must precede portal loading.
@@ -3294,7 +3310,7 @@ export default function App(){
   if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
   /* ── Non-staff with no linked profile record ── */
-  if(!["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
+  if(current !== 'profile' && !["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
@@ -3359,15 +3375,15 @@ export default function App(){
 
   const renderers={
     super_admin: renderAdmin,
-    admin_tutor: renderAdmin, // uses same section components — delete buttons hidden by role check inside each section
+    admin_tutor: renderAdmin, // database scopes every operation to own work and assigned team
     admin:       renderAdmin, // backward compat
     tutor:       renderTutor,
     parent:      renderParent,
     student:     renderStudent,
   };
   return(
-    <PortalShell nav={NAV[role] || NAV.student} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
-      {renderers[role]()}
+    <PortalShell nav={portalNav} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
+      {current === 'profile' ? <ProfileSettings key={user.id} /> : renderers[role]()}
     </PortalShell>
   );
 }

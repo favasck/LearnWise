@@ -70,6 +70,22 @@ export const getProfiles = () =>
 export const getProfileById = (userId) =>
   run(() => supabase.from("profiles").select("*").eq("id", userId).maybeSingle());
 
+/** Self-service fields only. Identity comes from the verified session, never a form. */
+export const saveMyProfile = ({ full_name, phone }) => run(async () => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user) return { data: null, error: error || { message: "Please sign in again." } };
+  return supabase.from("profiles").update({ full_name: full_name.trim(), phone: phone?.trim() || null })
+    .eq("id", data.user.id).select("id,full_name,email,phone,role,status").single();
+});
+
+/** Retain deleted records and their relationships; the database authors deletion history. */
+export const softDeleteRecord = (table, id) =>
+  run(() => supabase.from(table).update({deleted_at:new Date().toISOString()}).eq('id',id).select().single());
+
+export const getRecordHistory = (table, id) =>
+  run(() => supabase.from('audit_logs').select('id,action,actor_user_id,actor_role,created_at,old_data,new_data')
+    .eq('table_name',table).eq('record_id',id).order('created_at',{ascending:false}));
+
 /** Privileged role/status update; authorization and audit are enforced in DB. */
 export const updateProfile = (userId, updates) =>
   run(() => supabase.rpc("admin_update_profile", { p_user_id: userId, p_updates: updates }));
@@ -319,10 +335,10 @@ export const updateStudentTutor = (assignmentId, updates) =>
       .single()
   );
 
-/** Remove a tutor–student assignment (hard delete). */
+/** Revoke an assignment while retaining its history. */
 export const removeStudentTutor = (assignmentId) =>
   run(() =>
-    supabase.from("student_tutors").delete().eq("id", assignmentId)
+    supabase.from("student_tutors").update({is_active:false}).eq("id", assignmentId).select().single()
   );
 
 
@@ -425,7 +441,7 @@ export const updateClassStatus = (classId, status) =>
 
 /** Delete a class (admin only in practice, RLS enforces). */
 export const deleteClass = (classId) =>
-  run(() => supabase.from("classes").delete().eq("id", classId));
+  softDeleteRecord('classes', classId);
 
 
 // ─────────────────────────────────────────────
@@ -477,7 +493,7 @@ export const updateClassNote = (noteId, updates) =>
 
 /** Delete a class note. */
 export const deleteClassNote = (noteId) =>
-  run(() => supabase.from("class_notes").delete().eq("id", noteId));
+  softDeleteRecord('class_notes', noteId);
 
 
 // ─────────────────────────────────────────────
@@ -554,7 +570,7 @@ export const reviewHomework = (homeworkId, feedback) =>
 
 /** Delete a homework record. */
 export const deleteHomework = (homeworkId) =>
-  run(() => supabase.from("homework").delete().eq("id", homeworkId));
+  softDeleteRecord('homework', homeworkId);
 
 
 // ─────────────────────────────────────────────
@@ -613,25 +629,16 @@ export const markInvoicePaid = (invoiceId, totalQar) =>
 
 /** Delete a draft invoice. */
 export const deleteInvoice = (invoiceId) =>
-  run(() => supabase.from("invoices").delete().eq("id", invoiceId));
+  softDeleteRecord('invoices', invoiceId);
 
 /**
  * Generate the next invoice number in the format INV-YYYY-NNN.
  * Reads the latest invoice to find the current sequence.
  */
 export const generateInvoiceNumber = async () => {
-  const year = new Date().getFullYear();
-  const { data } = await supabase
-    .from("invoices")
-    .select("invoice_number")
-    .like("invoice_number", `INV-${year}-%`)
-    .order("invoice_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const last = data?.invoice_number ? parseInt(data.invoice_number.split("-")[2], 10) : 0;
-  const next = String(last + 1).padStart(3, "0");
-  return `INV-${year}-${next}`;
+  const {data,error}=await run(()=>supabase.rpc('next_invoice_number'));
+  if(error) throw new Error(error.message);
+  return data;
 };
 
 
@@ -662,33 +669,8 @@ export const getPayments = ({ parentId, invoiceId, tutorId } = {}) => {
 };
 
 /** Create a payment record and update the linked invoice's paid_qar. */
-export const createPayment = async (paymentData) => {
-  // 1. Insert the payment row
-  const { data: payment, error: payErr } = await run(() =>
-    supabase.from("payments").insert(paymentData).select().single()
-  );
-  if (payErr) return { data: null, error: payErr };
-
-  // 2. Update the linked invoice's paid_qar if an invoice_id was supplied
-  if (paymentData.invoice_id) {
-    const { data: inv } = await getInvoiceById(paymentData.invoice_id);
-    if (inv) {
-      const newPaid = Number(inv.paid_qar) + Number(paymentData.amount_qar);
-      const newStatus =
-        newPaid >= Number(inv.total_qar)
-          ? "Paid"
-          : newPaid > 0
-          ? "Partially Paid"
-          : "Issued";
-      await updateInvoice(paymentData.invoice_id, {
-        paid_qar: newPaid,
-        status: newStatus,
-      });
-    }
-  }
-
-  return { data: payment, error: null };
-};
+export const createPayment = (paymentData) =>
+  run(() => supabase.from("payments").insert(paymentData).select().single());
 
 /** Update a payment record. */
 export const updatePayment = (paymentId, updates) =>
@@ -698,7 +680,7 @@ export const updatePayment = (paymentId, updates) =>
 
 /** Delete a payment (admin only). */
 export const deletePayment = (paymentId) =>
-  run(() => supabase.from("payments").delete().eq("id", paymentId));
+  softDeleteRecord('payments', paymentId);
 
 
 // ─────────────────────────────────────────────
@@ -746,7 +728,7 @@ export const updateMaterial = (materialId, updates) =>
 
 /** Delete a material record. */
 export const deleteMaterial = (materialId) =>
-  run(() => supabase.from("materials").delete().eq("id", materialId));
+  softDeleteRecord('materials', materialId);
 
 
 // ─────────────────────────────────────────────
@@ -816,45 +798,45 @@ export const getAdminDashboardStats = async () => {
     monthPaymentsRes,
     newRequestsRes,
   ] = await Promise.all([
-    run(() => supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "Active")),
-    run(() => supabase.from("tutors").select("id", { count: "exact", head: true }).eq("status", "Active")),
-    run(() => supabase.from("parents").select("id", { count: "exact", head: true }).eq("status", "Active")),
+    run(() => supabase.from("students").select("id", { count: "exact", head: true }).is("deleted_at",null).eq("status", "Active")),
+    run(() => supabase.from("tutors").select("id", { count: "exact", head: true }).is("deleted_at",null).eq("status", "Active")),
+    run(() => supabase.from("parents").select("id", { count: "exact", head: true }).is("deleted_at",null).eq("status", "Active")),
     run(() =>
       supabase
         .from("classes")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .gte("scheduled_at", `${today()}T00:00:00`)
         .lte("scheduled_at", `${today()}T23:59:59`)
     ),
     run(() =>
       supabase
         .from("classes")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("status", "Scheduled")
         .gt("scheduled_at", new Date().toISOString())
     ),
     run(() =>
       supabase
         .from("homework")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("status", "Submitted")
     ),
     run(() =>
       supabase
         .from("invoices")
-        .select("balance_qar")
+        .select("balance_qar").is("deleted_at",null)
         .in("status", ["Issued", "Partially Paid", "Overdue"])
     ),
     run(() =>
       supabase
         .from("payments")
-        .select("amount_qar")
+        .select("amount_qar").is("deleted_at",null).eq("status","Recorded")
         .gte("paid_at", startOfMonth())
     ),
     run(() =>
       supabase
         .from("assessment_requests")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("status", "New")
     ),
   ]);
@@ -897,7 +879,7 @@ export const getTutorDashboardStats = async (tutorId) => {
     run(() =>
       supabase
         .from("classes")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("tutor_id", tutorId)
         .gte("scheduled_at", `${today()}T00:00:00`)
         .lte("scheduled_at", `${today()}T23:59:59`)
@@ -905,7 +887,7 @@ export const getTutorDashboardStats = async (tutorId) => {
     run(() =>
       supabase
         .from("classes")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("tutor_id", tutorId)
         .eq("status", "Scheduled")
         .gt("scheduled_at", new Date().toISOString())
@@ -913,14 +895,14 @@ export const getTutorDashboardStats = async (tutorId) => {
     run(() =>
       supabase
         .from("student_tutors")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("tutor_id", tutorId)
         .eq("is_active", true)
     ),
     run(() =>
       supabase
         .from("homework")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .eq("tutor_id", tutorId)
         .eq("status", "Submitted")
     ),
@@ -959,7 +941,7 @@ export const getParentDashboardStats = async (parentId) => {
     run(() =>
       supabase
         .from("classes")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .in("student_id", studentIds)
         .eq("status", "Scheduled")
         .gt("scheduled_at", new Date().toISOString())
@@ -967,14 +949,14 @@ export const getParentDashboardStats = async (parentId) => {
     run(() =>
       supabase
         .from("homework")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true }).is("deleted_at",null)
         .in("student_id", studentIds)
         .in("status", ["Assigned", "Incomplete"])
     ),
     run(() =>
       supabase
         .from("invoices")
-        .select("balance_qar")
+        .select("balance_qar").is("deleted_at",null)
         .eq("parent_id", parentId)
         .in("status", ["Issued", "Partially Paid", "Overdue"])
     ),

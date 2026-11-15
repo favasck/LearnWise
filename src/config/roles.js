@@ -65,8 +65,8 @@ export const canManageAcademic  = (p) => isStaff(p);
 // Payment management — both staff roles (with audit logging for admin_tutor)
 export const canManagePayments  = (p) => isStaff(p);
 
-// Dangerous actions — super_admin only
-export const canDelete          = (p) => isSuperAdmin(p);
+// Retained deletion is available to staff; account and platform administration is Super Admin-only
+export const canDelete          = (p) => isStaff(p); // retained deletion, scoped by database ownership
 export const canChangeRoles     = (p) => isSuperAdmin(p);
 export const canAccessSettings  = (p) => isSuperAdmin(p);
 export const canViewAuditLogs   = (p) => isSuperAdmin(p);
@@ -163,7 +163,7 @@ export const NAV_SUPER_ADMIN = [
   { key: "qatest",      label: "QA Test",            icon: "FlaskConical"    },
 ];
 
-// Admin Tutor — no settings, no audit logs, no delete actions
+// Admin Tutor — scoped team operations, including retained deletion; no platform settings or global audit logs
 export const NAV_ADMIN_TUTOR = [
   { key: "dashboard",   label: "Dashboard",         icon: "LayoutDashboard" },
   { key: "students",    label: "Students",           icon: "GraduationCap"   },
@@ -216,6 +216,11 @@ export const NAV_BY_ROLE = {
   parent:      NAV_PARENT,
   student:     NAV_STUDENT,
 };
+
+// Personal account settings are available to every role, independently of admin settings.
+for (const nav of Object.values(NAV_BY_ROLE)) {
+  nav.push({ key: 'profile', label: 'Profile Settings', icon: 'UserCircle' });
+}
 
 // Default landing page per role after login
 export const DEFAULT_PAGE = {
