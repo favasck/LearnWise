@@ -5,6 +5,7 @@ const dateInQatar=value=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Qatar',
 const timeInQatar=value=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Qatar',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 
 export default function SessionCalendar({sessions=[],requests=[],exams=[],onSelectRequest}) {
+  const [view,setView]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(max-width:760px)').matches?'agenda':'month');
   const [month,setMonth]=useState(()=>dateInQatar(new Date()).slice(0,7));
   const [year,number]=month.split('-').map(Number);
   const offset=new Date(Date.UTC(year,number-1,1)).getUTCDay();
@@ -19,7 +20,8 @@ export default function SessionCalendar({sessions=[],requests=[],exams=[],onSele
       <Button variant="ghost" aria-label="Next month" onClick={()=>shift(1)}>Next</Button>
       <span style={{fontSize:13,color:tokens.slate}}>All times in Qatar · {visible.filter(session=>dateInQatar(session.scheduled_at).startsWith(month)).length} calendar entries</span>
     </div>
-    <div className="table-scroll" tabIndex={0} role="region" aria-label="Monthly calendar, scroll horizontally on small screens">
+    <Field label="Class calendar view"><select value={view} onChange={event=>setView(event.target.value)}><option value="agenda">Agenda</option><option value="month">Month</option></select></Field>
+    {view==='agenda'?<div className="session-agenda" aria-label="Class agenda">{visible.filter(session=>dateInQatar(session.scheduled_at).startsWith(month)).map(session=><article key={session.id} className="tutor-lesson-card"><strong>{session.kind} · {session.subject}</strong><p>{session.student?.full_name||session.topic||'Class'}</p><p>{dateInQatar(session.scheduled_at)} · {timeInQatar(session.scheduled_at)}{session.duration_min?`–${timeInQatar(new Date(new Date(session.scheduled_at).getTime()+session.duration_min*60000))}`:''} · Qatar time</p>{session.mode&&<p>{session.mode==='Online'?'Online':session.location||'In person'}</p>}{session.request_id&&onSelectRequest&&<Button variant="secondary" onClick={()=>onSelectRequest(session.request_id)}>Review request</Button>}</article>)}{!visible.some(session=>dateInQatar(session.scheduled_at).startsWith(month))&&<p>No entries in this month. Choose another month to see more.</p>}</div>:<div className="table-scroll" tabIndex={0} role="region" aria-label="Monthly calendar, scroll horizontally on small screens">
       <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(120px,1fr))',minWidth:840,gap:1,background:tokens.line,border:`1px solid ${tokens.line}`,borderRadius:12,overflow:'hidden'}}>
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day=><div key={day} style={{background:tokens.tealSoft,padding:12,fontWeight:700}}>{day}</div>)}
         {Array.from({length:Math.ceil((offset+days)/7)*7},(_,i)=>{
@@ -36,6 +38,6 @@ export default function SessionCalendar({sessions=[],requests=[],exams=[],onSele
           </div>;
         })}
       </div>
-    </div>
+    </div>}
   </section>;
 }

@@ -78,7 +78,7 @@ try {
   };
   if (result.homepage) {
     const root = dom.window.document.getElementById('root');
-    for (const label of ['About', 'Subjects', 'IGCSE / Edexcel', 'Online Tuition', 'Book Assessment', 'Contact', 'Home']) {
+    for (const label of ['About', 'Subjects', 'IGCSE / Edexcel', 'Online Tuition', 'Request an assessment', 'Contact', 'Home']) {
       const target = [...root.querySelectorAll('nav a')].find(element => element.textContent.trim() === label);
       if (!target) throw new Error(`Public navigation missing: ${label}`);
       target.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));

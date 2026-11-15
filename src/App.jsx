@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Users, GraduationCap, UserCircle, CalendarDays, ClipboardCheck,
   BookOpenCheck, Wallet, FileBarChart, Settings, LogOut, Search, Plus, X, ChevronRight,
@@ -7,10 +7,18 @@ import {
   Link, RefreshCw, CheckSquare, FlaskConical, ScrollText,
 } from "lucide-react";
 import { tokens, Button, Field, Modal } from './ui';
-import { useNavigation, NavLink } from './features/navigation';
+import { useNavigation, NavLink, useViewPreference } from './features/navigation';
 import { PublicNav, PublicFooter, PublicHome, PublicAssessment, PublicContact } from './features/publicExperience';
 import PortalShell from './features/PortalShell';
 import StudentCommandBox from './features/StudentCommandBox';
+import InvoiceDetails from './features/InvoiceDetails';
+import LessonList from './features/LessonList';
+import TutorFeedbackForm from './features/TutorFeedbackForm';
+import FamilyUpcoming from './features/FamilyUpcoming';
+import HomeworkCards from './features/HomeworkCards';
+import {FamilySelectionProvider,FamilySelector,useFamilySelection} from './features/FamilySelection';
+import { DashboardActions, NextLesson, PortalAction } from './features/DashboardActions';
+import { academyDayRange, homeworkOrder, experienceLabels, safeMeetingUrl } from './features/experience';
 import ProfileSettings from './features/ProfileSettings';
 import RecordHistory from './features/RecordHistory';
 import SessionCalendar from './features/SessionCalendar';
@@ -29,9 +37,9 @@ import { logAction, auditCreateStudent, auditEditStudent, auditDeactivateStudent
 const SUBJECTS  = ["Mathematics","Physics","Chemistry","Biology","English","Computer Science","Economics","History","Geography"];
 const CURRICULA = ["IGCSE","Edexcel","Cambridge","School Curriculum","A-Level","IB"];
 const ROLE_LABEL= {super_admin:"Super Admin",admin_tutor:"Admin Tutor",tutor:"Tutor",parent:"Parent",student:"Student",admin:"Super Admin"};
-const fmt       = (n) => `QAR ${Number(n||0).toLocaleString("en-QA",{minimumFractionDigits:0})}`;
-const fmtDate   = (v) => v ? new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "—";
-const fmtDateTime=(v) => v ? new Date(v).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "—";
+const fmt       = (n) => `QAR ${Number(n||0).toLocaleString("en-QA",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtDate   = (v) => v ? new Date(v).toLocaleDateString("en-GB",{timeZone:"Asia/Qatar",day:"2-digit",month:"short",year:"numeric"}) : "—";
+const fmtDateTime=(v) => v ? new Date(v).toLocaleString("en-GB",{timeZone:"Asia/Qatar",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "—";
 const initials  = (n="") => n.split(" ").map((w)=>w[0]).join("").slice(0,2).toUpperCase()||"?";
 
 /* Mock data for Tutor/Parent/Student portals (unchanged — wired in next phase) */
@@ -97,7 +105,7 @@ function Pill({value}){const c=statusColors[value]||statusColors["—"];return <
 function RecordState({record}){return <span style={{display:'inline-flex',gap:6,flexWrap:'wrap'}}>{record.deleted_at ? <Pill value="Deleted"/> : <>{record.status&&<Pill value={record.status}/>} {record.edited_at&&<Pill value="Edited"/>}</>}</span>;}
 function Card({children,style,onClick}){return <div onClick={onClick} role={onClick?"button":undefined} tabIndex={onClick?0:undefined} onKeyDown={onClick?event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();onClick();}}:undefined} style={{background:tokens.cardBg,border:`1px solid ${tokens.line}`,borderRadius:16,padding:20,...style}}>{children}</div>;}
 function StatCard({icon:Icon,label,value,accent}){return(<Card style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}><div style={{width:36,height:36,borderRadius:10,background:accent||tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon size={18} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:26,fontWeight:600,color:tokens.ink}}>{value}</div><div style={{fontSize:13,color:tokens.slate}}>{label}</div></Card>);}
-function SectionTitle({eyebrow,title,action}){return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:16,gap:12,flexWrap:"wrap"}}><div>{eyebrow&&<div style={{fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:tokens.coral,fontWeight:700,marginBottom:4}}>{eyebrow}</div>}<div style={{fontFamily:"Fraunces, serif",fontSize:22,fontWeight:600,color:tokens.ink}}>{title}</div></div>{action}</div>);}
+function SectionTitle({eyebrow,title,action}){return(<div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:16,gap:12,flexWrap:"wrap"}}><div>{eyebrow&&<div style={{fontSize:12,letterSpacing:"0.08em",textTransform:"uppercase",color:tokens.coral,fontWeight:700,marginBottom:4}}>{eyebrow}</div>}<h2 style={{fontFamily:"Fraunces, serif",fontSize:22,fontWeight:600,color:tokens.ink,margin:0}}>{title}</h2></div>{action}</div>);}
 function Table({columns,rows,onRowClick}){if(!rows.length)return null;return(<div className="table-scroll" tabIndex={0} role="region" aria-label="Scrollable data table"><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5}}><thead><tr>{columns.map((c,i)=><th scope="col" key={i} style={{textAlign:"left",padding:"10px 14px",color:tokens.slate,fontWeight:600,borderBottom:`1px solid ${tokens.line}`,fontSize:12,textTransform:"uppercase",letterSpacing:"0.04em"}}>{c}</th>)}</tr></thead><tbody>{rows.map((r,i)=>(<tr key={i} onClick={()=>onRowClick&&onRowClick(r)} style={{cursor:onRowClick?"pointer":"default"}} onMouseEnter={(e)=>e.currentTarget.style.background="#FBFAF7"} onMouseLeave={(e)=>e.currentTarget.style.background="transparent"}>{r.cells.map((cell,j)=><td key={j} style={{padding:"12px 14px",borderBottom:`1px solid ${tokens.line}`,color:tokens.ink}}>{cell}</td>)}</tr>))}</tbody></table></div>);}
 function ConfirmModal({message,onConfirm,onCancel,loading,busy,confirmLabel="Delete",busyLabel="Deleting…"}){const isBusy=loading||busy;return(<Modal title="Confirm" onClose={onCancel}><div style={{fontSize:14,color:tokens.ink,marginBottom:20,lineHeight:1.6}}>{message}</div><div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={onCancel}>Cancel</Button><Button variant="danger" onClick={onConfirm} disabled={isBusy}>{isBusy?busyLabel:confirmLabel}</Button></div></Modal>);}
 
@@ -120,8 +128,8 @@ function ReasonModal({title,description,onConfirm,onCancel,busy}){
 function useCurrentRole(){const{profile}=useAuth();const role=profile?.role||"";return{role,profile,isSuperAdmin:["super_admin","admin"].includes(role),isAdminTutor:role==="admin_tutor",isStaff:["super_admin","admin_tutor","admin"].includes(role),canDelete:["super_admin","admin_tutor","admin"].includes(role)};}
 
 const inputStyle={width:"100%",padding:"9px 12px",borderRadius:9,border:`1px solid ${tokens.line}`,fontSize:13.5,fontFamily:"Inter, sans-serif",boxSizing:"border-box",color:tokens.ink,background:"#FCFBF8"};
-function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);const bg=type==="success"?tokens.successBg:tokens.dangerBg;const fg=type==="success"?tokens.success:tokens.danger;const Icon=type==="success"?CheckCircle2:AlertCircle;return(<div role="status" style={{position:"fixed",bottom:24,right:24,zIndex:200,background:bg,color:fg,border:`1px solid ${fg}30`,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13.5,fontWeight:600,boxShadow:"0 8px 30px rgba(0,0,0,0.12)",minWidth:260}}><Icon size={17}/>{message}<button aria-label="Dismiss notification" onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:"none",cursor:"pointer",color:fg}}><X size={15}/></button></div>);}
-function LoadingState({label="Loading…"}){return <div style={{padding:"48px 0",textAlign:"center",color:tokens.slate,fontSize:13.5}}><RefreshCw size={20} style={{marginBottom:10,opacity:0.4}}/><div>{label}</div></div>;}
+function Toast({message,type="success",onClose}){useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);const bg=type==="success"?tokens.successBg:tokens.dangerBg;const fg=type==="success"?tokens.success:tokens.danger;const Icon=type==="success"?CheckCircle2:AlertCircle;return(<div role={type==="success"?"status":"alert"} className="portal-toast" style={{position:"fixed",bottom:24,right:24,zIndex:200,background:bg,color:fg,border:`1px solid ${fg}30`,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,fontSize:13.5,fontWeight:600,boxShadow:"0 8px 30px rgba(0,0,0,0.12)",minWidth:260}}><Icon size={17}/>{message}<button aria-label="Dismiss notification" onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:"none",cursor:"pointer",color:fg}}><X size={15}/></button></div>);}
+function LoadingState({label="Loading…"}){return <div role="status" aria-live="polite" style={{padding:"48px 0",textAlign:"center",color:tokens.slate,fontSize:13.5}}><RefreshCw size={20} style={{marginBottom:10,opacity:0.4}}/><div>{label}</div></div>;}
 function EmptyState({icon:Icon=FileText,title,message,body,action}){return(<div style={{padding:"48px 24px",textAlign:"center"}}><div style={{width:48,height:48,borderRadius:12,background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}><Icon size={22} color={tokens.tealDeep}/></div><div style={{fontFamily:"Fraunces, serif",fontSize:17,fontWeight:600,color:tokens.ink,marginBottom:6}}>{title}</div>{(message||body)&&<div style={{fontSize:13,color:tokens.slate,marginBottom:action?16:0}}>{message||body}</div>}{action}</div>);}
 function ErrorBanner({message,onRetry}){return(<div role="alert" style={{background:tokens.dangerBg,color:tokens.danger,borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:16,fontSize:13.5}}><AlertCircle size={16}/><span style={{flex:1}}>{message}</span>{onRetry&&<Button variant="danger" onClick={onRetry} style={{padding:"5px 12px",fontSize:12}}>Retry</Button>}</div>);}
 // Aliases used in newer portal sections
@@ -157,8 +165,9 @@ const NAV={
 };
 // backward compat alias
 NAV.admin = NAV.super_admin;
+NAV.parent.splice(2,0,{key:'learning',label:'Learning',icon:BookOpen});
 for (const role of ['super_admin','admin_tutor','tutor','parent','student']) {
-  NAV[role].push({key:'bookings',label:role==='parent'||role==='student'?'Book a Class':'Availability & Bookings',icon:CalendarDays});
+  NAV[role].push({key:'bookings',label:role==='parent'||role==='student'?'Request a lesson':'Availability & Bookings',icon:CalendarDays});
   NAV[role].push({key:'calendar',label:'Master Calendar',icon:CalendarDays});
 }
 
@@ -175,12 +184,14 @@ function ErrorNote({message}){if(!message)return null;return <div role="alert" s
 /* ═══ SHELL ═══ */
 
 /* ═══ ADMIN DASHBOARD ═══ */
-function AdminDashboard(){
-  const[stats,setStats]=useState(null);const[todayClasses,setTodayClasses]=useState([]);const[outstanding,setOutstanding]=useState([]);const[recentActivity,setRecentActivity]=useState([]);const[loading,setLoading]=useState(true);const[error,setError]=useState("");
-  useEffect(()=>{(async()=>{setLoading(true);const[sr,tr,or,ar]=await Promise.all([db.getAdminDashboardStats(),db.getClasses({from:new Date().toISOString().slice(0,10)+"T00:00:00",to:new Date().toISOString().slice(0,10)+"T23:59:59"}),db.getOutstandingPaymentsReport(),db.getClasses({status:"Completed"})]);if(sr.error)setError(sr.error.message);else setStats(sr.data);setTodayClasses(tr.data?.slice(0,6)||[]);setOutstanding(or.data?.slice(0,5)||[]);setRecentActivity(ar.data?.slice(0,5)||[]);setLoading(false);})();},[]);
+export function AdminDashboard({onNavigate,service=db}){
+  const[nextClasses,setNextClasses]=useState([]);const[stats,setStats]=useState(null);const[todayClasses,setTodayClasses]=useState([]);const[outstanding,setOutstanding]=useState([]);const[recentActivity,setRecentActivity]=useState([]);const[loading,setLoading]=useState(true);const[error,setError]=useState("");
+  useEffect(()=>{(async()=>{setLoading(true);const[sr,tr,or,ar,nr]=await Promise.all([service.getAdminDashboardStats(),service.getClasses(academyDayRange()),service.getOutstandingPaymentsReport(),service.getClasses({status:"Completed"}),service.getUpcomingClasses({limit:5})]);const failure=[sr,tr,or,ar,nr].find(r=>r.error);if(failure)setError(failure.error.message);else setStats(sr.data);setNextClasses(nr.data||[]);setTodayClasses(tr.data?.slice(0,6)||[]);setOutstanding(or.data?.slice(0,5)||[]);setRecentActivity(ar.data?.slice(0,5)||[]);setLoading(false);})();},[]);
   if(loading)return <LoadingState label="Loading dashboard…"/>;
   if(error)return <ErrorBanner message={error}/>;
-  return(<div><SectionTitle eyebrow="Overview" title="Admin Dashboard"/>
+  return(<div><SectionTitle eyebrow="Academy overview" title="Keep learning moving"/>
+<DashboardActions title={stats?.newRequests>0?`${stats.newRequests} enquiries need a response`:'Plan the day ahead'} description="Review incoming enquiries, prepare today’s lessons, and follow up on outstanding balances." onNavigate={onNavigate} actions={[{section:'assessments',label:'Review enquiries'},{section:'classes',label:'Manage lessons'},{section:'payments',label:'Review billing'}]}/>
+<NextLesson classes={nextClasses} section="classes" onNavigate={onNavigate}/>
     <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:26}}>
       <StatCard icon={GraduationCap} label="Active Students" value={stats?.totalStudents??"—"}/>
       <StatCard icon={Users} label="Active Tutors" value={stats?.totalTutors??"—"}/>
@@ -214,7 +225,7 @@ function AdminUsers(){
   const[students,setStudents]=useState([]);
   const[loading,setLoading] =useState(true);
   const[err,setErr]         =useState("");
-  const[filter,setFilter]   =useState("all");
+  const[filter,setFilter]   =useViewPreference("filter","all");
   const[linkUser,setLinkUser]=useState(null); // user being linked
   const[linkTarget,setLinkTarget]=useState(""); // selected profile id
   const[linking,setLinking] =useState(false);
@@ -370,10 +381,10 @@ function AdminUsers(){
 
 /* ═══ ADMIN STUDENTS ═══ */
 function AdminStudentDetail({student,onBack}){
-  const[classes,setClasses]=useState([]);const[homework,setHomework]=useState([]);const[notes,setNotes]=useState([]);const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);
+  const[error,setError]=useState("");const[classes,setClasses]=useState([]);const[homework,setHomework]=useState([]);const[notes,setNotes]=useState([]);const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);
   const[allTutors,setAllTutors]=useState([]);const[assignments,setAssignments]=useState([]);const[showAssign,setShowAssign]=useState(false);const[assignTutorId,setAssignTutorId]=useState("");const[assignBusy,setAssignBusy]=useState(false);
   const{fire,el}=useToast();
-  const loadAll=async()=>{setLoading(true);const[cr,hr,nr,ir,tr,ar]=await Promise.all([db.getClasses({studentId:student.id}),db.getHomework({studentId:student.id}),db.getClassNotes({studentId:student.id}),student.parent_id?db.getInvoices({parentId:student.parent_id}):{data:[]},db.getTutors(),db.getStudentTutors({studentId:student.id})]);setClasses(cr.data||[]);setHomework(hr.data||[]);setNotes(nr.data||[]);setInvoices(ir.data||[]);setAllTutors(tr.data||[]);setAssignments(ar.data||[]);setLoading(false);};
+  const loadAll=async()=>{setLoading(true);setError("");const[cr,hr,nr,ir,tr,ar]=await Promise.all([db.getClasses({studentId:student.id}),db.getHomework({studentId:student.id}),db.getClassNotes({studentId:student.id}),student.parent_id?db.getInvoices({parentId:student.parent_id}):{data:[]},db.getTutors(),db.getStudentTutors({studentId:student.id})]);const failure=[cr,hr,nr,ir,tr,ar].find(r=>r.error);if(failure){setError(failure.error.message);setLoading(false);return;}setClasses(cr.data||[]);setHomework(hr.data||[]);setNotes(nr.data||[]);setInvoices(ir.data||[]);setAllTutors(tr.data||[]);setAssignments(ar.data||[]);setLoading(false);};
   useEffect(()=>{loadAll();},[student.id,student.parent_id]);
   const doAssign=async()=>{if(!assignTutorId){fire("Select a tutor","error");return;}setAssignBusy(true);const{error}=await db.assignTutorToStudent(student.id,assignTutorId,[]);setAssignBusy(false);if(error){fire(error.message,"error");return;}fire("Tutor assigned");setShowAssign(false);setAssignTutorId("");loadAll();};
   const doRemove=async(assignId)=>{const{error}=await db.removeStudentTutor(assignId);if(error)fire(error.message,"error");else{fire("Tutor removed");loadAll();}};
@@ -381,8 +392,8 @@ function AdminStudentDetail({student,onBack}){
   const availableTutors=allTutors.filter(t=>!assignedTutorIds.includes(t.id));
   const tutorNames=assignments.map(a=>a.tutor?.full_name).filter(Boolean).join(", ")||"—";
   return(<div>{el}
-    <div onClick={onBack} style={{display:"flex",alignItems:"center",gap:6,color:tokens.slate,fontSize:13,cursor:"pointer",marginBottom:14}}><ArrowLeft size={14}/> Back to Students</div>
-    <Card style={{marginBottom:18}}>
+    <Button variant="ghost" onClick={onBack} style={{marginBottom:14}}><ArrowLeft size={14}/> Back to students</Button>
+    <nav className="student-record-nav" aria-label="Student record sections">{[["record-profile","Profile"],["record-lessons","Lessons"],["record-homework","Homework"],["record-feedback","Feedback"],["record-billing","Family billing"],["record-team","Tutors"]].map(([id,label])=><a key={id} href={`#${id}`}>{label}</a>)}</nav><div id="record-profile" tabIndex={-1}/><Card style={{marginBottom:18}}>
       <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{width:56,height:56,borderRadius:"50%",background:tokens.tealSoft,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Fraunces, serif",fontSize:20,fontWeight:700,color:tokens.tealDeep}}>{initials(student.full_name)}</div>
         <div style={{flex:1,minWidth:200}}><div style={{fontFamily:"Fraunces, serif",fontSize:21,fontWeight:600}}>{student.full_name}</div><div style={{color:tokens.slate,fontSize:13}}>{student.grade} · {student.school}</div></div>
@@ -395,17 +406,17 @@ function AdminStudentDetail({student,onBack}){
         <Field label="Parent"><div style={{fontSize:13.5}}>{student.parent?.full_name||"—"}</div></Field>
       </div>
     </Card>
-    {loading?<Spinner/>:(<>
+    {error?<ErrorBanner message={error} onRetry={loadAll}/>:loading?<Spinner/>:(<>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:18}}>
         <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Learning Goals</div><div style={{fontSize:13.5,marginBottom:12}}>{student.goals||"No goals recorded."}</div><div style={{display:"flex",gap:14}}><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.success,marginBottom:4}}>Strengths</div><div style={{fontSize:13,color:tokens.slate}}>{student.strengths||"—"}</div></div><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:tokens.coral,marginBottom:4}}>Weak Areas</div><div style={{fontSize:13,color:tokens.slate}}>{student.weak_areas||"—"}</div></div></div></Card>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Invoices</div>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map(inv=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><RecordState record={inv}/></div>))}</Card>
+        <Card><h3 id="record-billing" tabIndex={-1}>Family invoices</h3><p className="experience-explainer">Invoices for this student’s linked parent account, including any siblings.</p>{invoices.length===0?<div style={{fontSize:13,color:tokens.slate}}>No invoices yet.</div>:invoices.map(inv=>(<div key={inv.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${tokens.line}`,fontSize:13}}><div>{inv.invoice_number} · {fmt(inv.total_qar)}</div><RecordState record={inv}/></div>))}</Card>
       </div>
-      <Card style={{marginBottom:18}}><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Class History</div>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map(c=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<RecordState record={c}/>,<Pill value={c.attendance||"—"}/>]}))}/>}</Card>
+      <Card style={{marginBottom:18}}><h3 id="record-lessons" tabIndex={-1}>Lesson history</h3>{classes.length===0?<Empty icon={CalendarDays} title="No classes yet"/>:<Table columns={["Date","Subject","Topic","Tutor","Status","Attendance"]} rows={classes.map(c=>({cells:[fmtDate(c.scheduled_at),c.subject,c.topic||"—",c.tutor?.full_name||"—",<RecordState record={c}/>,<Pill value={c.attendance||"—"}/>]}))}/>}</Card>
       <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Homework</div>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><RecordState record={h}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
-        <Card><div style={{fontWeight:700,marginBottom:10,fontSize:14}}>Progress Notes</div>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{<span>{n.topic||"—"} <RecordState record={n}/></span>}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
+        <Card><h3 id="record-homework" tabIndex={-1}>Homework</h3>{homework.length===0?<div style={{fontSize:13,color:tokens.slate}}>No homework yet.</div>:homework.map(h=>(<div key={h.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{display:"flex",justifyContent:"space-between"}}><div style={{fontSize:13,fontWeight:600}}>{h.title}</div><RecordState record={h}/></div><div style={{fontSize:12,color:tokens.slate}}>Due {fmtDate(h.due_at)}</div></div>))}</Card>
+        <Card><h3 id="record-feedback" tabIndex={-1}>Tutor feedback</h3>{notes.length===0?<div style={{fontSize:13,color:tokens.slate}}>No notes yet.</div>:notes.map(n=>(<div key={n.id} style={{padding:"9px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13,fontWeight:600}}>{<span>{n.topic||"—"} <RecordState record={n}/></span>}</div><div style={{fontSize:12.5,color:tokens.slate,marginTop:2}}>{n.summary||"—"}</div></div>))}</Card>
       </div>
-      <Card style={{marginTop:18}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:700,fontSize:14}}>Assigned Tutors</div><Button icon={Plus} variant="secondary" style={{padding:"5px 12px",fontSize:12}} onClick={()=>setShowAssign(true)}>Assign Tutor</Button></div>{assignments.length===0?<div style={{fontSize:13,color:tokens.slate}}>No tutors assigned yet.</div>:assignments.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13.5,fontWeight:600}}>{a.tutor?.full_name||"—"}</div><Button variant="danger" icon={Trash2} style={{padding:"4px 8px",fontSize:12}} onClick={()=>doRemove(a.id)}>Remove</Button></div>))}</Card>
+      <Card style={{marginTop:18}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h3 id="record-team" tabIndex={-1}>Assigned tutors</h3><Button icon={Plus} variant="secondary" style={{padding:"5px 12px",fontSize:12}} onClick={()=>setShowAssign(true)}>Assign Tutor</Button></div>{assignments.length===0?<div style={{fontSize:13,color:tokens.slate}}>No tutors assigned yet.</div>:assignments.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${tokens.line}`}}><div style={{fontSize:13.5,fontWeight:600}}>{a.tutor?.full_name||"—"}</div><Button variant="danger" icon={Trash2} style={{padding:"4px 8px",fontSize:12}} onClick={()=>doRemove(a.id)}>Remove</Button></div>))}</Card>
     </>)}
     {showAssign&&(<Modal title="Assign Tutor" onClose={()=>{setShowAssign(false);setAssignTutorId("");}}><Field label="Select Tutor" required><select style={inputStyle} value={assignTutorId} onChange={e=>setAssignTutorId(e.target.value)}><option value="">— Choose tutor —</option>{availableTutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>{availableTutors.length===0&&<div style={{fontSize:13,color:tokens.slate,marginBottom:14}}>All tutors are already assigned to this student.</div>}<div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><Button variant="ghost" onClick={()=>{setShowAssign(false);setAssignTutorId("");}}>Cancel</Button><Button onClick={doAssign} disabled={assignBusy||!assignTutorId||availableTutors.length===0}>{assignBusy?"Assigning…":"Confirm"}</Button></div></Modal>)}
   </div>);
@@ -431,7 +442,7 @@ function AdminStudents(){
         <div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
           <Button variant="ghost" icon={Edit2} style={{padding:"5px 8px"}} disabled={!!s.deleted_at} onClick={()=>openEdit(s)}/>
           <Button variant="danger" icon={Trash2} style={{padding:"5px 8px"}} disabled={!!s.deleted_at} onClick={()=>setDelRow(s)}/>
-          <Button variant="secondary" icon={ChevronRight} style={{padding:"5px 8px"}} onClick={()=>setDetail(s)}/>
+          <Button variant="secondary" icon={ChevronRight} aria-label={`View ${s.full_name} student record`} style={{padding:"5px 8px"}} onClick={()=>setDetail(s)}/>
         </div>
       ]}))}/>
     )}</Card>
@@ -811,7 +822,7 @@ function AdminMaterials(){
 /* ═══ ADMIN PAYMENTS ═══ */
 function AdminPayments(){
   const[editInv,setEditInv]=useState(null);const[editPay,setEditPay]=useState(null);const[history,setHistory]=useState(null);const[remove,setRemove]=useState(null);
-  const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useState("invoices");const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
+  const[payments,setPayments]=useState([]);const[invoices,setInvoices]=useState([]);const[parents,setParents]=useState([]);const[students,setStudents]=useState([]);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[tab,setTab]=useViewPreference("tab","invoices",["invoices","payments"]);const[showPay,setShowPay]=useState(false);const[showInv,setShowInv]=useState(false);const[busy,setBusy]=useState(false);const{fire,el}=useToast();
   const[payParentId,setPayParentId]=useState("");const[payInvId,setPayInvId]=useState("");const[payAmount,setPayAmount]=useState("");const[payMethod,setPayMethod]=useState("Cash");const[payRef,setPayRef]=useState("");const[payNotes,setPayNotes]=useState("");
   const[invParentId,setInvParentId]=useState("");const[invStudentId,setInvStudentId]=useState("");const[invTotal,setInvTotal]=useState("");const[invDiscount,setInvDiscount]=useState("0");const[invPeriodStart,setInvPeriodStart]=useState("");const[invPeriodEnd,setInvPeriodEnd]=useState("");const[invNotes,setInvNotes]=useState("");const[invStatus,setInvStatus]=useState("Draft");
   const load=useCallback(async()=>{setLoading(true);setErr("");const[pr,ir,par,sr]=await Promise.all([db.getPayments(),db.getInvoices(),db.getParents(),db.getStudents()]);if(pr.error)setErr(pr.error.message);else setPayments(pr.data||[]);setInvoices(ir.data||[]);setParents(par.data||[]);setStudents(sr.data||[]);setLoading(false);},[]);
@@ -881,7 +892,7 @@ function AdminPayments(){
 
 /* ═══ ADMIN ASSESSMENTS ═══ */
 function AdminAssessments(){
-  const[rows,setRows]=useState([]);const[detail,setDetail]=useState(null);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[filter,setFilter]=useState("all");const{fire,el}=useToast();
+  const[rows,setRows]=useState([]);const[detail,setDetail]=useState(null);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");const[filter,setFilter]=useViewPreference("filter","all");const{fire,el}=useToast();
   const load=useCallback(async()=>{setLoading(true);setErr("");const{data,error}=await db.getAssessmentRequests();if(error)setErr(error.message);else setRows(data||[]);setLoading(false);},[]);
   useEffect(()=>{load();},[load]);
   const setStatus=async(id,status)=>{const{error}=await db.updateAssessmentRequest(id,{status});if(error)fire(error.message,"error");else{fire("Status updated");setDetail(d=>d?{...d,status}:d);load();}};
@@ -1150,7 +1161,7 @@ function AdminAuditLogs(){
   const [logs,setLogs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
-  const [filter,setFilter]=useState("all");
+  const [filter,setFilter]=useViewPreference("filter","all");
 
   useEffect(()=>{
     (async()=>{
@@ -1805,9 +1816,10 @@ function useTutorData(tutorId) {
 }
 
 /* ── TutorDashboard ── */
-function TutorDashboard({ tutorId, tutorName }) {
+export function TutorDashboard({ tutorId, tutorName, onNavigate, service=db }) {
   const [stats,     setStats]     = useState(null);
   const [todayCls,  setTodayCls]  = useState([]);
+  const [nextClasses,setNextClasses]=useState([]);
   const [pendingHw, setPendingHw] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [err,       setErr]       = useState("");
@@ -1816,16 +1828,19 @@ function TutorDashboard({ tutorId, tutorName }) {
     if (!tutorId) return;
     (async () => {
       setLoading(true); setErr("");
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const [statsRes, todayRes, hwRes] = await Promise.all([
-        db.getTutorDashboardStats(tutorId),
-        db.getClasses({ tutorId, from: `${todayIso}T00:00:00`, to: `${todayIso}T23:59:59` }),
-        db.getHomework({ tutorId, status: "Submitted" }),
+      const todayRange = academyDayRange();
+      const [statsRes, todayRes, hwRes, upcomingRes] = await Promise.all([
+        service.getTutorDashboardStats(tutorId),
+        service.getClasses({ tutorId, ...todayRange }),
+        service.getHomework({ tutorId, status: "Submitted" }),
+        service.getUpcomingClasses({tutorId,limit:5}),
       ]);
-      if (statsRes.error) setErr(statsRes.error.message);
+      const failure = [statsRes,todayRes,hwRes,upcomingRes].find(r=>r.error);
+      if (failure) setErr(failure.error.message);
       else setStats(statsRes.data);
       setTodayCls(todayRes.data || []);
-      setPendingHw(hwRes.data || []);
+      setNextClasses(upcomingRes.data||[]);
+      setPendingHw(homeworkOrder(hwRes.data || []));
       setLoading(false);
     })();
   }, [tutorId]);
@@ -1836,6 +1851,9 @@ function TutorDashboard({ tutorId, tutorName }) {
   return (
     <div>
       <SectionTitle eyebrow="Welcome back" title={tutorName || "Tutor"} />
+<NextLesson classes={nextClasses} onNavigate={onNavigate}/>
+<DashboardActions title={pendingHw.length?`${pendingHw.length} submissions ready to review`:'Ready for your next learner'} description="Prepare lessons, record attendance, and leave feedback while the learning is fresh." onNavigate={onNavigate} actions={[{section:pendingHw.length?'homework':'myclasses',label:pendingHw.length?'Review homework':'Open my lessons'},{section:'classnotes',label:'Write lesson feedback'}]}/>
+
       <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 24 }}>
         <StatCard icon={CalendarDays}  label="Today's Classes"    value={stats?.todayClasses     ?? "—"} />
         <StatCard icon={Clock}         label="Upcoming Classes"   value={stats?.upcomingClasses  ?? "—"} />
@@ -1853,8 +1871,8 @@ function TutorDashboard({ tutorId, tutorName }) {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13.5 }}>{c.student?.full_name} · {c.subject}</div>
                   <div style={{ fontSize: 12, color: tokens.slate }}>{fmtDateTime(c.scheduled_at)} · {c.topic || "—"}</div>
-                  {c.mode === "Online" && c.meeting_link
-                    ? <a href={c.meeting_link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: tokens.teal }}>Join meeting →</a>
+                  {c.mode === "Online" && safeMeetingUrl(c.meeting_link)
+                    ? <a href={safeMeetingUrl(c.meeting_link)} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: tokens.teal }}>Join meeting →</a>
                     : c.location ? <div style={{ fontSize: 11.5, color: tokens.slate }}>{c.location}</div> : null}
                 </div>
                 <RecordState record={c}/>
@@ -1963,27 +1981,29 @@ function TutorMyStudents({ tutorId }) {
 }
 
 /* ── TutorMyClasses ── */
-function TutorMyClasses({ tutorId }) {
-  const [view,setView]=useState('calendar');
+export function TutorMyClasses({ tutorId, onNavigate, service=db }) {
+  const [view,setView]=useViewPreference('view',typeof window!=='undefined'&&window.matchMedia?.('(max-width:760px)').matches?'list':'calendar',['calendar','list']);
+  const [savingAttendance,setSavingAttendance]=useState(false);
+  const attendanceLock=useRef(false);
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [err,      setErr]      = useState("");
-  const [filter,   setFilter]   = useState("all");
+  const [filter,   setFilter]   = useViewPreference("filter","all");
   const { fire, el } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
-    const { data, error } = await db.getClasses({ tutorId });
+    const { data, error } = await service.getClasses({ tutorId });
     if (error) setErr(error.message); else setClasses(data || []);
     setLoading(false);
   }, [tutorId]);
 
   useEffect(() => { load(); }, [load]);
 
-  const setAtt = async (id, attendance) => {
-    const { error } = await db.markAttendance(id, attendance);
-    if (error) fire(error.message, "error");
-    else { fire("Attendance saved"); setClasses(classes.map(c => c.id === id ? { ...c, attendance } : c)); }
+  const setAtt=async(id,attendance)=>{
+    if(attendanceLock.current)return;attendanceLock.current=true;setSavingAttendance(true);setErr('');
+    try{const result=await service.markAttendance(id,attendance);if(result.error){setErr(result.error.message);return;}fire('Attendance saved');setClasses(previous=>previous.map(c=>c.id===id?{...c,attendance}:c));}
+    catch{setErr('Attendance could not be saved. Please retry.');}finally{attendanceLock.current=false;setSavingAttendance(false);}
   };
 
   const visible = filter === "all" ? classes : classes.filter(c => c.status === filter);
@@ -1995,34 +2015,16 @@ function TutorMyClasses({ tutorId }) {
       {err && <ErrBanner message={err} onRetry={load} />}
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["all", "Scheduled", "Completed", "Cancelled"].map(f => (
-          <div key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
+          <button type="button" aria-pressed={filter===f} key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
             {f === "all" ? "All" : f}
-          </div>
+          </button>
         ))}
       </Card>
       {loading ? <Spinner /> : visible.length === 0
         ? <Empty icon={CalendarDays} title="No classes found" />
         : view === 'calendar' ? <SessionCalendar sessions={visible}/> : (
-          <Card>
-            <Table
-              columns={["Date / Time", "Student", "Subject", "Topic", "Mode", "Status", "Attendance"]}
-              rows={visible.map(c => ({
-                cells: [
-                  fmtDateTime(c.scheduled_at),
-                  c.student?.full_name || "—",
-                  c.subject,
-                  c.topic || "—",
-                  c.mode === "Online"
-                    ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Video size={13} /> Online</span>
-                    : <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> Offline</span>,
-                  <RecordState record={c}/>,
-                  <select value={c.attendance || "Pending"} onChange={e => setAtt(c.id, e.target.value)} style={{ ...inputStyle, padding: "4px 8px", width: 130 }}>
-                    {["Pending", "Present", "Absent", "Cancelled"].map(o => <option key={o}>{o}</option>)}
-                  </select>,
-                ],
-              }))}
-            />
-          </Card>
+          <div className="tutor-lesson-agenda" aria-label="Teaching agenda">{visible.map(c=><article className="tutor-lesson-card" key={c.id}><h3>{c.student?.full_name||'Learner'} · {c.subject}</h3><p>{fmtDateTime(c.scheduled_at)} · Qatar time<br/>{c.topic||'Topic to be discussed'} · {c.mode==='Online'?'Online':c.location||'In person'}</p><RecordState record={c}/><Field label={`Attendance for ${c.student?.full_name||'learner'} · ${c.subject}`}><select value={c.attendance||'Pending'} disabled={savingAttendance} onChange={e=>setAtt(c.id,e.target.value)}>{['Pending','Present','Absent','Cancelled'].map(value=><option key={value}>{value}</option>)}</select></Field><NavLink to={`/portal/classnotes?class=${encodeURIComponent(c.id)}`} onNavigate={()=>onNavigate?.(`classnotes?class=${encodeURIComponent(c.id)}`)} className="button button--secondary">Write lesson feedback</NavLink></article>)}</div>
+
         )
       }
     </div>
@@ -2030,7 +2032,7 @@ function TutorMyClasses({ tutorId }) {
 }
 
 /* ── TutorClassNotes ── */
-function TutorClassNotes({ tutorId }) {
+export function TutorClassNotes({ tutorId, service=db }) {
   const [notes,    setNotes]    = useState([]);
   const [classes,  setClasses]  = useState([]);
   const [students, setStudents] = useState([]);
@@ -2040,18 +2042,23 @@ function TutorClassNotes({ tutorId }) {
   const [editRow,  setEditRow]  = useState(null);
   const [busy,     setBusy]     = useState(false);
   const { fire, el } = useToast();
+  const [saveError,setSaveError]=useState("");
+  const saveLock=useRef(false);
+  const [requestedClass,setRequestedClass]=useViewPreference("class","");
+  const openedClass=useRef("");
 
-  const blank = { class_id: "", student_id: "", topic: "", understanding: "Good", strengths: "", areas_to_improve: "", recommendation: "", summary: "", is_shared_with_parent: true, is_shared_with_student: false };
+  const blank = { class_id: "", student_id: "", topic: "", understanding: "", strengths: "", areas_to_improve: "", recommendation: "", summary: "", is_shared_with_parent: true, is_shared_with_student: false };
   const [f, setF] = useState(blank);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     const [nr, cr, sr] = await Promise.all([
-      db.getClassNotes({ tutorId }),
-      db.getClasses({ tutorId }),
-      db.getStudentsByTutor(tutorId),
+      service.getClassNotes({ tutorId }),
+      service.getClasses({ tutorId }),
+      service.getStudentsByTutor(tutorId),
     ]);
-    if (nr.error) setErr(nr.error.message); else setNotes(nr.data || []);
+    const failure=[nr,cr,sr].find(r=>r.error);
+    if(failure)setErr(failure.error.message);else setNotes(nr.data || []);
     setClasses(cr.data || []);
     setStudents(sr.data || []);
     setLoading(false);
@@ -2060,19 +2067,31 @@ function TutorClassNotes({ tutorId }) {
   useEffect(() => { load(); }, [load]);
 
   const openEdit = n => {
-    setF({ class_id: n.class_id || "", student_id: n.student_id, topic: n.topic || "", understanding: n.understanding || "Good", strengths: n.strengths || "", areas_to_improve: n.areas_to_improve || "", recommendation: n.recommendation || "", summary: n.summary || "", is_shared_with_parent: n.is_shared_with_parent ?? true, is_shared_with_student: n.is_shared_with_student ?? false });
+    setSaveError('');
+    setF({ class_id: n.class_id || "", student_id: n.student_id, topic: n.topic || "", understanding: n.understanding || "", strengths: n.strengths || "", areas_to_improve: n.areas_to_improve || "", recommendation: n.recommendation || "", summary: n.summary || "", is_shared_with_parent: n.is_shared_with_parent ?? true, is_shared_with_student: n.is_shared_with_student ?? false });
     setEditRow(n);
   };
 
+  useEffect(()=>{
+    if(!requestedClass||loading||err||openedClass.current===requestedClass)return;
+    const lesson=classes.find(c=>c.id===requestedClass&&!c.deleted_at);
+    if(!lesson){setErr('The requested lesson is not available. Choose an accessible lesson to write feedback.');return;}
+    openedClass.current=requestedClass;setSaveError('');
+    const existing=notes.find(n=>n.class_id===lesson.id&&!n.deleted_at);
+    if(existing)openEdit(existing);else{setF({...blank,class_id:lesson.id,student_id:lesson.student_id,topic:lesson.topic||lesson.subject||''});setShowAdd(true);}
+  },[requestedClass,loading,classes,notes,err]);
+
   const save = async isEdit => {
-    if (!f.student_id || !f.topic) { fire("Student and topic are required", "error"); return; }
-    setBusy(true);
-    const payload = { ...f, tutor_id: tutorId, class_id: f.class_id || null };
-    const { error } = isEdit ? await db.updateClassNote(isEdit.id, payload) : await db.createClassNote(payload);
-    setBusy(false);
-    if (error) { fire(error.message, "error"); return; }
-    fire(isEdit ? "Note updated" : "Note saved");
-    setShowAdd(false); setEditRow(null); setF(blank); load();
+    if(saveLock.current)return;
+    if(!f.student_id||!f.topic.trim()){setSaveError('Choose a learner and enter the topic covered.');return;}
+    saveLock.current=true;setBusy(true);setSaveError('');
+    try{
+      const payload={...f,topic:f.topic.trim(),understanding:f.understanding||null,tutor_id:tutorId,class_id:f.class_id||null};
+      const result=isEdit?await service.updateClassNote(isEdit.id,payload):await service.createClassNote(payload);
+      if(result.error){setSaveError(result.error.message);return;}
+      fire(isEdit?'Feedback updated':'Feedback saved');setShowAdd(false);setEditRow(null);setF(blank);if(requestedClass)setRequestedClass('');load();
+    }catch{setSaveError('Unable to save your feedback. Your entries are still here; please retry.');}
+    finally{saveLock.current=false;setBusy(false);}
   };
 
   const understandingColor = { Excellent: tokens.success, Good: tokens.teal, Fair: tokens.warn, "Needs Support": tokens.danger };
@@ -2080,7 +2099,7 @@ function TutorClassNotes({ tutorId }) {
   return (
     <div>
       {el}
-      <SectionTitle title="Class Notes" action={<Button icon={Plus} onClick={() => { setF(blank); setShowAdd(true); }}>Add Note</Button>} />
+      <SectionTitle title="Class Notes" action={<Button icon={Plus} onClick={() => { setF(blank); setSaveError(''); setShowAdd(true); }}>Add Note</Button>} />
       {err && <ErrBanner message={err} onRetry={load} />}
       {loading ? <Spinner /> : notes.length === 0
         ? <Empty icon={FileText} title="No notes yet" body="Add your first class note after a session." action={<Button icon={Plus} onClick={() => setShowAdd(true)}>Add Note</Button>} />
@@ -2097,7 +2116,7 @@ function TutorClassNotes({ tutorId }) {
                     {n.understanding}
                   </span>
                 )}
-                <Button variant="ghost" icon={Edit2} style={{ padding: "5px 8px" }} onClick={() => openEdit(n)} />
+                <Button variant="ghost" icon={Edit2} aria-label={`Edit feedback for ${n.student?.full_name||"student"}`} style={{ padding: "5px 8px" }} onClick={() => openEdit(n)} />
               </div>
             </div>
             <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
@@ -2118,56 +2137,8 @@ function TutorClassNotes({ tutorId }) {
         ))
       }
       {(showAdd || editRow) && (
-        <Modal title={editRow ? "Edit Note" : "Add Class Note"} wide onClose={() => { setShowAdd(false); setEditRow(null); }}>
-          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Student" required>
-              <select style={inputStyle} value={f.student_id} onChange={e => setF({ ...f, student_id: e.target.value })}>
-                <option value="">— Select student —</option>
-                {students.filter(person=>!person.deleted_at).map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
-            </Field>
-            <Field label="Linked Class (optional)">
-              <select style={inputStyle} value={f.class_id} onChange={e => setF({ ...f, class_id: e.target.value })}>
-                <option value="">— None —</option>
-                {classes.filter(c => !f.student_id || c.student_id === f.student_id).map(c => (
-                  <option key={c.id} value={c.id}>{c.student?.full_name} · {c.subject} · {fmtDate(c.scheduled_at)}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Topic / Subject covered" required>
-              <input style={inputStyle} value={f.topic} onChange={e => setF({ ...f, topic: e.target.value })} placeholder="e.g. Quadratic Equations" />
-            </Field>
-            <Field label="Understanding level">
-              <select style={inputStyle} value={f.understanding} onChange={e => setF({ ...f, understanding: e.target.value })}>
-                {["Excellent", "Good", "Fair", "Needs Support"].map(o => <option key={o}>{o}</option>)}
-              </select>
-            </Field>
-          </div>
-          <Field label="Strengths shown">
-            <input style={inputStyle} value={f.strengths} onChange={e => setF({ ...f, strengths: e.target.value })} placeholder="What the student did well…" />
-          </Field>
-          <Field label="Areas to improve">
-            <input style={inputStyle} value={f.areas_to_improve} onChange={e => setF({ ...f, areas_to_improve: e.target.value })} placeholder="What needs more practice…" />
-          </Field>
-          <Field label="Recommendation">
-            <input style={inputStyle} value={f.recommendation} onChange={e => setF({ ...f, recommendation: e.target.value })} placeholder="Suggested next steps…" />
-          </Field>
-          <Field label="Parent-friendly summary">
-            <textarea style={{ ...inputStyle, minHeight: 72 }} value={f.summary} onChange={e => setF({ ...f, summary: e.target.value })} placeholder="A plain-language update for the parent…" />
-          </Field>
-          <div style={{ display: "flex", gap: 18, marginBottom: 14 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={f.is_shared_with_parent} onChange={e => setF({ ...f, is_shared_with_parent: e.target.checked })} />
-              Share with parent
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={f.is_shared_with_student} onChange={e => setF({ ...f, is_shared_with_student: e.target.checked })} />
-              Share with student
-            </label>
-          </div>
-          <Button style={{ width: "100%", justifyContent: "center", marginTop: 4 }} onClick={() => save(editRow || false)} disabled={busy}>
-            {busy ? "Saving…" : editRow ? "Save Changes" : "Save Note"}
-          </Button>
+        <Modal title={editRow ? "Edit Note" : "Add Class Note"} wide onClose={() => { if(!busy){setShowAdd(false);setEditRow(null);if(requestedClass)setRequestedClass('');} }}>
+          <TutorFeedbackForm value={f} onChange={setF} students={students} classes={classes} busy={busy} error={saveError} onSave={()=>save(editRow||false)} onCancel={()=>{setShowAdd(false);setEditRow(null);if(requestedClass)setRequestedClass('');}}/>
         </Modal>
       )}
     </div>
@@ -2185,7 +2156,7 @@ function TutorHomework({ tutorId }) {
   const [editRow,  setEditRow]  = useState(null);
   const [showDel,  setShowDel]  = useState(null);
   const [busy,     setBusy]     = useState(false);
-  const [filter,   setFilter]   = useState("all");
+  const [filter,   setFilter]   = useViewPreference("filter","all");
   const { fire, el } = useToast();
 
   const blank = { title: "", description: "", student_id: "", class_id: "", due_at: "", status: "Assigned" };
@@ -2442,7 +2413,7 @@ function TutorMaterials({ tutorId }) {
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Shared hook: load children once, reuse across views ── */
-function useParentData(parentId) {
+function useParentData(parentId,service=db) {
   const [students, setStudents] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [err,      setErr]      = useState("");
@@ -2450,17 +2421,18 @@ function useParentData(parentId) {
   const load = useCallback(async () => {
     if (!parentId) return;
     setLoading(true); setErr("");
-    const { data, error } = await db.getStudentsByParent(parentId);
+    const { data, error } = await service.getStudentsByParent(parentId);
     if (error) setErr(error.message); else setStudents(data || []);
     setLoading(false);
-  }, [parentId]);
+  }, [parentId,service]);
 
   useEffect(() => { load(); }, [load]);
   return { students, loading, err, reload: load };
 }
 
 /* ── ParentDashboard ── */
-function ParentDashboard({ parentId, parentName }) {
+export function ParentDashboard({ parentId, parentName, onNavigate, service=db }) {
+  const {childId}=useFamilySelection();
   const [stats,   setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState("");
@@ -2469,7 +2441,7 @@ function ParentDashboard({ parentId, parentName }) {
     if (!parentId) return;
     (async () => {
       setLoading(true); setErr("");
-      const { data, error } = await db.getParentDashboardStats(parentId);
+      const { data, error } = await service.getParentDashboardStats(parentId);
       if (error) setErr(error.message); else setStats(data);
       setLoading(false);
     })();
@@ -2480,60 +2452,37 @@ function ParentDashboard({ parentId, parentName }) {
 
   const students = stats?.students || [];
 
-  return (
-    <div>
-      <SectionTitle eyebrow="Welcome" title={parentName || "Parent"} />
+  return <div>
+<SectionTitle eyebrow="Your family overview" title={parentName || 'Parent'}/><FamilySelector students={students}/><FamilyUpcoming students={students} service={service} onNavigate={onNavigate}/>
+<DashboardActions title={stats?.pendingHomework>0?'A little practice goes a long way':'Stay close to their learning'} description="See upcoming lessons, read tutor feedback, and keep track of what needs attention across your family." onNavigate={onNavigate} actions={[{section:stats?.pendingHomework>0?'homework':'classes',label:stats?.pendingHomework>0?'View homework':'View lessons'},{section:'progress',label:'Read tutor feedback'}]}/>
+<section aria-label="Family totals" className="dashboard-family-totals">
+<StatCard icon={CalendarDays} label="Upcoming lessons · all children" value={stats?.upcomingClasses??'—'}/>
+<StatCard icon={BookOpenCheck} label="Homework due · all children" value={stats?.pendingHomework??'—'}/>
+<StatCard icon={Wallet} label="Family outstanding balance" value={fmt(stats?.outstandingQar)}/>
+</section>
+<SectionTitle title="Your children" action={<PortalAction section="mychild" onNavigate={onNavigate}>View children</PortalAction>}/>
+{students.filter(s=>!s.deleted_at).length===0?<Empty icon={GraduationCap} title="No children linked yet" body="Contact the academy to link your child’s profile to your account."/>:
+<div className="dashboard-children">{students.filter(s=>!s.deleted_at&&(!childId||s.id===childId)).map(s=><Card key={s.id}><h2 className="dashboard-child-name">{s.full_name}</h2><p>{[s.grade,s.curriculum].filter(Boolean).join(' · ')}</p><p>{(s.subjects||[]).join(' · ')||'Subjects will appear once your learning plan is set.'}</p>{s.goals&&<p><strong>Learning goal:</strong> {s.goals}</p>}</Card>)}</div>}
+</div>;
+}
 
-      {/* Per-child summary cards */}
-      {students.length === 0
-        ? <Empty icon={GraduationCap} title="No children linked yet" body="Contact the admin to link your child's profile to your account." />
-        : (
-          <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16, marginBottom: 24 }}>
-            {students.filter(person=>!person.deleted_at).map(s => (
-              <Card key={s.id}>
-                <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Fraunces, serif", fontSize: 17, fontWeight: 700, color: tokens.tealDeep, flexShrink: 0 }}>
-                    {initials(s.full_name)}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>{s.full_name}</div>
-                    <div style={{ fontSize: 12.5, color: tokens.slate }}>{s.grade} · {s.curriculum}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 20 }}>
-                  <div>
-                    <div style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600 }}>{stats?.upcomingClasses ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: tokens.slate }}>Upcoming classes</div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600, color: stats?.pendingHomework > 0 ? tokens.coral : tokens.success }}>{stats?.pendingHomework ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: tokens.slate }}>Homework due</div>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600, color: stats?.outstandingQar > 0 ? tokens.coral : tokens.success }}>{fmt(stats?.outstandingQar)}</div>
-                    <div style={{ fontSize: 12, color: tokens.slate }}>Outstanding balance</div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )
-      }
-    </div>
-  );
+export function ParentLearning({parentId,service=db}){
+ const [tab,setTab]=useViewPreference('learning','homework',['homework','progress','children']);
+ return <section aria-label="Family learning"><div className="learning-switch" role="group" aria-label="Learning view">{[['homework','Homework'],['progress','Feedback'],['children','Children']].map(([key,label])=><Button key={key} variant={tab===key?'primary':'ghost'} aria-pressed={tab===key} onClick={()=>setTab(key)}>{label}</Button>)}</div>{tab==='homework'?<ParentHomework parentId={parentId} service={service}/>:tab==='progress'?<ParentProgress parentId={parentId} service={service}/>:<ParentChild parentId={parentId}/>}</section>;
 }
 
 /* ── ParentChild (My Child) ── */
 function ParentChild({ parentId }) {
+  const {childId}=useFamilySelection();
   const { students, loading, err, reload } = useParentData(parentId);
 
   return (
     <div>
-      <SectionTitle title="My Child" />
+      <SectionTitle title="My Child" /><FamilySelector students={students}/>
       {err && <ErrBanner message={err} onRetry={reload} />}
       {loading ? <Spinner /> : students.length === 0
         ? <Empty icon={GraduationCap} title="No children linked" body="Contact the admin to link your child's profile." />
-        : students.filter(person=>!person.deleted_at).map(s => (
+        : students.filter(person=>!person.deleted_at&&(!childId||person.id===childId)).map(s => (
           <Card key={s.id} style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16 }}>
               <div style={{ width: 52, height: 52, borderRadius: "50%", background: tokens.tealSoft, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 700, color: tokens.tealDeep }}>
@@ -2573,12 +2522,13 @@ function ParentChild({ parentId }) {
 }
 
 /* ── ParentClasses ── */
-function ParentClasses({ parentId }) {
-  const { students, loading: stuLoading } = useParentData(parentId);
+export function ParentClasses({ parentId, service=db }) {
+  const {childId}=useFamilySelection();
+  const { students, loading: stuLoading, err:studentError } = useParentData(parentId,service);
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [err,      setErr]      = useState("");
-  const [filter,   setFilter]   = useState("all");
+  const [filter,   setFilter]   = useViewPreference("filter","all");
 
   useEffect(() => {
     if (!parentId || stuLoading) return;
@@ -2587,7 +2537,8 @@ function ParentClasses({ parentId }) {
       const studentIds = students.filter(person=>!person.deleted_at).map(s => s.id);
       if (studentIds.length === 0) { setClasses([]); setLoading(false); return; }
       // Fetch classes for all linked children in parallel
-      const results = await Promise.all(studentIds.map(sid => db.getClasses({ studentId: sid })));
+      const results = await Promise.all(studentIds.map(sid => service.getClasses({ studentId: sid })));
+      const failure=results.find(r=>r.error);if(failure){setErr(failure.error.message);setLoading(false);return;}
       const all = results.flatMap(r => r.data || []);
       all.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
       setClasses(all);
@@ -2595,40 +2546,24 @@ function ParentClasses({ parentId }) {
     })();
   }, [parentId, students, stuLoading]);
 
-  const visible = filter === "all" ? classes : classes.filter(c => c.status === filter);
+  const visible = classes.filter(c=>(filter==="all"||c.status===filter)&&(!childId||c.student_id===childId));
 
   return (
     <div>
-      <SectionTitle title="Classes" />
-      {err && <ErrBanner message={err} />}
+      <SectionTitle title="Classes" /><FamilySelector students={students}/>
+      {(err||studentError) && <ErrBanner message={err||studentError} />}
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["all", "Scheduled", "Completed", "Cancelled"].map(f => (
-          <div key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
+          <button type="button" aria-pressed={filter===f} key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
             {f === "all" ? "All" : f}
-          </div>
+          </button>
         ))}
       </Card>
       {loading || stuLoading ? <Spinner /> : visible.length === 0
         ? <Empty icon={CalendarDays} title="No classes found" />
         : (
           <Card>
-            <Table
-              columns={["Date / Time", "Child", "Subject", "Topic", "Tutor", "Mode", "Status", "Attendance"]}
-              rows={visible.map(c => ({
-                cells: [
-                  fmtDateTime(c.scheduled_at),
-                  c.student?.full_name || "—",
-                  c.subject,
-                  c.topic || "—",
-                  c.tutor?.full_name || "—",
-                  c.mode === "Online"
-                    ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Video size={13} /> Online</span>
-                    : <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> Offline</span>,
-                  <RecordState record={c}/>,
-                  <Pill value={c.attendance || "Pending"} />,
-                ],
-              }))}
-            />
+            <LessonList lessons={visible} showStudent={true}/>
           </Card>
         )
       }
@@ -2637,12 +2572,13 @@ function ParentClasses({ parentId }) {
 }
 
 /* ── ParentHomework ── */
-function ParentHomework({ parentId }) {
-  const { students, loading: stuLoading } = useParentData(parentId);
+export function ParentHomework({ parentId, service=db }) {
+  const {childId}=useFamilySelection();
+  const { students, loading: stuLoading, err:studentError } = useParentData(parentId,service);
   const [hw,      setHw]      = useState([]);
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState("");
-  const [filter,  setFilter]  = useState("all");
+  const [filter,  setFilter]  = useViewPreference("filter","all");
 
   useEffect(() => {
     if (!parentId || stuLoading) return;
@@ -2650,7 +2586,8 @@ function ParentHomework({ parentId }) {
       setLoading(true); setErr("");
       const studentIds = students.filter(person=>!person.deleted_at).map(s => s.id);
       if (studentIds.length === 0) { setHw([]); setLoading(false); return; }
-      const results = await Promise.all(studentIds.map(sid => db.getHomework({ studentId: sid })));
+      const results = await Promise.all(studentIds.map(sid => service.getHomework({ studentId: sid })));
+      const failure=results.find(r=>r.error);if(failure){setErr(failure.error.message);setLoading(false);return;}
       const all = results.flatMap(r => r.data || []);
       all.sort((a, b) => new Date(a.due_at) - new Date(b.due_at));
       setHw(all);
@@ -2658,38 +2595,24 @@ function ParentHomework({ parentId }) {
     })();
   }, [parentId, students, stuLoading]);
 
-  const visible = filter === "all" ? hw : hw.filter(h => h.status === filter);
+  const visible = hw.filter(h=>(filter==="all"||h.status===filter)&&(!childId||h.student_id===childId));
 
   return (
     <div>
-      <SectionTitle title="Homework" />
-      {err && <ErrBanner message={err} />}
+      <SectionTitle title="Homework" /><FamilySelector students={students}/>
+      {(err||studentError) && <ErrBanner message={err||studentError} />}
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["all", "Assigned", "Submitted", "Reviewed", "Incomplete"].map(f => (
-          <div key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
+          <button type="button" aria-pressed={filter===f} key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
             {f === "all" ? "All" : f}
-          </div>
+          </button>
         ))}
       </Card>
       {loading || stuLoading ? <Spinner /> : visible.length === 0
         ? <Empty icon={BookOpenCheck} title="No homework found" />
         : (
           <Card>
-            <Table
-              columns={["Title", "Child", "Tutor", "Due Date", "Status"]}
-              rows={visible.map(h => ({
-                cells: [
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{h.title}</div>
-                    {h.description && <div style={{ fontSize: 12, color: tokens.slate, marginTop: 2 }}>{h.description.slice(0, 70)}{h.description.length > 70 ? "…" : ""}</div>}
-                  </div>,
-                  h.student?.full_name || "—",
-                  h.tutor?.full_name || "—",
-                  fmtDate(h.due_at),
-                  <RecordState record={h}/>,
-                ],
-              }))}
-            />
+            <HomeworkCards items={visible} showStudent/>
           </Card>
         )
       }
@@ -2698,8 +2621,9 @@ function ParentHomework({ parentId }) {
 }
 
 /* ── ParentProgress (class notes shared with parent) ── */
-function ParentProgress({ parentId }) {
-  const { students, loading: stuLoading } = useParentData(parentId);
+export function ParentProgress({ parentId, service=db }) {
+  const {childId}=useFamilySelection();
+  const { students, loading: stuLoading, err:studentError } = useParentData(parentId,service);
   const [notes,   setNotes]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState("");
@@ -2710,7 +2634,8 @@ function ParentProgress({ parentId }) {
       setLoading(true); setErr("");
       const studentIds = students.filter(person=>!person.deleted_at).map(s => s.id);
       if (studentIds.length === 0) { setNotes([]); setLoading(false); return; }
-      const results = await Promise.all(studentIds.map(sid => db.getClassNotes({ studentId: sid })));
+      const results = await Promise.all(studentIds.map(sid => service.getClassNotes({ studentId: sid })));
+      const failure=results.find(r=>r.error);if(failure){setErr(failure.error.message);setLoading(false);return;}
       const all = results.flatMap(r => r.data || [])
         .filter(n => n.is_shared_with_parent !== false); // only notes shared with parent
       all.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -2723,11 +2648,11 @@ function ParentProgress({ parentId }) {
 
   return (
     <div>
-      <SectionTitle title="Progress Updates" />
-      {err && <ErrBanner message={err} />}
-      {loading || stuLoading ? <Spinner /> : notes.length === 0
+      <SectionTitle title="Progress Updates" /><FamilySelector students={students}/><p className="experience-explainer">These updates contain shared tutor observations and recommended next steps. Lesson ratings describe a tutor’s observations; they are not exam grades or a measured mastery score.</p>
+      {(err||studentError) && <ErrBanner message={err||studentError} />}
+      {loading || stuLoading ? <Spinner /> : notes.filter(n=>!childId||n.student_id===childId).length === 0
         ? <Empty icon={TrendingUp} title="No progress updates yet" body="Tutor notes will appear here once your child's tutor adds them." />
-        : notes.map(n => (
+        : notes.filter(n=>!childId||n.student_id===childId).map(n => (
           <Card key={n.id} style={{ marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
               <div>
@@ -2758,21 +2683,23 @@ function ParentProgress({ parentId }) {
 }
 
 /* ── ParentPayments ── */
-function ParentPayments({ parentId }) {
+export function ParentPayments({ parentId, service=db }) {
   const [invoices, setInvoices] = useState([]);
+  const [selectedInvoice,setSelectedInvoice]=useState(null);
   const [payments, setPayments] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [err,      setErr]      = useState("");
-  const [tab,      setTab]      = useState("invoices");
+  const [tab,      setTab]      = useViewPreference("tab","invoices",["invoices","payments"]);
 
   const load = useCallback(async () => {
     if (!parentId) return;
     setLoading(true); setErr("");
     const [ir, pr] = await Promise.all([
-      db.getInvoices({ parentId }),
-      db.getPayments({ parentId }),
+      service.getInvoices({ parentId }),
+      service.getPayments({ parentId }),
     ]);
-    if (ir.error) setErr(ir.error.message); else setInvoices(ir.data || []);
+    const failure=[ir,pr].find(r=>r.error);
+    if(failure) setErr(failure.error.message); else setInvoices(ir.data || []);
     setPayments(pr.data || []);
     setLoading(false);
   }, [parentId]);
@@ -2783,9 +2710,12 @@ function ParentPayments({ parentId }) {
   const totalPaid        = invoices.reduce((s, i) => s + Number(i.paid_qar    || 0), 0);
   const totalOutstanding = invoices.reduce((s, i) => s + Number(i.balance_qar || 0), 0);
 
+  if(loading)return <Spinner label="Loading your billing records…"/>;
+  if(err)return <ErrBanner message={err} onRetry={load}/>;
+
   return (
     <div>
-      <SectionTitle title="Payments" />
+      {selectedInvoice&&<InvoiceDetails invoice={selectedInvoice} onClose={()=>setSelectedInvoice(null)}/>}<SectionTitle title="Your billing" /><p className="experience-explainer">Your family account in Qatari riyals. Invoice periods show the dates covered; recorded payments may take time to appear after academy review. For a charge you do not recognise, contact the academy with the invoice number.</p>
       {err && <ErrBanner message={err} onRetry={load} />}
 
       <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
@@ -2796,7 +2726,7 @@ function ParentPayments({ parentId }) {
 
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8 }}>
         {["invoices", "payments"].map(t => (
-          <div key={t} onClick={() => setTab(t)} style={{ padding: "6px 16px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer", background: tab === t ? tokens.teal : tokens.tealSoft, color: tab === t ? "#fff" : tokens.tealDeep, textTransform: "capitalize" }}>{t}</div>
+          <button type="button" aria-pressed={tab===t} key={t} onClick={() => setTab(t)} style={{ padding: "6px 16px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer", background: tab === t ? tokens.teal : tokens.tealSoft, color: tab === t ? "#fff" : tokens.tealDeep, textTransform: "capitalize",border:0,fontFamily:"inherit",minHeight:44 }}>{t}</button>
         ))}
       </Card>
 
@@ -2806,11 +2736,11 @@ function ParentPayments({ parentId }) {
             {invoices.length === 0
               ? <Empty icon={FileText} title="No invoices yet" body="Invoices will appear here once issued by the academy." />
               : (
-                <Table
+                <><div className="billing-mobile-cards" aria-label="Invoice cards">{invoices.map(inv=><button key={inv.id} type="button" className="billing-invoice-card" onClick={()=>setSelectedInvoice(inv)} aria-label={`Open invoice ${inv.invoice_number||'details'}`}><strong>{inv.invoice_number||'Invoice'}</strong><span>{inv.student?.full_name||'Family account'} · {inv.status||'Status unavailable'}</span><span>{inv.period_start?`${fmtDate(inv.period_start)} – ${fmtDate(inv.period_end)}`:'Period not specified'}</span><span className="billing-balance">{fmt(inv.balance_qar)} remaining</span><span>View invoice details →</span></button>)}</div><div className="billing-desktop-table"><Table
                   columns={["Invoice #", "Student", "Period", "Total (QAR)", "Paid (QAR)", "Balance (QAR)", "Status"]}
                   rows={invoices.map(inv => ({
                     cells: [
-                      inv.invoice_number || "—",
+                      <button type="button" className="invoice-link" onClick={()=>setSelectedInvoice(inv)} aria-label={`View invoice ${inv.invoice_number||"details"}`}>{inv.invoice_number || "View invoice"}</button>,
                       inv.student?.full_name || "—",
                       inv.period_start ? `${fmtDate(inv.period_start)} – ${fmtDate(inv.period_end)}` : "—",
                       fmt(inv.total_qar),
@@ -2819,7 +2749,7 @@ function ParentPayments({ parentId }) {
                       <RecordState record={inv}/>,
                     ],
                   }))}
-                />
+                /></div></>
               )
             }
           </Card>
@@ -2828,7 +2758,7 @@ function ParentPayments({ parentId }) {
             {payments.length === 0
               ? <Empty icon={Wallet} title="No payments recorded yet" />
               : (
-                <Table
+                <><div className="billing-mobile-cards" aria-label="Payment cards">{payments.map(payment=><article key={payment.id} className="billing-invoice-card"><strong>{fmt(payment.amount_qar)}</strong><span>{fmtDate(payment.paid_at)} · {payment.method||'Method not recorded'}</span><span>Reference: {payment.reference||'Not recorded'}</span>{payment.notes&&<span>{payment.notes}</span>}</article>)}</div><div className="billing-desktop-table"><Table
                   columns={["Date", "Amount (QAR)", "Method", "Reference", "Notes"]}
                   rows={payments.map(p => ({
                     cells: [
@@ -2839,7 +2769,7 @@ function ParentPayments({ parentId }) {
                       p.notes || "—",
                     ],
                   }))}
-                />
+                /></div></>
               )
             }
           </Card>
@@ -2856,7 +2786,7 @@ function ParentPayments({ parentId }) {
    ═══════════════════════════════════════════════════════════ */
 
 /* ── StudentDashboard ── */
-function StudentDashboard({ studentId, studentName }) {
+export function StudentDashboard({ studentId, studentName, onNavigate, service=db }) {
   const [stats,      setStats]      = useState(null);
   const [upcoming,   setUpcoming]   = useState([]);
   const [pendingHw,  setPendingHw]  = useState([]);
@@ -2868,14 +2798,15 @@ function StudentDashboard({ studentId, studentName }) {
     (async () => {
       setLoading(true); setErr("");
       const [statsRes, upRes, hwRes] = await Promise.all([
-        db.getStudentDashboardStats(studentId),
-        db.getUpcomingClasses({ studentId, limit: 5 }),
-        db.getHomework({ studentId, status: "Assigned" }),
+        service.getStudentDashboardStats(studentId),
+        service.getUpcomingClasses({ studentId, limit: 5 }),
+        service.getHomework({ studentId, status: "Assigned" }),
       ]);
-      if (statsRes.error) setErr(statsRes.error.message);
+      const failure = [statsRes,upRes,hwRes].find(r=>r.error);
+      if (failure) setErr(failure.error.message);
       else setStats(statsRes.data);
       setUpcoming(upRes.data || []);
-      setPendingHw(hwRes.data || []);
+      setPendingHw(homeworkOrder(hwRes.data || []));
       setLoading(false);
     })();
   }, [studentId]);
@@ -2885,7 +2816,9 @@ function StudentDashboard({ studentId, studentName }) {
 
   return (
     <div>
-      <SectionTitle eyebrow="Hi there 👋" title={studentName || "Student"} />
+      <SectionTitle eyebrow="Your learning" title={studentName?`Ready for today, ${studentName.split(" ")[0]}?`:"Ready for today?"} />
+<NextLesson classes={upcoming} onNavigate={onNavigate}/>
+<DashboardActions title={pendingHw.length?`${pendingHw.length} homework tasks to work on`:'Keep your progress going'} description={pendingHw.length?'Start with the earliest due task, then check your tutor’s feedback.':'Revisit your tutor’s feedback or explore resources before your next lesson.'} onNavigate={onNavigate} actions={[{section:pendingHw.length?'homework':'progress',label:pendingHw.length?'Open homework':'Read my feedback'},{section:'materials',label:'Explore resources'}]}/>
       <div className="responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
         <StatCard icon={CalendarDays}  label="Upcoming Classes" value={(stats?.upcomingClasses || []).length} />
         <StatCard icon={BookOpenCheck} label="Homework Due"     value={(stats?.pendingHomework || []).length} accent={tokens.coralSoft} />
@@ -2902,8 +2835,8 @@ function StudentDashboard({ studentId, studentName }) {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13.5 }}>{c.subject} · {c.topic || "—"}</div>
                   <div style={{ fontSize: 12, color: tokens.slate }}>{fmtDateTime(c.scheduled_at)} · {c.tutor?.full_name || "—"}</div>
-                  {c.mode === "Online" && c.meeting_link
-                    ? <a href={c.meeting_link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: tokens.teal }}>Join meeting →</a>
+                  {c.mode === "Online" && safeMeetingUrl(c.meeting_link)
+                    ? <a href={safeMeetingUrl(c.meeting_link)} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: tokens.teal }}>Join meeting →</a>
                     : null}
                 </div>
                 <RecordState record={c}/>
@@ -2936,7 +2869,7 @@ function StudentClasses({ studentId }) {
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [err,      setErr]      = useState("");
-  const [filter,   setFilter]   = useState("all");
+  const [filter,   setFilter]   = useViewPreference("filter","all");
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -2955,31 +2888,16 @@ function StudentClasses({ studentId }) {
       {err && <ErrBanner message={err} onRetry={load} />}
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["all", "Scheduled", "Completed", "Cancelled"].map(f => (
-          <div key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
+          <button type="button" aria-pressed={filter===f} key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
             {f === "all" ? "All" : f}
-          </div>
+          </button>
         ))}
       </Card>
       {loading ? <Spinner /> : visible.length === 0
         ? <Empty icon={CalendarDays} title="No classes found" />
         : (
           <Card>
-            <Table
-              columns={["Date / Time", "Subject", "Topic", "Tutor", "Mode", "Status", "Attendance"]}
-              rows={visible.map(c => ({
-                cells: [
-                  fmtDateTime(c.scheduled_at),
-                  c.subject,
-                  c.topic || "—",
-                  c.tutor?.full_name || "—",
-                  c.mode === "Online"
-                    ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Video size={13} /> Online</span>
-                    : <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={13} /> Offline</span>,
-                  <RecordState record={c}/>,
-                  <Pill value={c.attendance || "Pending"} />,
-                ],
-              }))}
-            />
+            <LessonList lessons={visible} showStudent={false}/>
           </Card>
         )
       }
@@ -2992,12 +2910,12 @@ function StudentHomework({ studentId }) {
   const [hw,      setHw]      = useState([]);
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState("");
-  const [filter,  setFilter]  = useState("all");
+  const [filter,  setFilter]  = useViewPreference("filter","all");
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     const { data, error } = await db.getHomework({ studentId });
-    if (error) setErr(error.message); else setHw(data || []);
+    if (error) setErr(error.message); else setHw(homeworkOrder(data || []));
     setLoading(false);
   }, [studentId]);
 
@@ -3011,38 +2929,15 @@ function StudentHomework({ studentId }) {
       {err && <ErrBanner message={err} onRetry={load} />}
       <Card style={{ marginBottom: 16, padding: "10px 14px", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {["all", "Assigned", "Submitted", "Reviewed", "Incomplete"].map(f => (
-          <div key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
+          <button type="button" aria-pressed={filter===f} key={f} onClick={() => setFilter(f)} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: filter === f ? tokens.teal : tokens.tealSoft, color: filter === f ? "#fff" : tokens.tealDeep }}>
             {f === "all" ? "All" : f}
-          </div>
+          </button>
         ))}
       </Card>
       {loading ? <Spinner /> : visible.length === 0
         ? <Empty icon={BookOpenCheck} title="No homework found" body={filter === "all" ? "Your tutor hasn't assigned any homework yet." : "Nothing in this status."} />
         : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {visible.map(h => (
-              <Card key={h.id}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{h.title}</div>
-                    {h.description && <div style={{ fontSize: 13, color: tokens.slate, marginBottom: 8 }}>{h.description}</div>}
-                    <div style={{ display: "flex", gap: 16, fontSize: 12.5, color: tokens.slate }}>
-                      <span>Due: <strong style={{ color: tokens.ink }}>{fmtDate(h.due_at)}</strong></span>
-                      <span>Tutor: <strong style={{ color: tokens.ink }}>{h.tutor?.full_name || "—"}</strong></span>
-                    </div>
-                    {h.tutor_feedback && (
-                      <div style={{ marginTop: 10, padding: "8px 12px", background: tokens.successBg, borderRadius: 8, fontSize: 12.5 }}>
-                        <strong style={{ color: tokens.success }}>Tutor feedback:</strong> {h.tutor_feedback}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ marginLeft: 16, flexShrink: 0 }}>
-                    <RecordState record={h}/>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+          <HomeworkCards items={visible}/>
         )
       }
     </div>
@@ -3143,7 +3038,7 @@ function StudentProgress({ studentId }) {
 
   return (
     <div>
-      <SectionTitle title="My Progress" />
+      <SectionTitle title="My Progress" /><p className="experience-explainer">Your learning record brings together completed lessons and shared tutor feedback. Understanding ratings reflect your tutor’s observations for a lesson; they are not exam grades or a measured mastery score.</p>
       {err && <ErrBanner message={err} onRetry={load} />}
       {loading ? <Spinner /> : (
         <>
@@ -3273,7 +3168,7 @@ export default function App(){
   const{user,profile,loading,authError,refreshProfile,signOut,passwordRecovery}=useAuth();
   const { route, setScreen:setAuthScreen, setSection:setCurrent, navigate } = useNavigation();
   const authScreen = route.screen;
-  const portalNav = [...(NAV[profile?.role] || []), {key:'profile',label:'Profile Settings',icon:UserCircle}];
+  const portalNav = [...(NAV[profile?.role] || []), {key:'profile',label:'Account settings',icon:UserCircle}].map(item=>({...item,label:experienceLabels[item.key]||item.label}));
   const current = portalNav.some(item => item.key === route.section) ? route.section : 'dashboard';
 
   // Real linked profile records — fetched once after auth resolves
@@ -3372,7 +3267,7 @@ export default function App(){
   const isSuperAdminRole = ["super_admin","admin"].includes(role);
 
   const renderAdmin=()=>{switch(current){
-    case "dashboard":   return <AdminDashboard/>;
+    case "dashboard":   return <AdminDashboard onNavigate={setCurrent}/>;
     case "users":       return <AdminUsers/>;
     case "students":    return <AdminStudents/>;
     case "parents":     return <AdminParents/>;
@@ -3385,42 +3280,43 @@ export default function App(){
     case "payments":    return <AdminPayments/>;
     case "assessments": return <AdminAssessments/>;
     case "reports":     return <AdminReports/>;
-    case "auditlogs":   return isSuperAdminRole ? <AdminAuditLogs/> : <AdminDashboard/>;
-    case "settings":    return isSuperAdminRole ? <AdminSettings/> : <AdminDashboard/>;
-    case "qatest":      return isSuperAdminRole ? <AdminQATest/> : <AdminDashboard/>;
-    default:            return <AdminDashboard/>;
+    case "auditlogs":   return isSuperAdminRole ? <AdminAuditLogs/> : <AdminDashboard onNavigate={setCurrent}/>;
+    case "settings":    return isSuperAdminRole ? <AdminSettings/> : <AdminDashboard onNavigate={setCurrent}/>;
+    case "qatest":      return isSuperAdminRole ? <AdminQATest/> : <AdminDashboard onNavigate={setCurrent}/>;
+    default:            return <AdminDashboard onNavigate={setCurrent}/>;
   }};
 
   const tutorName = linkedProfile?.full_name || who;
   const renderTutor=()=>{switch(current){
-    case "dashboard":  return <TutorDashboard  tutorId={tutorId} tutorName={tutorName}/>;
-    case "myclasses":  return <TutorMyClasses  tutorId={tutorId}/>;
+    case "dashboard":  return <TutorDashboard  tutorId={tutorId} tutorName={tutorName} onNavigate={setCurrent}/>;
+    case "myclasses":  return <TutorMyClasses  tutorId={tutorId} onNavigate={setCurrent}/>;
     case "mystudents": return <TutorMyStudents tutorId={tutorId}/>;
     case "classnotes": return <TutorClassNotes tutorId={tutorId}/>;
     case "homework":   return <TutorHomework   tutorId={tutorId}/>;
     case "materials":  return <TutorMaterials  tutorId={tutorId}/>;
-    default:           return <TutorDashboard  tutorId={tutorId} tutorName={tutorName}/>;
+    default:           return <TutorDashboard  tutorId={tutorId} tutorName={tutorName} onNavigate={setCurrent}/>;
   }};
 
   const parentName = linkedProfile?.full_name || who;
   const renderParent=()=>{switch(current){
-    case "dashboard": return <ParentDashboard parentId={parentId} parentName={parentName}/>;
+    case "dashboard": return <ParentDashboard parentId={parentId} parentName={parentName} onNavigate={setCurrent}/>;
+    case "learning":  return <ParentLearning parentId={parentId}/>;
     case "mychild":   return <ParentChild     parentId={parentId}/>;
     case "classes":   return <ParentClasses   parentId={parentId}/>;
     case "homework":  return <ParentHomework  parentId={parentId}/>;
     case "progress":  return <ParentProgress  parentId={parentId}/>;
     case "payments":  return <ParentPayments  parentId={parentId}/>;
-    default:          return <ParentDashboard parentId={parentId} parentName={parentName}/>;
+    default:          return <ParentDashboard parentId={parentId} parentName={parentName} onNavigate={setCurrent}/>;
   }};
 
   const studentName = linkedProfile?.full_name || who;
   const renderStudent=()=>{switch(current){
-    case "dashboard": return <StudentDashboard studentId={studentId} studentName={studentName}/>;
+    case "dashboard": return <StudentDashboard studentId={studentId} studentName={studentName} onNavigate={setCurrent}/>;
     case "myclasses": return <StudentClasses   studentId={studentId}/>;
     case "homework":  return <StudentHomework  studentId={studentId}/>;
     case "materials": return <StudentMaterials studentId={studentId}/>;
     case "progress":  return <StudentProgress  studentId={studentId}/>;
-    default:          return <StudentDashboard studentId={studentId} studentName={studentName}/>;
+    default:          return <StudentDashboard studentId={studentId} studentName={studentName} onNavigate={setCurrent}/>;
   }};
 
   const renderers={
@@ -3432,10 +3328,10 @@ export default function App(){
     student:     renderStudent,
   };
   return(
-    <PortalShell nav={portalNav} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
+    <FamilySelectionProvider key={ownerKey}><PortalShell nav={portalNav} role={role} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
       <StudentCommandBox key={`commands-${ownerKey}`} role={role} tutorId={role==='tutor'?tutorId:null}/>
       {current!=='bookings'&&<BookingNotice key={`booking-notice-${user.id}`} role={role} onOpen={()=>setCurrent('bookings')}/>}
       {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'calendar' ? <React.Suspense fallback={<p role="status">Loading master calendar…</p>}><MasterCalendar key={user.id} role={role} userId={user.id} onNavigate={navigate}/></React.Suspense> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
-    </PortalShell>
+    </PortalShell></FamilySelectionProvider>
   );
 }

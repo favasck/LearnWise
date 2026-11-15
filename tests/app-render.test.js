@@ -17,13 +17,13 @@ test('application renders the real public homepage and account failure screens',
       const html = render({});
       assert.match(html, /LearnWise/);
       assert.match(html, /Smart Guidance/);
-      assert.match(html, /Book Assessment/);
+      assert.match(html, /Request an assessment/);
       assert.match(html, /<nav/);
     });
     await t.test('real auth provider renders homepage when backend configuration is absent', () => {
       const html = renderToString(React.createElement(AuthProvider, null, React.createElement(App)));
       assert.match(html, /Smart Guidance/);
-      assert.match(html, /Book Assessment/);
+      assert.match(html, /Request an assessment/);
       assert.match(html, /<nav/);
     });
     await t.test('session failure renders retry rather than empty content', () => {

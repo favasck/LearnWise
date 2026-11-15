@@ -35,7 +35,7 @@ export function PublicNav({ current, onNav }) {
         {links.map(([key,label]) => <NavLink key={key} to={publicPaths[key]} onNavigate={() => navigate(key)} className="public-nav__link" aria-current={current === key ? 'page' : undefined}>{label}</NavLink>)}
         <div className="public-nav__actions">
           <NavLink to="/login" onNavigate={() => navigate('signin')} className="button button--ghost">Login</NavLink>
-          <NavLink to="/assessment" onNavigate={() => navigate('assessment')} className="button button--primary" aria-current={current === 'assessment' ? 'page' : undefined}>Book Assessment</NavLink>
+          <NavLink to="/assessment" onNavigate={() => navigate('assessment')} className="button button--primary" aria-current={current === 'assessment' ? 'page' : undefined}>Request an assessment</NavLink>
         </div>
       </nav>
     </div>
@@ -70,6 +70,15 @@ export function PublicHome({ onNav }) {
     <section className="home-section home-section--approach"><div className="home-section__heading"><div><div className="eyebrow">More than a lesson</div><h2>Support that stays connected.</h2></div></div><div className="approach-grid">
       {[[Users,'A learner, not a number','Sessions shaped around individual goals, learning pace, and the topics that need attention.'],[Target,'Purposeful practice','Exam preparation and homework that help turn an explanation into lasting understanding.'],[TrendingUp,'A clearer picture','Tutor feedback and learning notes help students and parents understand what comes next.']].map(([Icon,title,description]) => <article className="approach-card" key={title}><Icon size={22} color="#2C5F63"/><h3>{title}</h3><p>{description}</p></article>)}
     </div></section>
+    <section className="home-section home-faq" aria-labelledby="family-questions"><div className="home-section__heading"><div><div className="eyebrow">Before you start</div><h2 id="family-questions">A clearer first step.</h2></div><p>A few answers to help you plan suitable support.</p></div>
+      {[
+        ['Does an assessment request confirm an appointment?','Your request starts a conversation. The academy will contact you to discuss the learner’s needs and agree a date and time before the appointment is confirmed.'],
+        ['What if I am unsure about the curriculum or subject?','Choose “Not sure yet” for the curriculum and tell us which subjects need support. You can describe any uncertainty in the message so the team can discuss it with you.'],
+        ['Can I choose online or in-person tuition?','You can share your preferred format in the assessment request. The team will discuss suitable arrangements and availability with you.'],
+        ['Where can existing families find lessons and feedback?','Sign in to the student or parent portal to see the information shared with your linked account. If a learner is missing, contact the academy to check the account link.'],
+        ['How do I check fees or missed-lesson arrangements?','Ask the academy to explain the fees, scheduling, cancellation and make-up arrangements that apply before confirming tuition. Sending an assessment request does not require payment.'],
+      ].map(([question,answer])=><details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
+    </section>
     <section className="home-section" style={{paddingTop:0}}><div className="assessment-banner"><div><h2>Start with a conversation.</h2><p>Tell us what your child needs. We’ll help you explore the next step with a free assessment request.</p></div><NavLink to="/assessment" onNavigate={() => onNav('assessment')} className="button">Request a free assessment <ArrowRight size={17}/></NavLink></div></section>
   </>;
 }

@@ -1,0 +1,24 @@
+import React,{useRef,useState} from 'react';
+import {Button,Field} from '../ui';
+import {lessonTime} from './experience';
+
+export default function TutorFeedbackForm({value,onChange,students,classes,busy,error,onSave,onCancel}){
+  const [review,setReview]=useState(false),[errors,setErrors]=useState({});
+  const form=useRef(null);
+  const student=students.find(s=>s.id===value.student_id);
+  const lesson=classes.find(c=>c.id===value.class_id);
+  const change=(key,next)=>{onChange({...value,[key]:next});setErrors(old=>({...old,[key]:undefined}));};
+  const next=event=>{event.preventDefault();const found={};if(!value.student_id)found.student_id='Choose the learner.';if(!value.topic.trim())found.topic='Enter the topic covered.';if(value.class_id&&(!lesson||lesson.student_id!==value.student_id))found.class_id='Choose a lesson for this learner.';setErrors(found);if(Object.keys(found).length){requestAnimationFrame(()=>form.current?.querySelector('[aria-invalid=true]')?.focus());return;}setReview(true);};
+  const audience=[value.is_shared_with_parent?'linked parent':null,value.is_shared_with_student?'student':null].filter(Boolean);
+  if(review)return <section className="feedback-review" aria-label="Review lesson feedback"><h3>Check the update before saving</h3><p className="experience-explainer">Attendance is recorded separately in Lessons. Saving this update does not change attendance.</p><dl className="review">{[['Learner',student?.full_name||'Not available'],['Lesson',lesson?`${lesson.subject} · ${lessonTime(lesson.scheduled_at)}`:'Not linked to a lesson'],['Topic',value.topic],['Understanding',value.understanding],['Strengths',value.strengths],['Focus areas',value.areas_to_improve],['Next step',value.recommendation],['Summary',value.summary]].filter(([,text])=>text).map(([label,text])=><div key={label}><dt>{label}</dt><dd style={{whiteSpace:'pre-wrap'}}>{text}</dd></div>)}</dl><p className="feedback-audience"><strong>Visibility:</strong> {audience.length?`Shared in the portal with the ${audience.join(' and ')}.`:'Private to authorised staff; not shared with the family.'}</p><p className="field__hint">This does not send an email or WhatsApp message.</p>{error&&<p className="form-notice" role="alert">{error}</p>}<div className="mobile-form-actions"><Button variant="ghost" disabled={busy} onClick={()=>setReview(false)}>Keep editing</Button><Button disabled={busy} onClick={onSave}>{busy?'Saving…':audience.length?'Save shared feedback':'Save private feedback'}</Button></div></section>;
+  return <form ref={form} onSubmit={next} noValidate className="tutor-feedback-form">
+    {error&&<p className="form-notice" role="alert">{error}</p>}
+    <Field label="Student" required error={errors.student_id}><select value={value.student_id} onChange={e=>{onChange({...value,student_id:e.target.value,class_id:''});setErrors(previous=>({...previous,student_id:undefined,class_id:undefined}));}}><option value="">Choose student</option>{students.filter(s=>!s.deleted_at).map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select></Field>
+    <Field label="Linked lesson (optional)" error={errors.class_id}><select value={value.class_id} onChange={e=>change('class_id',e.target.value)}><option value="">No linked lesson</option>{classes.filter(c=>!c.deleted_at&&c.student_id===value.student_id).map(c=><option key={c.id} value={c.id}>{c.subject} · {lessonTime(c.scheduled_at)}</option>)}</select></Field>
+    <Field label="Topic covered" required error={errors.topic}><input value={value.topic} onChange={e=>change('topic',e.target.value)} maxLength={300}/></Field>
+    <Field label="Understanding level" hint="Your observation of this lesson, not an exam grade."><select value={value.understanding} onChange={e=>change('understanding',e.target.value)}><option value="">Not assessed</option>{['Excellent','Good','Fair','Needs Support'].map(level=><option key={level}>{level}</option>)}</select></Field>
+    {[["strengths","What went well?"],["areas_to_improve","What needs practice?"],["recommendation","What should the learner do next?"],["summary","Plain-language lesson summary"]].map(([key,label])=><Field key={key} label={label}><textarea rows={3} value={value[key]} maxLength={4000} onChange={e=>change(key,e.target.value)}/></Field>)}
+    <fieldset className="feedback-sharing"><legend>Who can read this update?</legend><label><input type="checkbox" checked={value.is_shared_with_parent} onChange={e=>change('is_shared_with_parent',e.target.checked)}/>Share with linked parent</label><label><input type="checkbox" checked={value.is_shared_with_student} onChange={e=>change('is_shared_with_student',e.target.checked)}/>Share with student</label></fieldset>
+    <div className="mobile-form-actions"><Button variant="ghost" disabled={busy} onClick={onCancel}>Cancel</Button><Button type="submit" disabled={busy}>Review feedback</Button></div>
+  </form>;
+}
