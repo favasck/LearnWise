@@ -29,8 +29,8 @@ The in-app QA System Test page offers the same checklist with result/evidence fi
 ## Students, parents and tutors
 
 - [ ] **PEOPLE-01** Create/edit students, parents and tutors with valid/invalid inputs; saved fields and state survive reload.
-- [ ] **PEOPLE-02** Add a parent by selecting one or several existing students without an actual name. Verify Parent of [names], grade, school and curriculum after reload.
-- [ ] **PEOPLE-03** Add the actual name later and change selected children. Portal links update; deleted or already-linked students are not accidentally reassigned.
+- [ ] **PEOPLE-02** Every existing and newly created student has an automatic Parent of [name] entry. Verify grade, school, curriculum, reload persistence and no duplicates when the backfill repeats.
+- [ ] **PEOPLE-03** Add the actual parent name later; group siblings under one parent with explicit confirmation. Verify one family card, preserved old contacts and no accidental or cross-team reassignment.
 - [ ] **PEOPLE-04** Interrupt parent/student linking and retry. Successful links remain; failed links are explained; no duplicate parent is created.
 - [ ] **PEOPLE-05** Link role accounts; assign and revoke tutors. Verify portal access and loss of unrelated access.
 
