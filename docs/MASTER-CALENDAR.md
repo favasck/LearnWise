@@ -23,7 +23,7 @@ There are 629 unique reference papers/windows. Practical windows repeated across
 
 No Qatar start time is inferred from AM/PM or a published UK session. Reference exams are date-only entries with the board's session label; exact local time, zone and paper eligibility must be confirmed with the exam centre. A practical/speaking window is not a guaranteed sitting on every date. These master references do not enrol students or block all tutoring sessions. The existing student-specific exam records continue to prevent overlapping booking confirmations.
 
-The Qatar layer covers 2026 and 2027. National Day (18 December) and National Sports Day (second Tuesday in February) follow the [Council of Ministers' official holiday rules](https://www.cm.gov.qa/en/Pages/official_holidays.aspx). Eid holiday ranges and Ramadan's first day are **provisional projections**, converted with the runtime's Islamic Umm al-Qura calendar. They are explicitly labelled estimated and may differ from Qatar announcements. Ramadan is labelled an observance, not a public holiday. A tutor can replace a projected date when an official announcement is available.
+Qatar dates are generated for the year currently displayed. National Day (18 December) and National Sports Day (second Tuesday in February) follow the [Council of Ministers' official holiday rules](https://www.cm.gov.qa/en/Pages/official_holidays.aspx). Eid holiday ranges and Ramadan's first day are **provisional projections**, converted with the runtime's Islamic Umm al-Qura calendar. They are explicitly labelled estimated and may differ from Qatar announcements. Ramadan is labelled an observance, not a public holiday. A tutor can replace a projected date when an official announcement is available.
 
 ## Tutor control and privacy
 
@@ -40,3 +40,4 @@ Database source: `docs/sql/master_calendar.sql`, applied after scoped teams and 
 All 167 local tests pass. New tests cover source/date integrity, unique IDs, known paper dates, provisional holiday flags, combined filters, time boundaries, scoped/private reads, family write denial, tutor shared edits, immutable identity, stale versions, retained removal/restoration/audit, UI retries and operational navigation. Production build and built-application render checks pass. The calendar and its date catalogue load in a separate JavaScript chunk. Authenticated browser and mobile visual acceptance have not been performed.
 
 The catalogue is a dated snapshot, not an automatic feed. Review official revisions and future series before updating the JSON; preserve catalogue keys so tutor overrides/removals survive refreshes. Keep AM/PM labels date-only until the centre confirms local times.
+

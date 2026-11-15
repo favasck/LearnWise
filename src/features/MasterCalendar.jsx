@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Field, Modal, tokens } from '../ui';
 import * as db from '../services/supabaseData';
 import { qatarInput } from '../services/booking';
-import { CALENDAR_CATEGORIES, CALENDAR_CHECKED_ON, CALENDAR_SOURCES, canManageCalendar, calendarEntryPayload, filterCalendarEntries, masterCalendarEntries } from '../services/masterCalendar';
+import { CALENDAR_CATEGORIES, CALENDAR_CHECKED_ON, CALENDAR_SOURCES, canManageCalendar, calendarEntryPayload, filterCalendarEntries, masterCalendarEntries, officialExamEntries, qatarHolidayEntries } from '../services/masterCalendar';
 import MasterCalendarGrid, { calendarColors, eventWhen } from './MasterCalendarGrid';
 import MasterCalendarEditor from './MasterCalendarEditor';
 import { bookingGrid } from './BookingFields';
@@ -14,7 +14,7 @@ export default function MasterCalendar({role,userId,service=db,onNavigate}) {
   const manager=canManageCalendar(role),root=['super_admin','admin'].includes(role);
   const [data,setData]=useState(emptyData),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [ready,setReady]=useState(false);
-  const [month,setMonth]=useState(()=>qatarInput(new Date()).slice(0,7)),[view,setView]=useState('month');
+  const [month,setMonth]=useState(()=>qatarInput(new Date()).slice(0,7)),[view,setView]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(max-width:760px)').matches?'agenda':'month');
   const [categories,setCategories]=useState(Object.keys(CALENDAR_CATEGORIES)),[board,setBoard]=useState(''),[search,setSearch]=useState(''),[taskStatus,setTaskStatus]=useState(''),[removed,setRemoved]=useState(false);
   const [selected,setSelected]=useState(null),[day,setDay]=useState(''),[editor,setEditor]=useState(null);
   async function load(){setLoading(true);setReady(false);setError('');try{
@@ -24,7 +24,9 @@ export default function MasterCalendar({role,userId,service=db,onNavigate}) {
     setData(Object.fromEntries(['entries','classes','exams','requests','homework'].map((key,i)=>[key,results[i].data||[]])));setReady(true);return true;
   }catch{setError('Unable to load saved calendar entries. Refresh to retry.');return false;}finally{setLoading(false);}}
   useEffect(()=>{load();},[role,userId]);
-  const all=useMemo(()=>masterCalendarEntries(data),[data]);
+  const calendarYear=Number(month.slice(0,4));
+  const catalogue=useMemo(()=>[...officialExamEntries(),...qatarHolidayEntries([calendarYear])],[calendarYear]);
+  const all=useMemo(()=>masterCalendarEntries(data,catalogue),[data,catalogue]);
   const events=useMemo(()=>filterCalendarEntries(all,{categories,month,board,search,taskStatus,showRemoved:manager&&removed}),[all,categories,month,board,search,taskStatus,manager,removed]);
   const boards=[...new Set(all.filter(e=>e.category==='Exam'&&e.board).map(e=>e.board))].sort();
   function shift(delta){const[y,m]=month.split('-').map(Number);setMonth(new Date(Date.UTC(y,m-1+delta,1)).toISOString().slice(0,7));setDay('');}
@@ -66,8 +68,9 @@ export default function MasterCalendar({role,userId,service=db,onNavigate}) {
         <Button variant="ghost" disabled={busy||!ready} onClick={()=>save(selected,calendarEntryPayload(selected,{verification:selected.verification==='Published timetable'||selected.verification==='Official rule'?'Tutor entered':selected.verification,deleted_at:selected.deleted_at?null:new Date().toISOString()}),selected.deleted_at?'Calendar entry restored.':'Calendar entry removed. Use the removed-entry filter to restore it.')}>
           {selected.deleted_at?'Restore entry':selected.visibility==='private'?'Remove private entry':'Remove shared date for everyone'}
         </Button>
-      </div>:['class','exam','request','homework'].includes(selected.origin)&&<Button onClick={()=>manageOperational(selected)}>Manage in {selected.origin==='class'?'Classes':selected.origin==='homework'?'Homework':'Bookings'}</Button>}
+      </div>:['class','exam','request','homework'].includes(selected.origin)&&<Button onClick={()=>manageOperational(selected)}>Manage in {selected.origin==='class'?'Classes':selected.origin==='homework'?'Homework':selected.origin==='exam'?'Exam dates':'Bookings'}</Button>}
       {selected.visibility==='shared'&&editable(selected)&&<p>Changes to this shared master date apply to everyone. Classes and student-specific exam records are managed separately.</p>}
     </Modal>}
   </section>;
 }
+

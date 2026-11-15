@@ -20,6 +20,10 @@ test('master calendar filters, tutor edits, retries and shared-date restoration 
   const emptyService=()=>({getMasterCalendarEntries:async()=>({data:[]}),getClasses:async()=>({data:[]}),getStudentExams:async()=>({data:[]}),getBookingRequests:async()=>({data:[]}),getHomework:async()=>({data:[]})});
   try{
     const {default:MasterCalendar}=await server.ssrLoadModule('/src/features/MasterCalendar.jsx');
+    await t.test('Qatar recurring dates are available in years beyond the exam catalogue',async()=>{
+      await mount(React.createElement(MasterCalendar,{role:'tutor',userId:'tutor',service:emptyService()}));await input('Master calendar month','2032-12');await input('Calendar view','agenda');
+      assert.match(document.querySelector('[aria-label="Calendar agenda"]').textContent,/Qatar National Day/);
+    });
     await t.test('combined view includes classes, student exams and homework; type and board filters combine',async()=>{
       let destination;
       const service={...emptyService(),getMasterCalendarEntries:async()=>({data:[{id:'shared',title:'Board Biology',category:'Exam',visibility:'shared',board:'Cambridge',starts_on:'2030-01-02',ends_on:'2030-01-02',all_day:true,version:1}]}),getClasses:async()=>({data:[{id:'class',student:{full_name:'Class Learner'},subject:'Math',scheduled_at:'2030-01-02T08:00Z',duration_min:60}]}),getStudentExams:async()=>({data:[{id:'exam',student:{full_name:'Exam Learner'},title:'School physics',scheduled_at:'2030-01-03T08:00Z',duration_min:90}]}),getHomework:async()=>({data:[{id:'homework',title:'Homework worksheet',due_at:'2030-01-04T08:00Z'}]})};
@@ -55,3 +59,4 @@ test('master calendar filters, tutor edits, retries and shared-date restoration 
     });
   }finally{if(root)await act(async()=>root.unmount());await server.close();dom.window.close();for(const[key,descriptor]of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}}
 });
+
