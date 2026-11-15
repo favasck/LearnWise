@@ -119,12 +119,12 @@ test('public journeys preserve navigation, validate inputs and recover from fail
         loadTutor:async()=>({data:{full_name:'Hiba',subjects:['Biology'],curriculum:['IGCSE']},error:null}),
         saveProfile:async payload=>{writes.push(payload);return {error:writes.length===1?{message:'Connection interrupted'}:null};},
       })));
-      await input('Full name','Hiba Zubair Updated'); await input('Phone','55408331'); await submit();
+      await input('Full name','Hiba Zubair Updated'); await input('Phone','00000000'); await submit();
       assert.match(document.querySelector('[role="alert"]').textContent,/Connection interrupted/);
       assert.equal(document.querySelector('input[autocomplete="name"]').value,'Hiba Zubair Updated');
       assert.equal([...document.querySelectorAll('label')].find(label=>label.textContent==='Account role').nextElementSibling.readOnly,true);
       await submit();
-      assert.deepEqual(writes[1],{full_name:'Hiba Zubair Updated',phone:'55408331'});
+      assert.deepEqual(writes[1],{full_name:'Hiba Zubair Updated',phone:'00000000'});
       assert.equal(refreshed,1);assert.match(document.querySelector('[role="status"]').textContent,/saved/);
       assert.match(document.body.textContent,/Biology/);
     });
