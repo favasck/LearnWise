@@ -96,7 +96,51 @@ test('public journeys preserve navigation, validate inputs and recover from fail
     const {Modal} = await server.ssrLoadModule('/src/ui.jsx');
     const {default:PortalShell} = await server.ssrLoadModule('/src/features/PortalShell.jsx');
     const {useNavigation} = await server.ssrLoadModule('/src/features/navigation.jsx');
+    const {default:ProfileSettings} = await server.ssrLoadModule('/src/features/ProfileSettings.jsx');
+    const {default:SessionCalendar} = await server.ssrLoadModule('/src/features/SessionCalendar.jsx');
+    const {default:RecordHistory} = await server.ssrLoadModule('/src/features/RecordHistory.jsx');
     const renderApp = () => React.createElement(AuthContext.Provider,{value:{user:null,profile:null,loading:false,signOut(){},refreshProfile(){}}},React.createElement(App));
+    await t.test('every role can open personal settings directly, including unlinked accounts',async () => {
+      for (const role of ['super_admin','admin_tutor','tutor','parent','student']) {
+        window.history.replaceState({},'','/portal/profile');
+        await mount(React.createElement(AuthContext.Provider,{value:{user:{id:'profile-user',email:'user@example.test'},profile:{id:'profile-user',full_name:'Profile User',role,status:'Active'},loading:false,signOut(){},refreshProfile(){}}},React.createElement(App)));
+        assert.equal(window.location.pathname,'/portal/profile');
+        assert.ok(document.querySelector('form'));
+        assert.match(document.querySelector('main').textContent,/Personal details/);
+        assert.equal(document.querySelector('a[aria-label="Open your profile settings"]').getAttribute('href'),'/portal/profile');
+        if (role === 'tutor') assert.equal(document.querySelector('a[href="/portal/users"]'),null);
+      }
+      window.history.replaceState({},'','/');
+    });
+    await t.test('profile save retries preserve edits and send only personal fields',async () => {
+      const writes=[];let refreshed=0;
+      const auth={user:{id:'hiba'},profile:{full_name:'Hiba Zubair',email:'hiba@example.test',role:'tutor',status:'Active'},refreshProfile:async()=>{refreshed++;}};
+      await mount(React.createElement(AuthContext.Provider,{value:auth},React.createElement(ProfileSettings,{
+        loadTutor:async()=>({data:{full_name:'Hiba',subjects:['Biology'],curriculum:['IGCSE']},error:null}),
+        saveProfile:async payload=>{writes.push(payload);return {error:writes.length===1?{message:'Connection interrupted'}:null};},
+      })));
+      await input('Full name','Hiba Zubair Updated'); await input('Phone','55408331'); await submit();
+      assert.match(document.querySelector('[role="alert"]').textContent,/Connection interrupted/);
+      assert.equal(document.querySelector('input[autocomplete="name"]').value,'Hiba Zubair Updated');
+      assert.equal([...document.querySelectorAll('label')].find(label=>label.textContent==='Account role').nextElementSibling.readOnly,true);
+      await submit();
+      assert.deepEqual(writes[1],{full_name:'Hiba Zubair Updated',phone:'55408331'});
+      assert.equal(refreshed,1);assert.match(document.querySelector('[role="status"]').textContent,/saved/);
+      assert.match(document.body.textContent,/Biology/);
+    });
+    await t.test('calendar preserves paired names, Qatar date and start/end times',async()=>{
+      await mount(React.createElement(SessionCalendar,{sessions:[{id:'pair',student:{full_name:'Aisha & Muneera'},subject:'Biology',scheduled_at:'2026-10-17T08:00:00Z',duration_min:120},{id:'deleted',student:{full_name:'Deleted lesson'},scheduled_at:'2026-10-17T08:00:00Z',duration_min:60,deleted_at:'2026-10-18'}]}));
+      await input('Calendar month','2026-10');
+      assert.match(document.body.textContent,/Aisha & Muneera/);
+      assert.match(document.body.textContent,/11:00–13:00/);
+      assert.doesNotMatch(document.body.textContent,/Deleted lesson/);
+    });
+    await t.test('record history shows the retained deletion and edited fields',async()=>{
+      await mount(React.createElement(RecordHistory,{table:'invoices',id:'invoice',onClose(){},loadHistory:async()=>({data:[{id:'history',action:'edited',actor_role:'admin_tutor',created_at:'2026-11-15T08:00:00Z',old_data:{total_qar:100},new_data:{total_qar:150}},{id:'deleted',action:'deleted',actor_role:'admin_tutor',created_at:'2026-11-15T09:00:00Z',old_data:{deleted_at:null},new_data:{deleted_at:'2026-11-15T09:00:00Z'}}]})}));
+      assert.match(document.body.textContent,/100 → 150/);
+      assert.match(document.body.textContent,/deleted/);
+      assert.match(document.body.textContent,/admin tutor/);
+    });
     await t.test('real links change URLs; Back and refresh preserve the page',async () => {
       await mount(renderApp());
       await click(document.querySelector('nav a[href="/subjects"]'));

@@ -1,21 +1,21 @@
 # Role permissions
 
-| Intended role | Intended authority | Baseline mismatch |
-|---|---|---|
-| super_admin | Platform administration, roles, settings, authorized deletion, audit | Not accepted by SQL role constraint/helper |
-| admin_tutor | Authorized academic/tuition operations; no unrestricted roles/deletion | Frontend shares unguarded admin mutation components; SQL does not recognize role |
-| tutor | Assigned students/classes, owned academic records, limited attendance | SQL permits broad owned-row writes and lacks assignment validation for content |
-| parent | Linked children's permitted academic and financial views | Row scopes exist; column disclosure/recursion/revocation need verification |
-| student | Own permitted academic data and homework submission | UI is read-only; submission SQL grants whole-row update |
-| legacy admin | Existing SQL administrative authority | Requires ownership inventory before canonical mapping |
+Current rules agreed on 15 November 2026. These supersede the previous global Admin Tutor rules.
 
-Batch 1 preserves the actual baseline role model. Ordinary authenticated users can edit only full_name/phone on rows allowed by existing RLS. Permission changes require active legacy admin via RPC and cannot target the actor themselves. No canonical role is granted by this migration.
+| Role | Scope and capabilities |
+|---|---|
+| Super Admin | All records; account role/status changes; explicit tutor-team assignments. Role changes are audited and automatically refresh the affected account. |
+| Admin Tutor | Own work, people and explicitly assigned tutors. Add/edit/retained-delete students, parents, classes, materials, payments, invoices, homework and class notes inside that scope. No global role/settings access. |
+| Tutor | Own tutor record, assigned students and their parents, own classes and academic content. Cannot see another tutor or their people. Class changes are limited to attendance/status. |
+| Parent | Linked children and permitted academic/financial information. |
+| Student | Own permitted academic information. |
 
-Next authorization review must decide legacy account mapping, Tutor Admin scope, organization ownership, self-service field policy and sensitive-action reasons. Then implement separate DB capabilities and test each role/action/relationship pair, including suspended sessions and revoked assignments.
+Every role has personal Profile Settings. Self-service edits are restricted to name and phone; email, role and account status are read-only. Personal changes synchronize to linked role records.
 
+Tutors are assigned to one Admin Tutor using Tutors > Edit > Admin Tutor team (Super Admin). Newly created tutors under an Admin Tutor are assigned to that account automatically. No existing tutor is assigned implicitly. Switching an account to Tutor/Parent/Student/Admin Tutor reuses or creates the appropriate linked record. Role downgrades revoke team access at the database immediately; the browser receives realtime updates with focus/15-second fallback checks.
 
-## Empty-project bootstrap (2026-11-07)
+Deletion retains the original row, relationships, actor, timestamp and immutable before/after history. Deleted records are read-only; invoices and payments expose History. Payment edits/deletions recalculate invoice totals transactionally. Unknown legacy invoice ownership remains Super Admin-only until assigned explicitly. Invoice numbers use a server sequence across teams.
 
-The new bootstrap preserves the legacy role constraint (`admin`, `tutor`, `parent`, `student`); it makes no canonical staff mapping. Active persisted admin retains baseline CRUD authority. Profiles permit only self name/phone edits; the existing hardening RPC remains the sole client permission-change path. Tutors read assigned student/class rows and manage their own academic content only for active assignments and matching classes. Class updates permit only attendance/status. Parents read linked rows and parent-shared notes; students read their own rows and student-shared notes. Students receive no broad homework UPDATE grant. Public visitors can insert enquiries but cannot read them. General audit rows allow active-admin append/read, no client edits/deletes; permission audit remains RPC-only and atomic. Suspended accounts cannot use relationship helpers to retain data access.
+Database changes are versioned by Supabase migrations. SQL sources: docs/sql/scoped_team_permissions.sql, then docs/sql/role_rpc_privileges.sql. The CLI was unavailable and npm access was restricted, so the connected Supabase migration tool applied the scripts. Do not replay the older bootstrap over this release: it contains superseded global policies.
 
-These rules are exercised against actual bootstrap SQL in `tests/bootstrap-schema.test.js`. This resolves empty-project ordering/replay and several baseline relationship defects. It does not resolve column disclosure within otherwise permitted rows, canonical staff capabilities, complete audit coverage, or student submission. Those are explicit launch gaps in LAUNCH-CHECKLIST and FEATURE-AUDIT.
+Verification: tests/scoped-teams.test.js exercises real PostgreSQL RLS/trigger/RPC behavior; rendered tests cover personal settings, Qatar calendar times and retained history. Live rollback-only probes verify Hiba's role switching, scope isolation, invoice/payment CRUD and totals without retaining test data.

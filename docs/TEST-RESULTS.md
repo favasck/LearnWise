@@ -1,5 +1,9 @@
 # Test results
 
+## Scoped roles and profiles - 2026-11-15
+
+123 tests pass. Build and built-artifact render checks pass. Live rollback-only tests: Super Admin switches Hiba between Tutor/Admin Tutor; Hiba reads 57 linked classes and zero unrelated tutors. Invoice/payment add/edit/retained-delete, recalculated totals and server audit records pass. Synthetic changes rolled back.
+
 ## UI release completion — 2026-11-10
 
 - `npm test`: 106 tests pass, including subject URL persistence, expired-link recovery, refresh/expiry/account-switch recovery state and missing-client portal queries.
