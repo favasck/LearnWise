@@ -1,23 +1,38 @@
-# Availability and booking requests
+# Availability, recurring requests and exam planning
 
-First release, 15 November 2026. Portal route: `/portal/bookings`.
+Portal route: `/portal/bookings`. Updated 15 November 2026.
 
-Tutors and scoped staff publish dated availability windows with mode, preferred area and a travel buffer. They can close a window without cancelling confirmed classes. The share link opens the portal after sign-in; only a linked parent/student with an active tutor assignment can request a class. The link contains no personal data and grants no access by itself.
+## Family booking
 
-Families select an availability window or suggest their own time, choose one to three preferences, and supply subject, duration, location and flexibility notes. Free start times are calculated at 15-minute intervals for the selected duration and address. Requests are one-time and never reserve a slot. They do not create invoices, charges or attendance records.
+A linked parent or student selects the student record and enters the student's name, details, subject, class mode and location. Names/details are booking snapshots; they do not change the linked student record or grant access to another student. In-person requests require an address. Session length is selected from 1, 1.5, 2, 2.5 or 3 hours.
 
-Tutors review pending requests alongside that day's classes and locations. Confirming the original first preference creates one normal Scheduled class. To choose any other preference or time, use Propose another time. Only the family can accept a proposal. Declines require a reason in the interface; families can withdraw unresolved requests. All transitions have retained activity records. Portal notices refresh on focus and every minute; this release sends no email or WhatsApp messages.
+Families choose a published date/slot or suggest their own first session, with up to two alternative first-session times. Published windows contain no preferred-area option. Tutors can offer online, in-person, or either mode. Free start times are calculated every 15 minutes for the selected duration, mode and address, excluding class/travel and student-exam clashes.
 
-Confirmation rechecks current assignment, future time, availability for an unchanged original request, and class conflicts. Expected versions reject stale replies; row locks and a unique class reference prevent repeated confirmation. Schedule mutations from existing admin forms also use the transaction-scoped conflict guard. Tutor and student overlaps are blocked. Different locations or switching between online and in-person sessions use the larger adjacent travel buffer. Exact matching, nonempty addresses allow consecutive in-person classes. Area labels are guidance; the tutor must verify actual addresses. No geocoding or route-distance service is used.
+Repeat options are one session, once weekly, twice weekly, every two weeks, or monthly. Families choose the weekday(s) and a finite session count. Weekly patterns use the first session's time on every chosen day; fortnightly uses alternate Sunday-based weeks anchored to the first session. Monthly uses the original day of month, clamped to the month's last day when needed. The UI previews every date. A published window applies to the first session only; the tutor explicitly reviews later dates. Up to 24 sessions are supported within a year of the first date (the monthly UI caps at 12). The first session must be within 180 days.
 
-The conflict guard serializes scheduling changes with one transaction advisory lock. This is suitable for the current small operation; revisit lock granularity before scaling. Existing overlapping records are not rewritten. Historical attendance/status changes remain possible without rescheduling a lesson. New or moved sessions must last 15–240 minutes.
+## Tutor review and calendar
 
-## Database and release evidence
+The planning calendar shows confirmed classes, pending requests, proposed schedules and student exam dates with visible status labels and distinct colors. Clicking a request opens its review card. Pending/proposed dates do not reserve time. Families see only their own classes, requests and exams; tutors/staff retain existing team scope.
 
-Source: `docs/sql/booking_requests.sql`, applied to the LearnWise project through Supabase migration `20261115083038_tutor_availability_booking_requests`. Requires the existing scoped-team and private-RPC migrations. The local Supabase CLI could not be downloaded in this environment, so migration creation/application used the connected Supabase tool and its generated migration version.
+Tutors can confirm the submitted schedule, decline with a reason, or propose a different date/time, duration, class mode, location and repeat pattern. Proposals show all updated details and require family acceptance. The request history retains snapshots of the original and subsequent details. Version checks reject stale responses.
 
-All three tables have RLS. Anonymous reads and RPC execution are revoked. Authenticated clients cannot insert/update requests or activity rows directly; checked invoker RPC wrappers call private implementations. Availability writes are limited to the tutor or authorized scoped staff. Free-slot responses contain timestamps only. Live grant/RLS queries verified these boundaries; the security advisor found no new database findings.
+Confirmation generates all occurrences as ordinary classes linked by `booking_request_id`. A request row lock, unique class occurrence index and transaction advisory scheduling lock protect posting. Any class, student, travel or exam clash on any occurrence aborts the entire series. No invoice/charge is created by the request workflow. Existing dated requests and confirmed classes are preserved. Further changes to confirmed individual classes use existing Classes controls; negotiating edits to an already confirmed whole series is outside this release.
 
-Validation: 134 automated tests pass, including real PostgreSQL-compatible PGlite workflow tests and DOM interaction tests for tutor proposals, family acceptance and retry preservation. Production build and built-application render checks pass. Tests cover unrelated-family isolation, stale versions, repeat acceptance, revoked assignments, closed windows, tutor/student overlap and same/different location travel rules. No authenticated browser acceptance test or simultaneous multi-connection load test has been performed.
+Travel rules use the larger adjacent buffer when locations differ or switching between online and in-person classes. Exact matching nonempty in-person addresses permit adjacent lessons. Tutors must verify addresses; no map-distance service is used.
 
-Future phases: weekly recurrence and exceptions, explicit reschedule negotiations, waitlists/expiry, location grouping suggestions, map travel estimates, and optional messaging integrations.
+Parents, students and authorized tutors/staff can add, edit and retain-delete student exam entries within their existing scope. Adding an exam records the actual exam even if a class already exists; the calendar makes both visible so the class can be changed. New confirmations and moved/reactivated classes cannot overlap that student's recorded exam. Exam changes and class confirmations share the scheduling lock. Exam data is entered manually; no official timetable feed is implied.
+
+The share link opens sign-in and grants no access on its own. Portal notices refresh on focus and every minute. No email or WhatsApp messages are sent.
+
+## Database and verification
+
+Apply source files in order after the scoped-team/private-RPC migrations:
+
+1. `docs/sql/booking_requests.sql` — applied as `20261115083038_tutor_availability_booking_requests`.
+2. `docs/sql/recurring_booking_review.sql` — applied as `20261115090400_recurring_booking_review_and_student_exams`.
+
+The CLI package is unavailable in this environment; the connected Supabase tool created the versioned migrations. The upgrade removes the area requirement, retains the deprecated column for compatibility, adds recurrence/student snapshots, class linkage and exam entries, and keeps the original time-only response RPC for older clients. New clients use `review_booking_request` and `booking_slots_v2`.
+
+Booking and exam tables use RLS. Anonymous reads/RPC execution are revoked. Clients cannot directly change requests or activity history. Exam column grants prevent changing identity/creator; scoped policies restrict reads and writes. Checked invoker API wrappers call private privileged implementations. Live metadata and recurrence queries verified the upgrade; the security advisor found no new database findings.
+
+Validation: all 151 local automated tests pass, including PostgreSQL-compatible PGlite workflow tests, recurrence/preview parity, month ends, every repeat frequency, later-occurrence rollback, exam isolation, fixed durations, full tutor proposals, acceptance and retry preservation. DOM tests cover typed student details, duration options, weekday selection and the combined calendar. Production build and built-application render checks pass. Authenticated browser and simultaneous multi-connection load testing have not been performed.

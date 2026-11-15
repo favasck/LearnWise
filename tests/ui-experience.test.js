@@ -81,7 +81,7 @@ test('public journeys preserve navigation, validate inputs and recover from fail
     assert.ok(targetLabel,`Label exists: ${label}`);
     const control = document.getElementById(targetLabel.htmlFor);
     assert.ok(control,`Label is associated: ${label}`);
-    const prototype = control.tagName === 'TEXTAREA' ? dom.window.HTMLTextAreaElement.prototype : dom.window.HTMLInputElement.prototype;
+    const prototype = control.tagName === 'TEXTAREA' ? dom.window.HTMLTextAreaElement.prototype : control.tagName === 'SELECT' ? dom.window.HTMLSelectElement.prototype : dom.window.HTMLInputElement.prototype;
     await act(async () => {
       Object.getOwnPropertyDescriptor(prototype,'value').set.call(control,value);
       control.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
@@ -103,7 +103,7 @@ test('public journeys preserve navigation, validate inputs and recover from fail
     await t.test('family booking alternative retries preserve reply and post the expected version',async()=>{
       let request={id:'request',student_id:'student',tutor_id:'tutor',student:{full_name:'Test Student'},tutor:{full_name:'Test Tutor'},subject:'Math',scheduled_at:'2030-01-02T14:00Z',preferred_times:['2030-01-02T13:00Z'],duration_min:60,mode:'Offline',location:'Building A',status:'Proposed',version:2,booking_events:[]};
       const writes=[];
-      const service={getBookingRequests:async()=>({data:[request]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[]}),getTutors:async()=>({data:[]}),respondBookingRequest:async(...args)=>{writes.push(args);if(writes.length===1)return {error:{message:'Connection interrupted'}};request={...request,status:'Confirmed',version:3};return {data:'request'};}};
+      const service={getBookingRequests:async()=>({data:[request]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[]}),getTutors:async()=>({data:[]}),getClasses:async()=>({data:[]}),getStudentExams:async()=>({data:[]}),reviewBookingRequest:async(...args)=>{writes.push(args);if(writes.length===1)return {error:{message:'Connection interrupted'}};request={...request,status:'Confirmed',version:3};return {data:'request'};}};
       await mount(React.createElement(BookingRequests,{role:'parent',service}));
       assert.match(document.body.textContent,/Accept alternative/);
       assert.doesNotMatch(document.body.textContent,/Confirm requested time/);
@@ -113,20 +113,47 @@ test('public journeys preserve navigation, validate inputs and recover from fail
       assert.equal([...document.querySelectorAll('textarea')].find(e=>e.value==='That works for us')?.value,'That works for us');
       await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Accept alternative'));
       assert.equal(writes[1][0].version,2);assert.equal(writes[1][1],'accept');assert.equal(writes[1][3],'That works for us');
-      assert.match(document.body.textContent,/Class confirmed and added to the calendar/);
+      assert.match(document.body.textContent,/Schedule confirmed and added to the calendar/);
     });
     await t.test('tutor sees locations and sends an alternative without confirming it',async()=>{
       const request={id:'request',student_id:'student',tutor_id:'tutor',student:{full_name:'Test Student'},subject:'Math',scheduled_at:'2030-01-02T14:00Z',preferred_times:['2030-01-02T13:00Z'],duration_min:60,mode:'Offline',location:'Building A',status:'Pending',version:1};
       const writes=[];
-      const service={getBookingRequests:async()=>({data:[request]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[]}),getTutors:async()=>({data:[]}),getClasses:async()=>({data:[{id:'nearby',tutor_id:'tutor',scheduled_at:'2030-01-02T12:00Z',duration_min:60,mode:'Offline',location:'Building A',status:'Scheduled'}]}),respondBookingRequest:async(...args)=>{writes.push(args);return {data:'request'};}};
+      const service={getBookingRequests:async()=>({data:[request]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[]}),getTutors:async()=>({data:[]}),getClasses:async()=>({data:[{id:'nearby',tutor_id:'tutor',scheduled_at:'2030-01-02T12:00Z',duration_min:60,mode:'Offline',location:'Building A',status:'Scheduled'}]}),getStudentExams:async()=>({data:[]}),reviewBookingRequest:async(...args)=>{writes.push(args);return {data:'request'};}};
       await mount(React.createElement(BookingRequests,{role:'tutor',service}));
-      assert.match(document.body.textContent,/Classes and locations on this day/);
+      assert.match(document.body.textContent,/Classes, locations and exams on this day/);
       assert.match(document.body.textContent,/Building A/);
-      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Propose another time'));
+      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Change date, hours or mode'));
       await input('Alternative time (Qatar)','2030-01-02T18:00');
+      await input('Proposed session length','150');
+      await input('Proposed class mode','Online');
       await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Send alternative'));
-      assert.equal(writes[0][1],'propose');assert.equal(writes[0][2],'2030-01-02T15:00:00.000Z');
+      assert.equal(writes[0][1],'propose');assert.equal(writes[0][2].scheduled_at,'2030-01-02T15:00:00.000Z');
+      assert.equal(writes[0][2].duration_min,150);assert.equal(writes[0][2].mode,'Online');assert.equal(writes[0][2].location,'');
       assert.match(document.body.textContent,/Waiting for family acceptance/);
+    });
+    await t.test('family books student details, fixed hours, location and two weekly days without a preferred area',async()=>{
+      const writes=[];
+      const service={getBookingRequests:async()=>({data:[]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[{id:'student',full_name:'Test Learner',status:'Active',grade:'Year 10',student_tutors:[{tutor_id:'tutor',is_active:true}]}]}),getTutors:async()=>({data:[{id:'tutor',full_name:'Test Tutor',status:'Active'}]}),getClasses:async()=>({data:[]}),getStudentExams:async()=>({data:[]}),submitBookingRequest:async payload=>{writes.push(payload);return {data:'created'};}};
+      await mount(React.createElement(BookingRequests,{role:'parent',service}));
+      await input('Student record','student');await input('Tutor','tutor');
+      assert.equal(document.getElementById([...document.querySelectorAll('label')].find(e=>e.textContent==='Student name *').htmlFor).value,'Test Learner');
+      await input('Student name','Test Learner Booking');await input('Student details','Year 10 · IGCSE Math');
+      await input('Subject','Math');await input('Session length','90');await input('Class mode','Offline');await input('Student location / address','Building A');
+      await input('First session (Qatar)','2030-01-02T17:00');await input('Repeat','twice_weekly');
+      await click([...document.querySelectorAll('label')].find(e=>e.textContent==='Friday').querySelector('input'));
+      assert.doesNotMatch(document.body.textContent,/Preferred area/);
+      const lengthControl=document.getElementById([...document.querySelectorAll('label')].find(e=>e.textContent==='Session length *').htmlFor);
+      assert.deepEqual([...lengthControl.options].map(o=>o.textContent),['1 hour','1.5 hours','2 hours','2.5 hours','3 hours']);
+      await submit();
+      assert.equal(writes.length,1);assert.equal(writes[0].student_name,'Test Learner Booking');assert.equal(writes[0].student_details,'Year 10 · IGCSE Math');assert.equal(writes[0].duration_min,90);assert.equal(writes[0].location,'Building A');
+      assert.equal(writes[0].recurrence.frequency,'twice_weekly');assert.deepEqual(writes[0].recurrence.weekdays,[3,5]);assert.equal(writes[0].recurrence.count,8);
+    });
+    await t.test('planning calendar shows pending requests and exams alongside confirmed classes',async()=>{
+      let selected;
+      await mount(React.createElement(SessionCalendar,{sessions:[{id:'class',student:{full_name:'Confirmed Learner'},subject:'Math',scheduled_at:'2030-01-02T08:00:00Z',duration_min:90}],requests:[{id:'request-event',request_id:'request',student:{full_name:'Pending Learner'},subject:'Physics',scheduled_at:'2030-01-02T10:00:00Z',duration_min:60,kind:'Pending'}],exams:[{id:'exam',student:{full_name:'Exam Learner'},title:'Math exam',scheduled_at:'2030-01-03T07:00:00Z',duration_min:120}],onSelectRequest:id=>{selected=id;}}));
+      await input('Calendar month','2030-01');
+      assert.match(document.body.textContent,/Confirmed Learner/);assert.match(document.body.textContent,/Pending Learner/);assert.match(document.body.textContent,/Exam Learner/);assert.match(document.body.textContent,/Math exam/);
+      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Review request'));assert.equal(selected,'request');
     });
     const renderApp = () => React.createElement(AuthContext.Provider,{value:{user:null,profile:null,loading:false,signOut(){},refreshProfile(){}}},React.createElement(App));
     await t.test('every role can open personal settings directly, including unlinked accounts',async () => {

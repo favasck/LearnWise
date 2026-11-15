@@ -57,6 +57,13 @@ export const respondBookingRequest = (request,action,newTime=null,note='') => ru
   rid:request.id,expected_version:request.version,action,new_time:newTime,note,
 }));
 export const getBookingSlots = (aid,sid,duration,location) => run(() => supabase.rpc('booking_slots',{aid,sid,duration,loc:location}));
+export const getBookingSlotsV2 = (aid,sid,duration,location,mode) => run(() => supabase.rpc('booking_slots_v2',{aid,sid,duration,loc:location,requested_mode:mode}));
+export const reviewBookingRequest = (request,action,changes={},note='') => run(() => supabase.rpc('review_booking_request',{
+  rid:request.id,expected_version:request.version,action,changes,note,
+}));
+export const getStudentExams = () => run(() => supabase.from('student_exams').select('*,student:students(id,full_name)').is('deleted_at',null).order('scheduled_at'));
+export const saveStudentExam = (values,id=null) => run(() => id?supabase.from('student_exams').update(values).eq('id',id).select().single():supabase.from('student_exams').insert(values).select().single());
+export const removeStudentExam = id => run(() => supabase.from('student_exams').update({deleted_at:new Date().toISOString()}).eq('id',id));
 
 /** Returns today's date as a local ISO string "YYYY-MM-DD". */
 function today() {
