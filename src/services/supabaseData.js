@@ -50,7 +50,7 @@ async function run(queryFn) {
 export const getBookingRequests = () => run(() => supabase.from('booking_requests')
   .select('*, student:students(id,full_name), tutor:tutors(id,full_name), booking_events(*)').order('updated_at',{ascending:false}));
 export const getTutorAvailability = () => run(() => supabase.from('tutor_availability').select('*, tutor:tutors(id,full_name)').gt('ends_at',new Date().toISOString()).order('starts_at'));
-export const publishAvailability = values => run(() => supabase.from('tutor_availability').insert(values).select().single());
+export const publishAvailability = values => run(() => Array.isArray(values) ? supabase.from('tutor_availability').insert(values).select() : supabase.from('tutor_availability').insert(values).select().single());
 export const closeAvailability = id => run(() => supabase.from('tutor_availability').update({published:false}).eq('id',id).select().single());
 export const submitBookingRequest = payload => run(() => supabase.rpc('submit_booking_request',{payload}));
 export const respondBookingRequest = (request,action,newTime=null,note='') => run(() => supabase.rpc('respond_booking_request',{
