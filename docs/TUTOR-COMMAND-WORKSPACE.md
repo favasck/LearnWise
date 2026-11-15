@@ -1,5 +1,7 @@
 # Tutor command workspace
 
+The student-only milestone below is superseded by the [expanded task command workspace](TASK-COMMANDS.md), covering people, teaching operations, requests, calendar entries and reports.
+
 Status: first local implementation, 15 November 2026. Student search and staff-authorized creation are implemented; the remaining workflows below are a specification. No deployment or external messaging integration is included.
 
 ## First implementation

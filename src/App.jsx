@@ -10,7 +10,7 @@ import { tokens, Button, Field, Modal } from './ui';
 import { useNavigation, NavLink, useViewPreference } from './features/navigation';
 import { PublicNav, PublicFooter, PublicHome, PublicAssessment, PublicContact } from './features/publicExperience';
 import PortalShell from './features/PortalShell';
-import StudentCommandBox from './features/StudentCommandBox';
+const StudentCommandBox = React.lazy(() => import('./features/StudentCommandBox'));
 import InvoiceDetails from './features/InvoiceDetails';
 import LessonList from './features/LessonList';
 import TutorFeedbackForm from './features/TutorFeedbackForm';
@@ -3329,7 +3329,7 @@ export default function App(){
   };
   return(
     <FamilySelectionProvider key={ownerKey}><PortalShell nav={portalNav} role={role} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
-      <StudentCommandBox key={`commands-${ownerKey}`} role={role} tutorId={role==='tutor'?tutorId:null}/>
+      {['super_admin','admin_tutor','admin','tutor'].includes(role)&&<React.Suspense fallback={<p role="status">Loading quick tasks…</p>}><StudentCommandBox key={`commands-${ownerKey}`} role={role} tutorId={role==='tutor'?tutorId:null} userId={user.id} onNavigate={setCurrent}/></React.Suspense>}
       {current!=='bookings'&&<BookingNotice key={`booking-notice-${user.id}`} role={role} onOpen={()=>setCurrent('bookings')}/>}
       {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'calendar' ? <React.Suspense fallback={<p role="status">Loading master calendar…</p>}><MasterCalendar key={user.id} role={role} userId={user.id} onNavigate={navigate}/></React.Suspense> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
     </PortalShell></FamilySelectionProvider>

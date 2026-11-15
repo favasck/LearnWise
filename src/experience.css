@@ -388,3 +388,20 @@
  .flow-actions .button { flex:1 1 130px; }
  .session-agenda .tutor-lesson-card { padding:16px; }
 }
+
+.task-command-examples { margin-top: 12px; }
+.task-command-examples summary { cursor: pointer; color: #2C5F63; font-weight: 650; min-height: 36px; }
+.task-command-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.task-command-chips .button { font-size: 12px; padding: 7px 10px; }
+.task-command-form { display: block !important; }
+.task-command-form fieldset { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
+.task-command-form legend { font-weight: 650; margin-bottom: 12px; }
+.task-command-form .field { min-width: 0; }
+.task-command-box textarea, .task-command-box select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #E7E1D6; border-radius: 8px; font: inherit; box-sizing: border-box; }
+.task-command-box select { text-overflow: ellipsis; }
+.task-command-box textarea { resize: vertical; }
+.task-command-record { display: grid; grid-template-columns: minmax(90px,1fr) minmax(0,2fr); gap: 8px 14px; }
+.task-command-record dt { color: #5B6B70; }
+.task-command-record dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.task-command-ack { margin: 14px 0; padding: 12px; background: #FBF2DF; border-radius: 8px; }
+
