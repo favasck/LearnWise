@@ -4,7 +4,15 @@ import { bookingCalendarItems, qatarInput } from './booking.js';
 export const CALENDAR_CATEGORIES={Class:'Classes',Exam:'Exam dates',QatarHoliday:'Qatar holidays & dates',Task:'Tasks & homework',Request:'Booking requests',Other:'Other dates'};
 export const canManageCalendar=role=>['super_admin','admin','admin_tutor','tutor'].includes(role);
 export const CALENDAR_CHECKED_ON=dates.checked_on;
-export const CALENDAR_SOURCES=dates.sources.map(({rows,...source})=>({...source,count:rows.length}));
+const unpublishedRows=[
+  ...['1','2','4','5','6'].flatMap(zone=>[
+    {key:`cambridge-2026-november-z${zone}`,board:'Cambridge',series:'November 2026',zone,verification:'Published final timetable',source_url:`https://www.cambridgeinternational.org/Images/${({1:'757645',2:'757646',4:'757649',5:'757650',6:'757651'})[zone]}-november-2026-zone-${zone}-timetable.pdf`},
+    {key:`cambridge-2027-june-z${zone}`,board:'Cambridge',series:'June 2027',zone,verification:'Published final timetable',source_url:`https://www.cambridgeinternational.org/Images/7662${zone==='1'?'78':zone==='2'?'79':zone==='4'?'82':zone==='5'?'83':'84'}-june-2027-zone-${zone}-timetable.pdf`},
+  ]),
+  {key:'pearson-2027-summer-r',board:'Pearson Edexcel',series:'Summer 2027',zone:'Regional R paper',verification:'Published final timetable',source_url:'https://qualifications.pearson.com/content/dam/pdf/Support/Examination-timetables-for-Edexcel-International-GCSE/int-gcse-r-paper-summer-2027-final.pdf'},
+  {key:'pearson-2027-november-provisional',board:'Pearson Edexcel',series:'November 2027',zone:'Standard (non-R)',verification:'Provisional timetable',source_url:'https://qualifications.pearson.com/content/dam/pdf/Support/Examination-timetables-for-Edexcel-International-GCSE/intgcse-november2027-prov.pdf'},
+];
+export const CALENDAR_SOURCES=[...dates.sources.map(({rows,...source})=>({...source,count:rows.length,loaded:true,verification:source.verification||'Published timetable'})),...unpublishedRows.map(source=>({...source,count:0,loaded:false}))];
 const dateOnly=value=>qatarInput(value).slice(0,10);
 const knownTime=(time,duration=1)=>({starts_on:dateOnly(time),ends_on:dateOnly(new Date(new Date(time).getTime()+duration*60000-1)),starts_at:time,all_day:false,duration_min:duration});
 export function officialExamEntries() {
@@ -54,13 +62,14 @@ export function masterCalendarEntries({entries=[],classes=[],exams=[],requests=[
     ...homework.filter(h=>!h.deleted_at&&h.due_at).map(h=>({id:`homework:${h.id}`,title:`${h.student?.full_name||'Homework'} · ${h.title}`,category:'Task',...knownTime(h.due_at),notes:'Homework deadline. Manage the assignment from Homework.',origin:'homework',task_status:['Submitted','Reviewed','Completed'].includes(h.status)?'Done':'Open',verification:h.status||'Homework'})),
   ].sort((a,b)=>a.starts_on.localeCompare(b.starts_on)||(a.starts_at||'').localeCompare(b.starts_at||'')||a.title.localeCompare(b.title));
 }
-export function filterCalendarEntries(entries,{categories=Object.keys(CALENDAR_CATEGORIES),month='',board='',search='',taskStatus='',showRemoved=false}={}) {
+export function filterCalendarEntries(entries,{categories=Object.keys(CALENDAR_CATEGORIES),month='',board='',zone='',search='',taskStatus='',showRemoved=false}={}) {
   const first=month?`${month}-01`:'',last=month?new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10):'';
   const query=search.trim().toLowerCase();
-  return entries.filter(e=>(showRemoved||!e.deleted_at)&&categories.includes(e.category)&&(!month||(e.starts_on<=last&&e.ends_on>=first))&&(!board||e.category!=='Exam'||e.board===board)&&(!taskStatus||e.category!=='Task'||e.task_status===taskStatus)&&(!query||[e.title,e.notes,e.board,e.syllabus,e.paper,e.series,e.zone].filter(Boolean).join(' ').toLowerCase().includes(query)));
+  return entries.filter(e=>(showRemoved||!e.deleted_at)&&categories.includes(e.category)&&(!month||(e.starts_on<=last&&e.ends_on>=first))&&(!board||e.category!=='Exam'||e.board===board)&&(!zone||e.category!=='Exam'||e.zone===zone)&&(!taskStatus||e.category!=='Task'||e.task_status===taskStatus)&&(!query||[e.title,e.notes,e.board,e.syllabus,e.paper,e.series,e.zone].filter(Boolean).join(' ').toLowerCase().includes(query)));
 }
 export function calendarEntryPayload(entry,changes={}) {
   const values={...entry,...changes};
   const fields=['title','category','visibility','starts_on','ends_on','all_day','starts_at','duration_min','board','syllabus','paper','zone','series','session_label','source_url','verification','notes','task_status','deleted_at'];
   return Object.fromEntries(fields.map(key=>[key,values[key]??(['starts_at','duration_min','deleted_at'].includes(key)?null:key==='all_day'?true:key==='visibility'?'shared':key==='task_status'?'Open':key==='verification'?'Tutor entered':'')]));
 }
+

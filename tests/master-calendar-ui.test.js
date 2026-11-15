@@ -26,13 +26,14 @@ test('master calendar filters, tutor edits, retries and shared-date restoration 
     });
     await t.test('combined view includes classes, student exams and homework; type and board filters combine',async()=>{
       let destination;
-      const service={...emptyService(),getMasterCalendarEntries:async()=>({data:[{id:'shared',title:'Board Biology',category:'Exam',visibility:'shared',board:'Cambridge',starts_on:'2030-01-02',ends_on:'2030-01-02',all_day:true,version:1}]}),getClasses:async()=>({data:[{id:'class',student:{full_name:'Class Learner'},subject:'Math',scheduled_at:'2030-01-02T08:00Z',duration_min:60}]}),getStudentExams:async()=>({data:[{id:'exam',student:{full_name:'Exam Learner'},title:'School physics',scheduled_at:'2030-01-03T08:00Z',duration_min:90}]}),getHomework:async()=>({data:[{id:'homework',title:'Homework worksheet',due_at:'2030-01-04T08:00Z'}]})};
+      const service={...emptyService(),getMasterCalendarEntries:async()=>({data:[{id:'shared',title:'Board Biology',category:'Exam',visibility:'shared',board:'Cambridge',zone:'3',starts_on:'2030-01-02',ends_on:'2030-01-02',all_day:true,version:1}]}),getClasses:async()=>({data:[{id:'class',student:{full_name:'Class Learner'},subject:'Math',scheduled_at:'2030-01-02T08:00Z',duration_min:60}]}),getStudentExams:async()=>({data:[{id:'exam',student:{full_name:'Exam Learner'},title:'School physics',scheduled_at:'2030-01-03T08:00Z',duration_min:90}]}),getHomework:async()=>({data:[{id:'homework',title:'Homework worksheet',due_at:'2030-01-04T08:00Z'}]})};
       await mount(React.createElement(MasterCalendar,{role:'tutor',userId:'tutor',service,onNavigate:path=>{destination=path;}}));
       await input('Master calendar month','2030-01');await input('Calendar view','agenda');
       const agenda=()=>document.querySelector('[aria-label="Calendar agenda"]');assert.match(agenda().textContent,/Class Learner/);assert.match(agenda().textContent,/Exam Learner/);assert.match(agenda().textContent,/Homework worksheet/);
       await click(button('Clear types'));assert.equal(agenda().textContent,'');
       await click(checkbox('Classes'));await click(checkbox('Exam dates'));await input('Exam board','Cambridge');
       assert.match(agenda().textContent,/Class Learner/);assert.match(agenda().textContent,/Board Biology/);assert.doesNotMatch(agenda().textContent,/School physics|Homework worksheet/);
+      await input('Exam zone / variant','3');assert.match(agenda().textContent,/Board Biology/);await input('Exam zone / variant','4');assert.doesNotMatch(agenda().textContent,/Board Biology/);assert.match(document.body.textContent,/No exam entries are preloaded for Cambridge Zone 4/);assert.match(document.body.textContent,/Cambridge June 2027 timetable/);
       await input('Search calendar','Class Learner');await click(agenda().querySelector('button'));await click(button('Manage in Classes'));assert.equal(destination,'/portal/myclasses');
     });
     await t.test('failed task save retains the form and retries with private visibility',async()=>{

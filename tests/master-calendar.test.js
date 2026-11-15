@@ -6,7 +6,11 @@ import { CALENDAR_SOURCES, calendarEntryPayload, filterCalendarEntries, masterCa
 
 test('official catalogue has unique dated papers/windows, provenance and no invented start times',()=>{
   const events=officialExamEntries();assert.equal(events.length,629);assert.equal(new Set(events.map(e=>e.catalog_key)).size,events.length);
-  assert.deepEqual(CALENDAR_SOURCES.map(s=>s.count),[196,242,78,113]);
+  assert.deepEqual(CALENDAR_SOURCES.filter(s=>s.loaded).map(s=>s.count),[196,242,78,113]);
+  assert.equal(CALENDAR_SOURCES.filter(s=>s.key.startsWith('cambridge-')).length,12);
+  assert.equal(CALENDAR_SOURCES.filter(s=>!s.loaded).length,12);
+  assert.ok(CALENDAR_SOURCES.some(s=>s.key==='pearson-2027-summer-r'&&s.source_url.endsWith('int-gcse-r-paper-summer-2027-final.pdf')));
+  assert.ok(CALENDAR_SOURCES.some(s=>s.key==='pearson-2027-november-provisional'&&s.verification==='Provisional timetable'));
   for(const event of events){
     assert.match(event.starts_on,/^\d{4}-\d{2}-\d{2}$/);assert.equal(new Date(event.starts_on).toISOString().slice(0,10),event.starts_on);
     assert.ok(event.ends_on>=event.starts_on);assert.equal(event.starts_at,null);assert.equal(event.all_day,true);
@@ -30,6 +34,7 @@ test('overrides and retained removal replace official entries exactly once and f
   assert.equal(filterCalendarEntries(merged,{month:'2027-05'}).length,0);assert.equal(filterCalendarEntries(merged,{month:'2027-05',showRemoved:true}).length,1);
   const entries=[...merged,{id:'class',title:'Class',category:'Class',starts_on:'2027-05-02',ends_on:'2027-05-02'},{id:'exam',title:'Biology',category:'Exam',board:'Cambridge',syllabus:'0610',starts_on:'2027-04-30',ends_on:'2027-05-02'},{id:'task',title:'Prepare',category:'Task',task_status:'Done',starts_on:'2027-05-02',ends_on:'2027-05-02'}];
   assert.deepEqual(filterCalendarEntries(entries,{month:'2027-05',categories:['Exam','Class'],board:'Cambridge'}).map(e=>e.id),['class','exam']);
+  assert.deepEqual(filterCalendarEntries(entries,{month:'2027-05',categories:['Exam','Class'],board:'Cambridge',zone:'4'}).map(e=>e.id),['class']);
   assert.equal(filterCalendarEntries(entries,{month:'2027-05',search:'0610'}).length,1);
   assert.equal(filterCalendarEntries(entries,{categories:['Task'],taskStatus:'Open'}).length,0);
   assert.equal(filterCalendarEntries(entries,{categories:[]}).length,0);
@@ -87,3 +92,4 @@ test('master calendar database enforces shared dates, private tasks, immutable i
     });
   }finally{await db.close();}
 });
+
