@@ -24,6 +24,7 @@ import RecordHistory from './features/RecordHistory';
 import SessionCalendar from './features/SessionCalendar';
 import QAReleaseChecklist from './features/QAReleaseChecklist';
 import BookingRequests from './features/BookingRequests';
+import Inbox from './features/Inbox';
 const MasterCalendar = React.lazy(() => import('./features/MasterCalendar'));
 import BookingNotice from './features/BookingNotice';
 import { PublicAbout, PublicSubjects, PublicIGCSE, PublicOnline } from './features/LearningPages';
@@ -167,6 +168,7 @@ const NAV={
 NAV.admin = NAV.super_admin;
 NAV.parent.splice(2,0,{key:'learning',label:'Learning',icon:BookOpen});
 for (const role of ['super_admin','admin_tutor','tutor','parent','student']) {
+  NAV[role].push({key:'inbox',label:'Inbox',icon:Mail});
   NAV[role].push({key:'bookings',label:role==='parent'||role==='student'?'Request a lesson':'Availability & Bookings',icon:CalendarDays});
   NAV[role].push({key:'calendar',label:'Master Calendar',icon:CalendarDays});
 }
@@ -218,6 +220,7 @@ export function AdminDashboard({onNavigate,service=db}){
 
 /* ═══ ADMIN USERS (already Supabase) ═══ */
 function AdminUsers(){
+  const {navigate}=useNavigation();
   const{profile:myProfile}=useAuth();
   const[users,setUsers]     =useState([]);
   const[tutors,setTutors]   =useState([]);
@@ -320,6 +323,7 @@ function AdminUsers(){
                   : <span style={{fontSize:12,color:tokens.slate}}>—</span>,
               fmtDate(u.created_at),
               <div style={{display:"flex",gap:6}}>
+                {u.id!==myProfile?.id&&u.status==='Active'&&<Button variant="secondary" icon={Mail} onClick={()=>navigate(`/portal/inbox?to=${encodeURIComponent(u.id)}`)}>Message</Button>}
                 {canLink(u)&&(
                   <Button variant="secondary" icon={Link} style={{padding:"5px 10px",fontSize:12}} onClick={()=>{setLinkUser(u);setLinkTarget("");}}>
                     {linked?"Relink":"Link"}
@@ -3174,7 +3178,7 @@ export default function App(){
   // Real linked profile records — fetched once after auth resolves
   const[linkedState,setLinkedState] =useState(null);
   const ownerKey = user && profile ? `${user.id}:${profile.role}` : null;
-  const needsLink = !!profile && current !== 'profile' && ["tutor","parent","student"].includes(profile.role);
+  const needsLink = !!profile && !['profile','inbox'].includes(current) && ["tutor","parent","student"].includes(profile.role);
   const linkedIsCurrent = !!ownerKey && linkedState?.ownerKey === ownerKey;
   const linkedProfile = linkedIsCurrent ? linkedState.data : null;
   const profileLoading = needsLink && (!linkedIsCurrent || linkedState.loading);
@@ -3255,7 +3259,7 @@ export default function App(){
   if(!["super_admin","admin_tutor","admin","tutor","parent","student"].includes(role))return <UnknownRoleScreen name={who} onSignOut={handleSignOut}/>;
 
   /* ── Non-staff with no linked profile record ── */
-  if(current !== 'profile' && current !== 'calendar' && !["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
+  if(current !== 'profile' && current !== 'calendar' && current !== 'inbox' && !["super_admin","admin_tutor","admin"].includes(role)&&!linkedProfile)return <NotLinkedScreen role={role} name={who} onSignOut={handleSignOut} onRetry={()=>setLinkRetry(n=>n+1)}/>;
 
   /* ── Derive real IDs from linked records ── */
   const tutorId  =linkedProfile?.id||null;
@@ -3331,7 +3335,7 @@ export default function App(){
     <FamilySelectionProvider key={ownerKey}><PortalShell nav={portalNav} role={role} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
       {['super_admin','admin_tutor','admin','tutor'].includes(role)&&<React.Suspense fallback={<p role="status">Loading quick tasks…</p>}><StudentCommandBox key={`commands-${ownerKey}`} role={role} tutorId={role==='tutor'?tutorId:null} userId={user.id} onNavigate={setCurrent}/></React.Suspense>}
       {current!=='bookings'&&<BookingNotice key={`booking-notice-${user.id}`} role={role} onOpen={()=>setCurrent('bookings')}/>}
-      {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'calendar' ? <React.Suspense fallback={<p role="status">Loading master calendar…</p>}><MasterCalendar key={user.id} role={role} userId={user.id} onNavigate={navigate}/></React.Suspense> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
+      {current === 'inbox' ? <Inbox key={user.id} userId={user.id} initialPeer={new URLSearchParams(route.search).get('to')||''} onPeerChange={id=>navigate(`/portal/inbox?to=${encodeURIComponent(id)}`)}/> : current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'calendar' ? <React.Suspense fallback={<p role="status">Loading master calendar…</p>}><MasterCalendar key={user.id} role={role} userId={user.id} onNavigate={navigate}/></React.Suspense> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
     </PortalShell></FamilySelectionProvider>
   );
 }
