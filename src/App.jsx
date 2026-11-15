@@ -13,6 +13,7 @@ import PortalShell from './features/PortalShell';
 import ProfileSettings from './features/ProfileSettings';
 import RecordHistory from './features/RecordHistory';
 import SessionCalendar from './features/SessionCalendar';
+import QAReleaseChecklist from './features/QAReleaseChecklist';
 import BookingRequests from './features/BookingRequests';
 import BookingNotice from './features/BookingNotice';
 import { PublicAbout, PublicSubjects, PublicIGCSE, PublicOnline } from './features/LearningPages';
@@ -1374,7 +1375,7 @@ function AdminQATest(){
         supabase.from("invoices").select("id, invoice_number, total_qar, status").limit(20),
         supabase.from("payments").select("id, amount_qar, method").limit(20),
       ]);
-      if (ir.error) throw new Error(ir.error.message);
+      if (ir.error||pr.error) throw new Error((ir.error||pr.error).message);
       rows[11] = pass(rows[11], "Invoices and payments accessible",
         `${(ir.data||[]).length} invoice(s) · ${(pr.data||[]).length} payment(s)`);
     } catch(e) { rows[11] = fail(rows[11], "Payments accessible", "Error", e.message); }
@@ -1396,7 +1397,7 @@ function AdminQATest(){
       if (error) throw new Error(error.message);
       if ((data||[]).length > 0) {
         rows[13] = pass(rows[13], "At least 1 parent linked to auth account",
-          `${data.length} parent(s) linked · "${data[0].full_name}" can access parent portal`);
+          `${data.length} parent(s) linked · "${data[0].full_name}" linked; sign in as this parent to verify portal access`);
       } else {
         rows[13] = fail(rows[13], "Parent linked to auth", "No parents linked to auth accounts",
           "Go to All Users → Link to connect parent@learnwise.test to Test Parent");
@@ -1411,6 +1412,7 @@ function AdminQATest(){
       if ((data||[]).length > 0) {
         const stRes = await supabase.from("student_tutors")
           .select("student_id, tutor_id, is_active").eq("is_active", true).limit(10);
+        if(stRes.error)throw new Error(stRes.error.message);
         rows[14] = pass(rows[14], "Tutor linked + student assigned",
           `${data.length} tutor(s) linked · ${(stRes.data||[]).length} active student assignment(s)`);
       } else {
@@ -1426,7 +1428,7 @@ function AdminQATest(){
       if (error) throw new Error(error.message);
       if ((data||[]).length > 0) {
         rows[15] = pass(rows[15], "At least 1 student linked to auth account",
-          `${data.length} student(s) linked · "${data[0].full_name}" can access student portal`);
+          `${data.length} student(s) linked · "${data[0].full_name}" linked; sign in as this student to verify portal access`);
       } else {
         rows[15] = fail(rows[15], "Student linked to auth", "No students linked to auth accounts",
           "Go to All Users → Link to connect student@learnwise.test to Test Student");
@@ -1632,9 +1634,10 @@ function AdminQATest(){
     <div>
       <SectionTitle eyebrow="Admin Only" title="QA System Test"/>
       <div style={{background:tokens.warnBg,color:tokens.warn,borderRadius:10,padding:"10px 16px",fontSize:13,marginBottom:18,display:"flex",alignItems:"center",gap:8}}>
-        <Shield size={15}/> This page is visible to admins only. All checks are read-only — no data is modified.
+        <Shield size={15}/> Super Admin only. Basic system checks only read data. Create Test Data writes records; use it only in a test environment.
       </div>
 
+      <QAReleaseChecklist/>
       {/* Summary cards */}
       {ran && (
         <div className="responsive-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
@@ -1653,7 +1656,7 @@ function AdminQATest(){
             </div>
             <div style={{fontSize:12.5,color:tokens.slate,lineHeight:1.5}}>
               Creates: Test Parent · Test Tutor · Test Student · Algebra Basics class · Algebra Practice homework · Algebra Notes Link material · INV-TEST-001 invoice (QAR 100).<br/>
-              Skips any record that already exists. Safe to run multiple times. Does not delete real data.
+              Skips records found by name. Writes real records and an invoice to the connected database; use a test environment only.
             </div>
           </div>
           <Button

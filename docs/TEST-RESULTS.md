@@ -1,5 +1,10 @@
 # Test results
 
+## Full release QA checklist — 2026-11-15
+
+Added 38 manual acceptance cases across 12 areas, in-app result/evidence fields and JSON export. Existing suite: 134 tests passed. The additional QA interaction test passed separately, verifying initially untested cases, independent failure counts, exported evidence and fresh-review reset. Production build and artifact render passed. These results do not mark the 38 manual cases passed; authenticated end-to-end checks remain to be executed for the target release. Deployment validation is recorded in the associated GitHub checks and Vercel production deployment.
+
+
 ## Scoped roles and profiles - 2026-11-15
 
 123 tests pass. Build and built-artifact render checks pass. Live rollback-only tests: Super Admin switches Hiba between Tutor/Admin Tutor; Hiba reads 57 linked classes and zero unrelated tutors. Invoice/payment add/edit/retained-delete, recalculated totals and server audit records pass. Synthetic changes rolled back.
