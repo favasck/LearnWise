@@ -27,8 +27,8 @@ test('real data service settles injected failures and public writes need no read
     const db = await server.ssrLoadModule('/src/services/supabaseData.js');
     await t.test('self profile updates use verified identity and discard privilege fields', async () => {
       failing = false; calls.length = 0;
-      await db.saveMyProfile({full_name:' Hiba Zubair ',phone:' 55408331 ',id:'other-user',role:'super_admin',status:'Active'});
-      assert.deepEqual(calls,[['from','profiles'],['update',{full_name:'Hiba Zubair',phone:'55408331'}],['eq','id','verified-user'],['select','id,full_name,email,phone,role,status'],['single']]);
+      await db.saveMyProfile({full_name:' Hiba Zubair ',phone:' 00000000 ',id:'other-user',role:'super_admin',status:'Active'});
+      assert.deepEqual(calls,[['from','profiles'],['update',{full_name:'Hiba Zubair',phone:'00000000'}],['eq','id','verified-user'],['select','id,full_name,email,phone,role,status'],['single']]);
       failing = true; calls.length = 0;
     });
     await t.test('portal dashboard and lookup failures are visible rather than empty success', async () => {
