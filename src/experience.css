@@ -239,3 +239,24 @@
 @media (prefers-reduced-motion:reduce) {
   *, *::before, *::after { transition:none !important; animation:none !important; scroll-behavior:auto !important; }
 }
+
+
+.student-command-box { background: #fff; border: 1px solid #E7E1D6; border-radius: 16px; padding: 18px; margin-bottom: 22px; }
+
+.student-command-box form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+
+.student-command-box form .field { flex: 1 1 280px; margin: 0; }
+
+.student-command-box form p { flex-basis: 100%; order: 3; margin: 0; font-size: 12px; color: #5B6B70; }
+
+.student-command-box input:not([type=checkbox]) { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #E7E1D6; border-radius: 8px; font: inherit; box-sizing: border-box; }
+
+.student-command-preview { background: #FAF8F3; padding: 16px; border-radius: 12px; margin-top: 14px; }
+
+.student-command-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }
+
+.student-command-box .button { margin: 4px 8px 4px 0; white-space: normal; }
+
+.student-command-box label { display: block; }
+
+.student-command-box [role=alert] { color: #A3422B; }

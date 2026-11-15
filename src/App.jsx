@@ -10,6 +10,7 @@ import { tokens, Button, Field, Modal } from './ui';
 import { useNavigation, NavLink } from './features/navigation';
 import { PublicNav, PublicFooter, PublicHome, PublicAssessment, PublicContact } from './features/publicExperience';
 import PortalShell from './features/PortalShell';
+import StudentCommandBox from './features/StudentCommandBox';
 import ProfileSettings from './features/ProfileSettings';
 import RecordHistory from './features/RecordHistory';
 import SessionCalendar from './features/SessionCalendar';
@@ -3432,6 +3433,7 @@ export default function App(){
   };
   return(
     <PortalShell nav={portalNav} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
+      <StudentCommandBox key={`commands-${ownerKey}`} role={role} tutorId={role==='tutor'?tutorId:null}/>
       {current!=='bookings'&&<BookingNotice key={`booking-notice-${user.id}`} role={role} onOpen={()=>setCurrent('bookings')}/>}
       {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'calendar' ? <React.Suspense fallback={<p role="status">Loading master calendar…</p>}><MasterCalendar key={user.id} role={role} userId={user.id} onNavigate={navigate}/></React.Suspense> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
     </PortalShell>
