@@ -6,6 +6,7 @@ import { bookingGrid as grid, DurationField, RecurrenceFields } from './BookingF
 import BookingReviewCard from './BookingReviewCard';
 import BookingExams from './BookingExams';
 import SessionCalendar from './SessionCalendar';
+import { dailyAvailability } from '../services/dailyAvailability.js';
 
 const panel={background:'white',border:`1px solid ${tokens.line}`,borderRadius:14,padding:20,marginBottom:18};
 const row={display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'};
@@ -18,7 +19,7 @@ export default function BookingRequests({role,service=db}) {
   const [data,setData]=useState({requests:[],availability:[],students:[],tutors:[],classes:[],exams:[]});
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [filter,setFilter]=useState('Active');
-  const [windowForm,setWindowForm]=useState({tutor_id:'',start:'',end:'',mode:'Either',buffer_min:30});
+  const [windowForm,setWindowForm]=useState({tutor_id:'',date_from:'',date_to:'',time_from:'09:00',time_to:'16:00',exclude_fridays:false,mode:'Either',buffer_min:30});
   const [form,setForm]=useState(newForm);
   const [slots,setSlots]=useState([]),[slotsLoading,setSlotsLoading]=useState(false),[slotError,setSlotError]=useState('');
   async function load() {
@@ -69,11 +70,14 @@ export default function BookingRequests({role,service=db}) {
     {message&&<p role="status">{message}</p>}
     {manager?<>
       <div style={panel}><h3>Share with a family</h3><p>Send this link to a linked parent or student. They sign in to book with their assigned tutors.</p><input aria-label="Booking page link" readOnly value={`${window.location.origin}/portal/bookings`}/><Button variant="ghost" onClick={async()=>{try{await navigator.clipboard.writeText(`${window.location.origin}/portal/bookings`);setMessage('Booking link copied.');}catch{setMessage('Select and copy the booking link above.');}}}>Copy booking link</Button></div>
-      <form style={panel} onSubmit={e=>{e.preventDefault();mutate(()=>service.publishAvailability({tutor_id:windowForm.tutor_id,starts_at:qatarInstant(windowForm.start),ends_at:qatarInstant(windowForm.end),mode:windowForm.mode,buffer_min:Number(windowForm.buffer_min)}),'Availability published.');}}>
-        <h3>Publish available dates and slots</h3><div style={grid}>
+      <form style={panel} onSubmit={e=>{e.preventDefault();let windows;try{windows=dailyAvailability(windowForm);}catch(error){setError(error.message);return;}mutate(()=>service.publishAvailability(windows),`${windows.length} daily availability windows published.`);}}>
+        <h3>Publish available dates and slots</h3><p>Daily hours apply on each date in the range. Time outside these hours is unavailable. Add another range for different hours.</p><div style={grid}>
           <Field label="Tutor" required><select value={windowForm.tutor_id} onChange={e=>setWindowForm({...windowForm,tutor_id:e.target.value})}><option value="">Choose tutor</option>{tutors.map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}</select></Field>
-          <Field label="From (Qatar)" required><input type="datetime-local" value={windowForm.start} onChange={e=>setWindowForm({...windowForm,start:e.target.value})}/></Field>
-          <Field label="Until (Qatar)" required><input type="datetime-local" value={windowForm.end} min={windowForm.start} onChange={e=>setWindowForm({...windowForm,end:e.target.value})}/></Field>
+          <Field label="From date (Qatar)" required><input type="date" required value={windowForm.date_from} onChange={e=>setWindowForm({...windowForm,date_from:e.target.value})}/></Field>
+          <Field label="To date (inclusive)" required><input type="date" required value={windowForm.date_to} min={windowForm.date_from} onChange={e=>setWindowForm({...windowForm,date_to:e.target.value})}/></Field>
+          <Field label="Daily start time (Qatar)" required><input type="time" required value={windowForm.time_from} onChange={e=>setWindowForm({...windowForm,time_from:e.target.value})}/></Field>
+          <Field label="Daily end time (Qatar)" required><input type="time" required value={windowForm.time_to} onChange={e=>setWindowForm({...windowForm,time_to:e.target.value})}/></Field>
+          <label><input type="checkbox" checked={windowForm.exclude_fridays} onChange={e=>setWindowForm({...windowForm,exclude_fridays:e.target.checked})}/> Exclude Fridays</label>
           <Field label="Available class modes"><select value={windowForm.mode} onChange={e=>setWindowForm({...windowForm,mode:e.target.value})}><option value="Either">Online or in person</option><option value="Online">Online</option><option value="Offline">In person</option></select></Field>
           <Field label="Travel buffer (minutes)"><input type="number" min="0" max="180" value={windowForm.buffer_min} onChange={e=>setWindowForm({...windowForm,buffer_min:e.target.value})}/></Field>
         </div><Button type="submit" disabled={busy}>Publish availability</Button>
