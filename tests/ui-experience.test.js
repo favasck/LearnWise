@@ -99,6 +99,35 @@ test('public journeys preserve navigation, validate inputs and recover from fail
     const {default:ProfileSettings} = await server.ssrLoadModule('/src/features/ProfileSettings.jsx');
     const {default:SessionCalendar} = await server.ssrLoadModule('/src/features/SessionCalendar.jsx');
     const {default:RecordHistory} = await server.ssrLoadModule('/src/features/RecordHistory.jsx');
+    const {default:BookingRequests} = await server.ssrLoadModule('/src/features/BookingRequests.jsx');
+    await t.test('family booking alternative retries preserve reply and post the expected version',async()=>{
+      let request={id:'request',student_id:'student',tutor_id:'tutor',student:{full_name:'Test Student'},tutor:{full_name:'Test Tutor'},subject:'Math',scheduled_at:'2030-01-02T14:00Z',preferred_times:['2030-01-02T13:00Z'],duration_min:60,mode:'Offline',location:'Building A',status:'Proposed',version:2,booking_events:[]};
+      const writes=[];
+      const service={getBookingRequests:async()=>({data:[request]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[]}),getTutors:async()=>({data:[]}),respondBookingRequest:async(...args)=>{writes.push(args);if(writes.length===1)return {error:{message:'Connection interrupted'}};request={...request,status:'Confirmed',version:3};return {data:'request'};}};
+      await mount(React.createElement(BookingRequests,{role:'parent',service}));
+      assert.match(document.body.textContent,/Accept alternative/);
+      assert.doesNotMatch(document.body.textContent,/Confirm requested time/);
+      await input('Optional reply','That works for us');
+      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Accept alternative'));
+      assert.match(document.querySelector('[role="alert"]').textContent,/Connection interrupted/);
+      assert.equal([...document.querySelectorAll('textarea')].find(e=>e.value==='That works for us')?.value,'That works for us');
+      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Accept alternative'));
+      assert.equal(writes[1][0].version,2);assert.equal(writes[1][1],'accept');assert.equal(writes[1][3],'That works for us');
+      assert.match(document.body.textContent,/Class confirmed and added to the calendar/);
+    });
+    await t.test('tutor sees locations and sends an alternative without confirming it',async()=>{
+      const request={id:'request',student_id:'student',tutor_id:'tutor',student:{full_name:'Test Student'},subject:'Math',scheduled_at:'2030-01-02T14:00Z',preferred_times:['2030-01-02T13:00Z'],duration_min:60,mode:'Offline',location:'Building A',status:'Pending',version:1};
+      const writes=[];
+      const service={getBookingRequests:async()=>({data:[request]}),getTutorAvailability:async()=>({data:[]}),getStudents:async()=>({data:[]}),getTutors:async()=>({data:[]}),getClasses:async()=>({data:[{id:'nearby',tutor_id:'tutor',scheduled_at:'2030-01-02T12:00Z',duration_min:60,mode:'Offline',location:'Building A',status:'Scheduled'}]}),respondBookingRequest:async(...args)=>{writes.push(args);return {data:'request'};}};
+      await mount(React.createElement(BookingRequests,{role:'tutor',service}));
+      assert.match(document.body.textContent,/Classes and locations on this day/);
+      assert.match(document.body.textContent,/Building A/);
+      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Propose another time'));
+      await input('Alternative time (Qatar)','2030-01-02T18:00');
+      await click([...document.querySelectorAll('button')].find(b=>b.textContent==='Send alternative'));
+      assert.equal(writes[0][1],'propose');assert.equal(writes[0][2],'2030-01-02T15:00:00.000Z');
+      assert.match(document.body.textContent,/Waiting for family acceptance/);
+    });
     const renderApp = () => React.createElement(AuthContext.Provider,{value:{user:null,profile:null,loading:false,signOut(){},refreshProfile(){}}},React.createElement(App));
     await t.test('every role can open personal settings directly, including unlinked accounts',async () => {
       for (const role of ['super_admin','admin_tutor','tutor','parent','student']) {

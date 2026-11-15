@@ -46,6 +46,18 @@ async function run(queryFn) {
   }
 }
 
+// Booking writes go through checked, transactional database functions.
+export const getBookingRequests = () => run(() => supabase.from('booking_requests')
+  .select('*, student:students(id,full_name), tutor:tutors(id,full_name), booking_events(*)').order('updated_at',{ascending:false}));
+export const getTutorAvailability = () => run(() => supabase.from('tutor_availability').select('*, tutor:tutors(id,full_name)').gt('ends_at',new Date().toISOString()).order('starts_at'));
+export const publishAvailability = values => run(() => supabase.from('tutor_availability').insert(values).select().single());
+export const closeAvailability = id => run(() => supabase.from('tutor_availability').update({published:false}).eq('id',id).select().single());
+export const submitBookingRequest = payload => run(() => supabase.rpc('submit_booking_request',{payload}));
+export const respondBookingRequest = (request,action,newTime=null,note='') => run(() => supabase.rpc('respond_booking_request',{
+  rid:request.id,expected_version:request.version,action,new_time:newTime,note,
+}));
+export const getBookingSlots = (aid,sid,duration,location) => run(() => supabase.rpc('booking_slots',{aid,sid,duration,loc:location}));
+
 /** Returns today's date as a local ISO string "YYYY-MM-DD". */
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -203,7 +215,7 @@ export const getStudents = () =>
   run(() =>
     supabase
       .from("students")
-      .select("*, parent:parents(id, full_name, email, phone), student_tutors(tutor_id, tutor:tutors(id, full_name))")
+      .select("*, parent:parents(id, full_name, email, phone), student_tutors(tutor_id, is_active, deleted_at, tutor:tutors(id, full_name))")
       .order("full_name")
   );
 

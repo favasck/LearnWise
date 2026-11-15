@@ -13,6 +13,8 @@ import PortalShell from './features/PortalShell';
 import ProfileSettings from './features/ProfileSettings';
 import RecordHistory from './features/RecordHistory';
 import SessionCalendar from './features/SessionCalendar';
+import BookingRequests from './features/BookingRequests';
+import BookingNotice from './features/BookingNotice';
 import { PublicAbout, PublicSubjects, PublicIGCSE, PublicOnline } from './features/LearningPages';
 import { AuthShell, SignIn, SignUp, ForgotPassword, ResetPassword } from './features/auth/AuthScreens';
 import { useAuth } from "./AuthContext";
@@ -152,6 +154,9 @@ const NAV={
 };
 // backward compat alias
 NAV.admin = NAV.super_admin;
+for (const role of ['super_admin','admin_tutor','tutor','parent','student']) {
+  NAV[role].push({key:'bookings',label:role==='parent'||role==='student'?'Book a Class':'Availability & Bookings',icon:CalendarDays});
+}
 
 /* ═══════════════════════════════════════════════════════════
    PUBLIC WEBSITE  —  LearnWise Academy
@@ -3413,7 +3418,8 @@ export default function App(){
   };
   return(
     <PortalShell nav={portalNav} roleLabel={ROLE_LABEL[role]} current={current} setCurrent={setCurrent} onLogout={handleSignOut} who={who}>
-      {current === 'profile' ? <ProfileSettings key={user.id} /> : renderers[role]()}
+      {current!=='bookings'&&<BookingNotice key={`booking-notice-${user.id}`} role={role} onOpen={()=>setCurrent('bookings')}/>}
+      {current === 'profile' ? <ProfileSettings key={user.id} /> : current === 'bookings' ? <BookingRequests key={user.id} role={role}/> : renderers[role]()}
     </PortalShell>
   );
 }
