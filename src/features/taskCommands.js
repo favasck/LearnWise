@@ -1,5 +1,6 @@
 import {commandStaff} from './studentCommands.js';
 import {qatarInput, qatarInstant} from '../services/booking.js';
+import {createMessagingService} from '../services/messaging.js';
 
 const f=(key,label,type='text',required=false,extra={})=>({key,label,type,required,...extra});
 const student=f('student_id','Student','student',true), tutor=f('tutor_id','Tutor','tutor',true);
@@ -48,6 +49,7 @@ export function permittedCommand(plan,role) {
 export const commandLabel=p=>p.op==='linkParent'?'Link parent to student':p.op==='unlink'?'Revoke tutor assignment':p.entity==='report'?`${p.report[0].toUpperCase()+p.report.slice(1)} report`:`${({create:'Add',list:'Find',update:'Edit',delete:'Remove',attendance:'Mark attendance',confirm:'Confirm',decline:'Decline',propose:'Propose changes to',review:'Review',cancel:'Cancel',complete:'Complete',close:'Close',done:'Complete task'})[p.op]||p.op} ${COMMAND_ENTITIES[p.entity]?.label.toLowerCase()}`;
 export function commandExamples(role) {
   const all=['Add student Naila, Year 8, maths','Add parent Fatima','Add class for Naila','Add homework Fractions for Naila','Mark Naila present today','Add material Fractions worksheet','Show requests','Attendance report','Add calendar event Parent meeting tomorrow','Delete calendar event Parent meeting','Add note for Naila','Add exam for Naila','Add availability','Review homework Fractions','Confirm request for Naila','Edit student Naila','Show calendar','Show materials','Progress report','Show homework','Show classes','Add tutor Amal','Check enquiries','Link parent Fatima to Naila','Assign tutor Amal to Naila','Unlink tutor Amal from Naila','Show assignments','Homework report','Revenue report','Outstanding report','Performance report','Edit homework Fractions','Delete homework Fractions','Edit material Worksheet','Delete material Worksheet','Cancel class for Naila','Complete class for Naila','Decline request for Naila','Propose request for Naila','Close availability','Complete task Parent meeting'];
+  all.unshift('Message Sara Whitfield: Please confirm tomorrow’s lesson','Reply to Sara Whitfield: Thanks for the update');
   return all.filter(text=>{try{return permittedCommand(parseTaskCommand(text),role);}catch{return false;}});
 }
 function localDate(word,now) {
@@ -60,6 +62,8 @@ function localDate(word,now) {
 export function parseTaskCommand(input,now=new Date()) {
   let text=input.trim().replace(/^(?:please\s+)/i,'').replace(/^(?:marking|makring|makr)\b/i,'mark').replace(/^checking\b/i,'check').replace(/^adding\b/i,'add').replace(/^deleting\b/i,'delete').replace(/^creating\b/i,'create');
   if(!text||text.length>1500)throw Error('Enter a task of 1–1500 characters.');
+  const direct=/^(message|reply\\s+to)\\s+(.+?)\\s*:\\s*(.+)$/i.exec(text);
+  if(direct)return {entity:'message',op:/^reply/i.test(direct[1])?'reply':'send',fields:{body:direct[3].trim()},query:direct[2].trim()};
   if(/\b(?:and|then)\s+(?:add|create|delete|remove|send|book|move|invite|assign|mark)\b|[;\n]/i.test(text))throw Error('Please enter one task at a time.');
   const parts=text.split(',').map(s=>s.trim());let head=parts.shift();
   const reportMatch=/^(?:(?:show|check|view|run|generate)\s+)?(?:(attendance|progress|homework|revenue|outstanding|performance)\s+)?reports?(?:\s+(attendance|progress|homework|revenue|outstanding|performance))?(?:\s+for\s+(.+))?$/i.exec(head);
@@ -117,6 +121,7 @@ export function parseTaskCommand(input,now=new Date()) {
 }
 
 export function fieldsFor(plan) {
+  if(plan.entity==='message')return [f('body','Message','textarea',true,{max:4000})];
   if(plan.entity==='report')return [f('from','From date (optional)','date'),f('to','Through date (optional)','date'),f('student_id','Student (optional)','student')].filter(x=>!(plan.report==='outstanding')&&(!['revenue','performance'].includes(plan.report)||x.key!=='student_id'));
   if(plan.op==='list')return [];
   if(plan.op==='linkParent')return [f('parent_id','Parent','parent',true)];
@@ -148,6 +153,17 @@ export async function commandRead(service,entity,context) {
   return (result.data||[]).filter(r=>!r.deleted_at&&(context.role!=='tutor'||!r.tutor_id||r.tutor_id===context.tutorId));
 }
 export async function prepareTask(plan,service,context) {
+  if(plan.entity==='message'){
+    if(!context.userId)throw Error('Sign in again to send a message.');
+    const {supabase}=await import('../supabaseClient.js');const messaging=createMessagingService(supabase);
+    const [c,i]=await Promise.all([messaging.contacts(),messaging.inbox()]);
+    if(c.error||i.error)throw Error('Unable to look up messaging contacts. Open Inbox to retry.');
+    const matches=(c.data||[]).filter(x=>x.full_name.toLowerCase().includes(plan.query.toLowerCase()));
+    if(matches.length!==1)throw Error(matches.length?'More than one user matches. Use their full name.':'No active user matches that name.');
+    const person=matches[0],thread=(i.data||[]).find(x=>x.peer_id===person.id);
+    if(plan.op==='reply'&&!thread)throw Error('No existing conversation with '+person.full_name+'. Start with Message '+person.full_name+': …');
+    return {...plan,target:person,refs:{target:c.data||[]},values:{...plan.fields,recipient_id:person.id}};
+  }
   const draft=context.role==='tutor'&&plan.op==='create'&&['student','parent','tutor','class'].includes(plan.entity);
   if(!permittedCommand(plan,context.role)&&!draft)throw Error('Your role cannot perform this action. Ask an authorized staff member; nothing has been changed.');
   if(context.role==='tutor'&&!context.tutorId)throw Error('Your tutor profile is not linked yet.');
@@ -239,6 +255,11 @@ export function taskPayload(plan) {
 }
 export async function runTask(plan,service,context) {
   validateTask(plan,context);
+  if(plan.entity==='message'){
+    const {supabase}=await import('../supabaseClient.js');const {data,error}=await createMessagingService(supabase).send(context.userId,plan.values.recipient_id,plan.values.body,crypto.randomUUID());
+    if(error)throw Error('Message could not be sent. Open Inbox to check the conversation.');
+    return {record:data};
+  }
   if(plan.entity==='report'){
     const params={...(context.role==='tutor'?{tutorId:context.tutorId}:{}),...(plan.values.student_id?{studentId:plan.values.student_id}:{}),...(plan.values.from?{from:qatarInstant(plan.values.from+'T00:00')}:{}),...(plan.values.to?{to:qatarInstant(plan.values.to+'T23:59')}: {})};
     const r=await service[reports[plan.report]](params);if(r.error)throw Error(r.error.message);
