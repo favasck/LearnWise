@@ -2,6 +2,8 @@ import React,{useRef,useState} from 'react';
 import {Button,Field} from '../ui';
 import * as db from '../services/supabaseData';
 import {commandStaff} from './studentCommands';
+import {createMessagingService} from '../services/messaging';
+import {supabase} from '../supabaseClient';
 import {COMMAND_ENTITIES,commandExamples,commandLabel,parseTaskCommand,prepareTask,selectTaskTarget,changeTaskValue,fieldsFor,rowLabel,filterCommandRows,validateTask,runTask} from './taskCommands';
 
 const routes={student:'students',parent:'parents',tutor:'tutors',class:'classes',homework:'homework',material:'materials',note:'classnotes',calendar:'calendar',exam:'bookings',request:'bookings',availability:'bookings',enquiry:'assessments',report:'reports',assignment:'students'};
@@ -23,7 +25,10 @@ export default function TaskCommandBox({role,tutorId,userId,service=db,onCreated
     event.preventDefault();if(lock.current)return;lock.current=true;setBusy(true);setError('');setMessage('');setPlan(null);setOutput(null);setSelected(null);setReviewing(false);setAttempted(false);setAck(false);setLimit(20);
     try{
       let next=await prepareTask(parseTaskCommand(text),service,context);
-      if(next.op==='list'){
+      if(next.entity==='message'){
+        const c=await createMessagingService(supabase).contacts();if(c.error)throw Error('Unable to load contacts. Open Inbox to retry.');
+        const hits=(c.data||[]).filter(x=>x.id===next.target.id);if(hits.length!==1)throw Error('Account unavailable. Choose an active user in Inbox.');setPlan(next);
+      }else if(next.op==='list'){
         const result=await runTask(next,service,context);setPlan(next);setOutput(result.rows);setMessage(`${result.rows.length} accessible ${next.entity==='report'?'report records':'matching records'}.`);
       }else{
         const matches=filterCommandRows(next,next.refs.target||[]);
@@ -40,6 +45,10 @@ export default function TaskCommandBox({role,tutorId,userId,service=db,onCreated
   async function save(){
     if(lock.current||!reviewing)return;lock.current=true;setBusy(true);setError('');setAttempted(true);
     try{
+      if(plan.entity==='message'){
+        const result=await createMessagingService(supabase).send(userId,plan.target.id,plan.values.body,crypto.randomUUID());if(result.error)throw result.error;
+        setMessage('Message sent to '+plan.target.full_name+'.');setPlan(null);setReviewing(false);setText('');focus();return;
+      }
       const result=await runTask(plan,service,context);
       setSelected({...result.record,__entity:plan.entity});setMessage(plan.op==='delete'?'Record removed with retained history.':plan.entity==='request'?'Booking response saved. Check the request status for the next step.':`${commandLabel(plan)} saved.${['student','parent','tutor'].includes(plan.entity)?' No invitation was sent.':''}`);
       setPlan(null);setReviewing(false);onCreated?.(result.record);focus();
@@ -65,7 +74,7 @@ export default function TaskCommandBox({role,tutorId,userId,service=db,onCreated
       <p id="task-command-help">Type one task. LearnWise fills known details and asks for anything missing. Times are in Qatar. Changes are reviewed before saving.</p>
       <Button type="submit" disabled={busy||!text.trim()}>{busy?'Working…':'Review task'}</Button>
     </form>
-    <details className="task-command-examples"><summary>What can I do here?</summary><p>Add, find, edit or remove records; manage lessons, homework, feedback, materials, exams and calendar entries; review bookings; publish availability; and check reports. Your account permissions apply.</p><div className="task-command-chips">{examples.map(example=><Button variant="ghost" key={example} disabled={busy} onClick={()=>{setText(example);composer.current?.focus();}}>{example}</Button>)}</div><p>Optional details use commas: <strong>Add homework Fractions for Naila, due: tomorrow</strong>. Use explicit times such as 17:00 or 5 PM. For other fields, complete the short task card.</p></details>
+    <details className="task-command-examples"><summary>What can I do here?</summary><p>Message a user or reply to an existing conversation by name. Review before sending.</p><p>Add, find, edit or remove records; manage lessons, homework, feedback, materials, exams and calendar entries; review bookings; publish availability; and check reports. Your account permissions apply.</p><div className="task-command-chips">{examples.map(example=><Button variant="ghost" key={example} disabled={busy} onClick={()=>{setText(example);composer.current?.focus();}}>{example}</Button>)}</div><p>Optional details use commas: <strong>Add homework Fractions for Naila, due: tomorrow</strong>. Use explicit times such as 17:00 or 5 PM. For other fields, complete the short task card.</p></details>
     {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
     <div ref={heading} tabIndex={-1}>
       {plan&&<div className="student-command-preview"><h3>{commandLabel(plan)}</h3>
