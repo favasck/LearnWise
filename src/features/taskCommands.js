@@ -1,7 +1,6 @@
 import {commandStaff} from './studentCommands.js';
 import {qatarInput, qatarInstant} from '../services/booking.js';
 import {createMessagingService} from '../services/messaging.js';
-import {supabase} from '../supabaseClient.js';
 
 const f=(key,label,type='text',required=false,extra={})=>({key,label,type,required,...extra});
 const student=f('student_id','Student','student',true), tutor=f('tutor_id','Tutor','tutor',true);
@@ -63,6 +62,8 @@ function localDate(word,now) {
 export function parseTaskCommand(input,now=new Date()) {
   let text=input.trim().replace(/^(?:please\s+)/i,'').replace(/^(?:marking|makring|makr)\b/i,'mark').replace(/^checking\b/i,'check').replace(/^adding\b/i,'add').replace(/^deleting\b/i,'delete').replace(/^creating\b/i,'create');
   if(!text||text.length>1500)throw Error('Enter a task of 1–1500 characters.');
+  const direct=/^(message|reply\\s+to)\\s+(.+?)\\s*:\\s*(.+)$/i.exec(text);
+  if(direct)return {entity:'message',op:/^reply/i.test(direct[1])?'reply':'send',fields:{body:direct[3].trim()},query:direct[2].trim()};
   if(/\b(?:and|then)\s+(?:add|create|delete|remove|send|book|move|invite|assign|mark)\b|[;\n]/i.test(text))throw Error('Please enter one task at a time.');
   const parts=text.split(',').map(s=>s.trim());let head=parts.shift();
   const reportMatch=/^(?:(?:show|check|view|run|generate)\s+)?(?:(attendance|progress|homework|revenue|outstanding|performance)\s+)?reports?(?:\s+(attendance|progress|homework|revenue|outstanding|performance))?(?:\s+for\s+(.+))?$/i.exec(head);
@@ -154,7 +155,7 @@ export async function commandRead(service,entity,context) {
 export async function prepareTask(plan,service,context) {
   if(plan.entity==='message'){
     if(!context.userId)throw Error('Sign in again to send a message.');
-    const messaging=createMessagingService(supabase);
+    const {supabase}=await import('../supabaseClient.js');const messaging=createMessagingService(supabase);
     const [c,i]=await Promise.all([messaging.contacts(),messaging.inbox()]);
     if(c.error||i.error)throw Error('Unable to look up messaging contacts. Open Inbox to retry.');
     const matches=(c.data||[]).filter(x=>x.full_name.toLowerCase().includes(plan.query.toLowerCase()));
@@ -255,7 +256,7 @@ export function taskPayload(plan) {
 export async function runTask(plan,service,context) {
   validateTask(plan,context);
   if(plan.entity==='message'){
-    const {data,error}=await createMessagingService(supabase).send(context.userId,plan.values.recipient_id,plan.values.body,crypto.randomUUID());
+    const {supabase}=await import('../supabaseClient.js');const {data,error}=await createMessagingService(supabase).send(context.userId,plan.values.recipient_id,plan.values.body,crypto.randomUUID());
     if(error)throw Error('Message could not be sent. Open Inbox to check the conversation.');
     return {record:data};
   }
