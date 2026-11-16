@@ -219,6 +219,7 @@ export const NAV_BY_ROLE = {
 
 // Personal account settings are available to every role, independently of admin settings.
 for (const nav of Object.values(NAV_BY_ROLE)) {
+  nav.push({ key: 'inbox', label: 'Inbox', icon: 'Mail' });
   nav.push({ key: 'calendar', label: 'Master Calendar', icon: 'CalendarDays' });
   nav.push({ key: 'bookings', label: 'Availability & Bookings', icon: 'CalendarDays' });
   nav.push({ key: 'profile', label: 'Profile Settings', icon: 'UserCircle' });

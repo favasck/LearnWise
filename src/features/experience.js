@@ -22,9 +22,9 @@ export function nextLesson(classes = [], now = Date.now()) {
 export function homeworkOrder(items = []) {
   return [...items].filter(item=>!item.deleted_at).sort((a,b)=>(Date.parse(a.due_at)||Infinity)-(Date.parse(b.due_at)||Infinity));
 }
-export const experienceLabels = {dashboard:'Overview',learning:'Learning',myclasses:'Lessons',classes:'Lessons',mystudents:'Students',mychild:'Children',classnotes:'Lesson feedback',materials:'Resources',payments:'Billing',assessments:'Enquiries',profile:'Account settings',calendar:'Calendar'};
+export const experienceLabels = {inbox:'Inbox',dashboard:'Overview',learning:'Learning',myclasses:'Lessons',classes:'Lessons',mystudents:'Students',mychild:'Children',classnotes:'Lesson feedback',materials:'Resources',payments:'Billing',assessments:'Enquiries',profile:'Account settings',calendar:'Calendar'};
 export function navigationGroup(key) {
-  if (['dashboard','calendar','bookings'].includes(key)) return 'Start here';
+  if (['dashboard','calendar','bookings','inbox'].includes(key)) return 'Start here';
   if (['payments','reports'].includes(key)) return 'Finance & reports';
   if (['users','auditlogs','settings','qatest','profile'].includes(key)) return 'Administration & account';
   return 'Learning';
